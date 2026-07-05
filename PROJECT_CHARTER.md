@@ -37,6 +37,9 @@ The boilerplate is a reusable starter, not a finished SaaS product. It should pr
 - Support SQLite or PGlite only as optional development/test paths.
 - Use Better Auth as the planned self-hosted auth foundation, with provider adapters behind module boundaries.
 - Use provider abstractions for billing, storage, email, AI, tax, and currency.
+- Billing starts with a local/mock adapter for tests and examples, plus a Stripe adapter as the first external payment provider once the billing phase begins.
+- Tax starts with manual rules and provider abstraction; do not claim tax compliance without a production tax provider integration.
+- Email starts with React Email templates, local preview, and an SMTP adapter; Resend/Postmark/Mailgun-style adapters are optional provider implementations.
 - Use Docker Compose for local and single-VPS operations.
 - Use Caddy for reverse proxy and automatic HTTPS in the first infrastructure guide.
 - Enable Docker image dependency updates when Docker manifests are introduced; do not run Docker Dependabot jobs before Dockerfiles exist.
