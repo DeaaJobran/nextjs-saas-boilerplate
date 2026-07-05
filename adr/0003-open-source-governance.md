@@ -18,6 +18,7 @@ Use the following governance baseline:
 - Security policy and responsible disclosure instructions.
 - Contributor guide, code of conduct, support policy, issue templates, PR template, and CODEOWNERS.
 - Secret scanning, push protection, Dependabot alerts, and Dependabot update configuration.
+- Dependabot tracks npm and GitHub Actions immediately; Docker updates are added when Docker manifests exist.
 - Protected `main` branch requiring pull requests, at least one approval, resolved conversations, linear history, and a required CI check.
 
 ## Consequences
@@ -25,4 +26,3 @@ Use the following governance baseline:
 - Contributors get clear entry points.
 - `main` is protected before real feature work begins.
 - Repository secrets are intentionally deferred until deployment automation is designed.
-

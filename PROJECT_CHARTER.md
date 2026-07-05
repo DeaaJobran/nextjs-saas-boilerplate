@@ -39,6 +39,7 @@ The boilerplate is a reusable starter, not a finished SaaS product. It should pr
 - Use provider abstractions for billing, storage, email, AI, tax, and currency.
 - Use Docker Compose for local and single-VPS operations.
 - Use Caddy for reverse proxy and automatic HTTPS in the first infrastructure guide.
+- Enable Docker image dependency updates when Docker manifests are introduced; do not run Docker Dependabot jobs before Dockerfiles exist.
 
 ## Module Policy
 
@@ -130,4 +131,3 @@ The first demo should include:
 - Localized English and Arabic routes.
 - Seeded demo tenant and users.
 - Public docs explaining setup and extension points.
-
