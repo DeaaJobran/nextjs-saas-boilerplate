@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a reusable boilerplate feature.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What developer or product problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the feature, API, or workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Boilerplate Fit
+      description: Why does this belong in the reusable starter instead of only in a downstream product?
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Tradeoffs
+      description: Security, maintenance, performance, or dependency concerns.
+    validations:
+      required: true
+

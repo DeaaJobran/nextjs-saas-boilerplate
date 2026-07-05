@@ -1,0 +1,29 @@
+name: Security hardening
+description: Track non-sensitive security improvements. Do not report vulnerabilities here.
+title: "security: "
+labels:
+  - security
+body:
+  - type: markdown
+    attributes:
+      value: "Do not use this template for private vulnerability reports. Follow SECURITY.md instead."
+  - type: textarea
+    id: area
+    attributes:
+      label: Area
+      description: Auth, tenancy, billing, API, storage, infrastructure, headers, secrets, or another area.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk Or Improvement
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+    validations:
+      required: true
+

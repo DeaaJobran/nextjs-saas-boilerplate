@@ -1,0 +1,33 @@
+name: Infrastructure task
+description: Track deployment, VPS, CI/CD, DNS, reverse proxy, backup, or restore work.
+title: "infra: "
+labels:
+  - infrastructure
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Target Environment
+      description: Local, CI, VPS, staging, production, or docs/demo.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks
+      description: Security, reliability, data loss, rollback, or downtime concerns.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+    validations:
+      required: true
+

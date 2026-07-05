@@ -1,0 +1,26 @@
+name: Documentation task
+description: Improve public project documentation.
+title: "docs: "
+labels:
+  - documentation
+body:
+  - type: textarea
+    id: gap
+    attributes:
+      label: Documentation Gap
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Audience
+      description: Who needs this documentation?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+    validations:
+      required: true
+
