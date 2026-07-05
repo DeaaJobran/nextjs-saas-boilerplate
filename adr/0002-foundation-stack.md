@@ -20,6 +20,8 @@ Use the following baseline:
 - Drizzle ORM with PostgreSQL as the primary database.
 - Better Auth as the planned self-hosted authentication foundation.
 - next-intl for localization and RTL/LTR support.
+- React Email, local preview, and SMTP as the first email implementation path.
+- A billing provider abstraction with local/mock and Stripe adapters as the first implementation target.
 - Docker Compose for local and single-VPS infrastructure.
 - Caddy for reverse proxy and automatic HTTPS in the initial infrastructure guide.
 
@@ -34,4 +36,3 @@ Use the following baseline:
 - Better Auth Next.js example documents email/password, social sign-in, passkeys, email verification, password reset, two-factor authentication, profile update, sessions, organizations, members, and roles.
 - Drizzle ORM documents native PostgreSQL support.
 - next-intl provides i18n support for Next.js, including message formatting, dates, times, and numbers.
-
