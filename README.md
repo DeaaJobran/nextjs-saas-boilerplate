@@ -48,10 +48,26 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Quality Checks
 
 ```bash
+pnpm format:check
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
-pnpm ci
+pnpm validate
+```
+
+Playwright-powered E2E and accessibility checks need Chromium installed:
+
+```bash
+pnpm exec playwright install chromium
+pnpm test:e2e
+pnpm test:a11y
+```
+
+React-specific diagnostics:
+
+```bash
+pnpm doctor:react
 ```
 
 ## Project Documents
@@ -59,6 +75,7 @@ pnpm ci
 - [Project charter](PROJECT_CHARTER.md)
 - [Feature priorities](FEATURES.md)
 - [Architecture decisions](adr/)
+- [Quality gates](docs-quality.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 

@@ -32,4 +32,3 @@ body:
       description: Security, maintenance, performance, or dependency concerns.
     validations:
       required: true
-

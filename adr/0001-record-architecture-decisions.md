@@ -16,4 +16,3 @@ Architecture decisions will be recorded as ADRs under `adr/`. Each ADR should in
 - Major stack and architecture changes require a tracked decision.
 - The project can evolve without relying on private planning notes.
 - Superseded decisions should be replaced by new ADRs instead of edited silently.
-

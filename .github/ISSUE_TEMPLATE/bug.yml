@@ -37,4 +37,3 @@ body:
       description: OS, Node.js, pnpm, browser, database, and relevant package versions.
     validations:
       required: true
-
