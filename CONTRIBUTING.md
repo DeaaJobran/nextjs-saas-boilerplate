@@ -8,7 +8,7 @@ Thanks for helping improve the Next.js SaaS Boilerplate. This project is early-s
 - Check existing issues and discussions.
 - Open an issue before large changes, new modules, stack changes, or security-sensitive work.
 - Do not add proprietary hosted-service lock-in for core runtime features.
-- Do not commit files under `/docs`; that directory is ignored for local planning notes.
+- Do not commit files under `/docs`; that directory is ignored for local implementation notes.
 
 ## Development
 

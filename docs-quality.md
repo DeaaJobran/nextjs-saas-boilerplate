@@ -57,7 +57,7 @@ The GitHub workflow uses the official `millionco/react-doctor@v2` action. It sca
 
 ## Deferred Conditional Checks
 
-Some Phase 2 checks are intentionally represented as placeholder policy until the underlying artifacts exist:
+Some quality checks are intentionally represented as placeholder policy until the underlying artifacts exist:
 
 - Translation validation starts when localization files are introduced.
 - Database migration validation starts when Drizzle migrations are introduced.
