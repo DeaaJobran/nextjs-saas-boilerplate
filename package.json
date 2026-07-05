@@ -11,23 +11,64 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "ci": "pnpm lint && pnpm typecheck && pnpm build"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "playwright:install": "playwright install chromium",
+    "test:e2e": "playwright test --config=playwright.config.ts",
+    "test:a11y": "playwright test --config=playwright.a11y.config.ts",
+    "doctor:react": "react-doctor",
+    "validate": "git diff --check && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm playwright:install && pnpm test:e2e && pnpm test:a11y",
+    "ci:checks": "pnpm validate",
+    "commit": "cz",
+    "prepare": "husky"
   },
   "dependencies": {
     "next": "16.2.10",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@commitlint/cli": "^21.2.0",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.9",
+    "commitizen": "^4.3.2",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "eslint-plugin-simple-import-sort": "^13.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.9.4",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "react-doctor": "^0.7.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,mdx,yml,yaml,css}": [
+      "prettier --write"
+    ]
   }
 }

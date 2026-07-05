@@ -33,4 +33,3 @@ Security-sensitive changes require explicit review notes in the pull request:
 ## Disclosure Policy
 
 Maintainers will acknowledge valid reports, investigate privately, prepare a fix, and publish a security advisory when appropriate. Public disclosure should wait until a fix or mitigation is available.
-

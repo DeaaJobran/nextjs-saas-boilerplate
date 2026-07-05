@@ -60,4 +60,3 @@ Add or update an ADR under `adr/` when a change affects:
 - Database, auth, tenancy, billing, localization, infrastructure, or deployment strategy.
 - Public module boundaries.
 - Security model or contributor workflow.
-

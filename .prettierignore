@@ -1,0 +1,9 @@
+.next
+coverage
+docs
+node_modules
+out
+playwright-report
+pnpm-lock.yaml
+test-results
+tsconfig.tsbuildinfo

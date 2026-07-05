@@ -32,11 +32,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Build
-        run: pnpm build
+      - name: Validate
+        run: pnpm validate

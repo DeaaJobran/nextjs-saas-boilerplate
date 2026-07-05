@@ -27,4 +27,3 @@ Maintainers may remove comments, close issues, restrict participation, or ban co
 ## Reporting
 
 For conduct issues, open a private maintainer communication channel where available or contact the maintainers through GitHub. For security vulnerabilities, follow `SECURITY.md` instead of opening a public issue.
-

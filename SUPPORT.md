@@ -26,4 +26,3 @@ For feature requests:
 ## Scope
 
 Maintainers prioritize issues that improve the reusable boilerplate foundation. Product-specific customizations may be redirected to discussions or closed if they do not fit the project scope.
-
