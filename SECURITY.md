@@ -2,7 +2,13 @@
 
 ## Supported Versions
 
-The project is in foundation stage. Security fixes target the `main` branch until the first public release is tagged.
+The project is in foundation stage. Security fixes target `main` and the latest tagged release line. Older foundation tags may receive fixes only when maintainers decide a backport is necessary.
+
+| Version  | Supported   |
+| -------- | ----------- |
+| `v0.3.x` | Yes         |
+| `v0.2.x` | Best effort |
+| `v0.1.x` | Best effort |
 
 ## Reporting A Vulnerability
 
@@ -29,6 +35,7 @@ Security-sensitive changes require explicit review notes in the pull request:
 - Environment variables and secrets.
 - CORS, CSRF, rate limiting, and secure headers.
 - Data deletion and privacy workflows.
+- Release, migration, and upgrade behavior when security-sensitive data changes.
 
 ## Disclosure Policy
 

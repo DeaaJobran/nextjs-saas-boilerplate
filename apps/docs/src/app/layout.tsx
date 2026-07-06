@@ -16,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: `${appConfig.name} Docs`,
-  description: "Public documentation shell for the SaaS boilerplate.",
+  description:
+    "Public setup guides, module references, and upgrade notes for the SaaS boilerplate.",
 };
 
 export default function RootLayout({

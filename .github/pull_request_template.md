@@ -14,11 +14,15 @@
 
 ## Checks
 
+- [ ] I ran `pnpm format:check`
 - [ ] I ran `pnpm lint`
 - [ ] I ran `pnpm typecheck`
+- [ ] I ran `pnpm test`
 - [ ] I ran `pnpm build`
+- [ ] I ran `pnpm doctor:react`
 - [ ] I added or updated tests where risk justifies it
 - [ ] I updated documentation for new behavior or extension points
+- [ ] I documented release, migration, or upgrade notes where relevant
 
 ## UI
 
@@ -27,6 +31,7 @@
 - [ ] Responsive behavior was checked
 - [ ] Dark and light modes were checked
 - [ ] RTL/LTR behavior was checked where relevant
+- [ ] User-facing copy comes from managed content, localization, or configuration where appropriate
 
 ## Data And Migrations
 
