@@ -49,8 +49,11 @@ export async function MarketingShell({
   return (
     <div className="bg-background min-h-dvh">
       <header className="bg-background/90 sticky top-0 z-40 border-b backdrop-blur">
-        <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <Link className="font-semibold" href={appRoutes.marketing}>
+        <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:px-6 lg:px-8">
+          <Link
+            className="max-w-24 min-w-0 truncate font-semibold sm:max-w-none"
+            href={appRoutes.marketing}
+          >
             {appConfig.shortName}
           </Link>
           <nav
@@ -67,10 +70,10 @@ export async function MarketingShell({
               <Link href={appRoutes.contact}>{t("contact")}</Link>
             </Button>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeToggle />
             <LocaleSwitcher availableLocales={availableLocales} />
-            <Button asChild>
+            <Button asChild size="sm">
               <Link href={appRoutes.signIn}>{t("signIn")}</Link>
             </Button>
           </div>
