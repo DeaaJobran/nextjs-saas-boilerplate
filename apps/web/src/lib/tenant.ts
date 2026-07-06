@@ -47,6 +47,12 @@ export async function clearImpersonationCookie() {
   cookieStore.delete(impersonationCookieName);
 }
 
+export async function hasImpersonationSessionCookie() {
+  const cookieStore = await cookies();
+
+  return Boolean(cookieStore.get(impersonationCookieName)?.value);
+}
+
 async function readActiveImpersonation(
   actorId: string,
   sessionId: string,

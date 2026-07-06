@@ -13,6 +13,10 @@ import { getTranslations } from "next-intl/server";
 
 import { requireAdminSession } from "../../../../../lib/admin-auth";
 import { assertLocale } from "../../../../../lib/locale";
+import {
+  formatLocaleDateTime,
+  formatLocaleNumber,
+} from "../../../../../lib/locale-formatters";
 import { getTenantService } from "../../../../../lib/tenant";
 import { startImpersonationAction } from "../../tenant-actions";
 
@@ -61,11 +65,6 @@ export default async function SuperAdminPage({
     actorId: session.user.id,
   });
   const message = statusMessage(query.status, t);
-  const numberFormatter = new Intl.NumberFormat(resolvedLocale);
-  const dateTimeFormatter = new Intl.DateTimeFormat(resolvedLocale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
 
   return (
     <div className="grid gap-6">
@@ -91,7 +90,7 @@ export default async function SuperAdminPage({
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-semibold">
-                {numberFormatter.format(Number(value))}
+                {formatLocaleNumber(resolvedLocale, Number(value))}
               </p>
             </CardContent>
           </Card>
@@ -262,7 +261,7 @@ export default async function SuperAdminPage({
                 },
                 {
                   cell: (event) =>
-                    dateTimeFormatter.format(new Date(event.createdAt)),
+                    formatLocaleDateTime(resolvedLocale, event.createdAt),
                   header: t("audit.created"),
                   key: "created",
                 },

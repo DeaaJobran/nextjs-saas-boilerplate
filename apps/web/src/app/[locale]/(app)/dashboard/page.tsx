@@ -10,6 +10,11 @@ import { getTranslations } from "next-intl/server";
 
 import { assertLocale } from "../../../../lib/locale";
 import {
+  formatLocaleDateTime,
+  formatLocaleGigabytes,
+  formatLocaleNumber,
+} from "../../../../lib/locale-formatters";
+import {
   getActiveTenantContext,
   getTenantService,
 } from "../../../../lib/tenant";
@@ -29,19 +34,10 @@ export default async function DashboardPage({
     organizationId: context.organization.id,
     userId: context.effectiveUser.id,
   });
-  const numberFormatter = new Intl.NumberFormat(resolvedLocale);
-  const byteFormatter = new Intl.NumberFormat(resolvedLocale, {
-    maximumFractionDigits: 1,
-    style: "unit",
-    unit: "gigabyte",
-  });
-  const dateTimeFormatter = new Intl.DateTimeFormat(resolvedLocale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  const formatNumber = (value: number) => numberFormatter.format(value);
+  const formatNumber = (value: number) =>
+    formatLocaleNumber(resolvedLocale, value);
   const formatBytes = (value: number) =>
-    byteFormatter.format(value / 1024 / 1024 / 1024);
+    formatLocaleGigabytes(resolvedLocale, value);
 
   return (
     <div className="grid gap-6">
@@ -132,7 +128,7 @@ export default async function DashboardPage({
                 },
                 {
                   cell: (event) =>
-                    dateTimeFormatter.format(new Date(event.createdAt)),
+                    formatLocaleDateTime(resolvedLocale, event.createdAt),
                   header: t("audit.created"),
                   key: "created",
                 },
