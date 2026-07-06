@@ -43,6 +43,11 @@ export function DataDisplay() {
         description="Accessible chart wrapper example."
         title="Activity"
       />
+      <MetricLineChart
+        data={[]}
+        description="Charts render a stable empty state when no series exists."
+        title="Empty activity"
+      />
     </div>
   );
 }

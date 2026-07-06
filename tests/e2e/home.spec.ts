@@ -48,6 +48,26 @@ test("renders dashboard, settings, and admin shells", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("renders mobile application navigation", async ({ page }) => {
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.goto("/en/dashboard");
+
+  const mobileNav = page.getByRole("navigation", {
+    name: "Mobile application navigation",
+  });
+
+  await expect(
+    mobileNav.getByRole("link", { name: "Dashboard" }),
+  ).toBeVisible();
+  await expect(mobileNav.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(mobileNav.getByRole("link", { name: "Admin" })).toBeVisible();
+
+  await mobileNav.getByRole("link", { name: "Settings" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Settings" }),
+  ).toBeVisible();
+});
+
 test("supports Arabic RTL routes", async ({ page }) => {
   await page.goto("/ar");
 

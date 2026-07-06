@@ -38,7 +38,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {children}
         {messages.map((message) => (
           <ToastPrimitive.Root
-            className="bg-popover text-popover-foreground grid w-full gap-1 rounded-lg border p-4 shadow-lg"
+            className="bg-popover text-popover-foreground relative grid w-full gap-1 rounded-lg border p-4 pe-10 shadow-lg"
+            duration={4000}
             key={message.id}
             onOpenChange={(open) => {
               if (!open) {
@@ -64,7 +65,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         ))}
         <ToastPrimitive.Viewport
           className={cn(
-            "fixed end-0 bottom-0 z-50 flex max-h-screen w-full flex-col gap-2 p-4 sm:max-w-sm",
+            "fixed end-0 bottom-0 z-50 flex max-h-screen w-full flex-col gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-sm",
           )}
         />
       </ToastPrimitive.Provider>
