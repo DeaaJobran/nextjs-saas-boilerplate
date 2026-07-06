@@ -21,6 +21,9 @@ node_modules/
 /docs/
 .local/
 
+# Drizzle local draft migrations
+packages/db/migrations/generated/
+
 # next.js
 /.next/
 /apps/*/.next/

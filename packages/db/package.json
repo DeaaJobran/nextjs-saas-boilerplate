@@ -5,14 +5,19 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./conventions": "./src/conventions.ts",
     "./content": "./src/content-repository.ts",
-    "./schema": "./src/schema.ts"
+    "./query": "./src/query-helpers.ts",
+    "./reset": "./src/reset.ts",
+    "./schema": "./src/schema.ts",
+    "./transactions": "./src/transactions.ts"
   },
   "scripts": {
+    "generate": "drizzle-kit generate --config drizzle.config.ts",
     "migrate": "tsx src/scripts/migrate.ts",
     "reset": "tsx src/scripts/reset.ts",
     "seed": "tsx src/scripts/seed.ts",
-    "test": "vitest run --root ../.. packages/db/src/migrations.test.ts",
+    "test": "vitest run --root ../.. packages/db/src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -23,6 +28,7 @@
     "postgres": "^3.4.7"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.9"

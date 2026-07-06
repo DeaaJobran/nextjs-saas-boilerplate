@@ -14,6 +14,7 @@ import {
 } from "./content-repository";
 import { migrationManifest } from "./migration-manifest";
 import { listMigrationFiles, runMigrations } from "./migrations";
+import { resetDatabaseData } from "./reset";
 
 let dataDir: string;
 let databaseRuntimeOpened = false;
@@ -47,10 +48,11 @@ afterEach(async () => {
 
 describe("database migrations", () => {
   it("keeps the runtime manifest aligned with SQL migration files", async () => {
-    const [migration] = migrationManifest;
-    const sql = await readFile(getMigrationFilePath(migration.id), "utf8");
+    for (const migration of migrationManifest) {
+      const sql = await readFile(getMigrationFilePath(migration.id), "utf8");
 
-    expect(migration.sql.trim()).toBe(sql.trim());
+      expect(migration.sql.trim()).toBe(sql.trim());
+    }
   });
 
   it("applies migrations idempotently", async () => {
@@ -61,6 +63,40 @@ describe("database migrations", () => {
 
     await expect(runMigrations(runtime)).resolves.toEqual(migrations);
     await expect(runMigrations(runtime)).resolves.toEqual([]);
+  }, 15_000);
+
+  it("creates service foundation tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'event_log',
+          'outbox_events',
+          'idempotency_keys',
+          'api_keys',
+          'rate_limit_buckets',
+          'background_jobs',
+          'cron_schedules'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "api_keys",
+      "background_jobs",
+      "cron_schedules",
+      "event_log",
+      "idempotency_keys",
+      "outbox_events",
+      "rate_limit_buckets",
+    ]);
   }, 15_000);
 
   it("seeds content and records versions and audit events for admin changes", async () => {
@@ -98,4 +134,54 @@ describe("database migrations", () => {
     expect(Number(versionRows[0]?.count)).toBeGreaterThan(0);
     expect(Number(auditRows[0]?.count)).toBeGreaterThan(0);
   }, 15_000);
+
+  it("resets service data and restores seed content", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+    await runtime.execute(
+      `
+        INSERT INTO background_jobs (
+          id,
+          queue,
+          type,
+          payload,
+          status,
+          priority,
+          attempts,
+          max_attempts,
+          available_at,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          'job_reset_test',
+          'default',
+          'test.job',
+          '{}'::jsonb,
+          'queued',
+          0,
+          0,
+          3,
+          now(),
+          now(),
+          now()
+        )
+      `,
+    );
+
+    await resetDatabaseData();
+
+    const jobRows = await runtime.execute<{ count: string }>(
+      "SELECT count(*)::text AS count FROM background_jobs",
+    );
+    const contentSnapshot = await readContentSnapshot();
+
+    expect(Number(jobRows[0]?.count)).toBe(0);
+    expect(contentSnapshot.pages.some((page) => page.id === "landing-en")).toBe(
+      true,
+    );
+  }, 20_000);
 });
