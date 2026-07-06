@@ -60,13 +60,15 @@ export default async function SettingsPage({
             ? t("status.profileUpdated")
             : params.status === "email-change-sent"
               ? t("status.emailChangeSent")
-              : params.status === "password-reset-sent"
-                ? t("status.passwordResetSent")
-                : params.status === "mfa-enabled"
-                  ? t("status.mfaEnabled")
-                  : params.status === "session-revoked"
-                    ? t("status.sessionRevoked")
-                    : t("status.generic")}
+              : params.status === "email-change-verified"
+                ? t("status.emailChangeVerified")
+                : params.status === "password-reset-sent"
+                  ? t("status.passwordResetSent")
+                  : params.status === "mfa-enabled"
+                    ? t("status.mfaEnabled")
+                    : params.status === "session-revoked"
+                      ? t("status.sessionRevoked")
+                      : t("status.generic")}
         </p>
       ) : null}
       <Card>
@@ -239,7 +241,7 @@ export default async function SettingsPage({
                 key: "device",
               },
               {
-                cell: (item) => new Date(item.lastSeenAt).toLocaleString(),
+                cell: (item) => new Date(item.lastSeenAt).toUTCString(),
                 header: t("table.lastSeen"),
                 key: "lastSeen",
               },
@@ -282,11 +284,13 @@ export default async function SettingsPage({
         <CardContent>
           <form action={deleteAccountAction} className="grid gap-4 md:max-w-md">
             <input name="locale" type="hidden" value={locale} />
-            <Field label={t("confirmPassword")} required>
+            <Field
+              description={t("confirmPasswordDescription")}
+              label={t("confirmPassword")}
+            >
               <TextInput
                 autoComplete="current-password"
                 name="password"
-                required
                 type="password"
               />
             </Field>

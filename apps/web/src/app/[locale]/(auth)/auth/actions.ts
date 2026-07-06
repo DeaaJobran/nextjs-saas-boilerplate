@@ -30,7 +30,11 @@ function authContext() {
 }
 
 function redirectWithStatus(path: string, key: string, value: string) {
-  redirect(`${path}?${key}=${encodeURIComponent(value)}`);
+  const [pathname, queryString = ""] = path.split("?");
+  const params = new URLSearchParams(queryString);
+
+  params.set(key, value);
+  redirect(`${pathname}?${params.toString()}`);
 }
 
 function localizedPath(formData: FormData, path: string) {
@@ -146,6 +150,39 @@ export async function resetPasswordAction(formData: FormData) {
   );
 }
 
+export async function acceptInvitationAction(formData: FormData) {
+  const auth = getAuthService();
+  const password = formValue(formData, "password");
+  const token = formValue(formData, "token");
+
+  try {
+    const user = await auth.acceptInvitation({
+      displayName: formValue(formData, "displayName"),
+      password,
+      token,
+    });
+    const result = await auth.signInWithPassword({
+      context: await authContext(),
+      email: user.email,
+      password,
+    });
+
+    if (result.status === "signed_in") {
+      await setAuthCookies(result.session);
+    }
+  } catch (error) {
+    redirectWithStatus(
+      `${localizedPath(formData, appRoutes.acceptInvitation)}?token=${encodeURIComponent(token)}`,
+      "error",
+      errorCode(error),
+    );
+  }
+
+  redirect(
+    `${localizedPath(formData, appRoutes.dashboard)}?notice=invitation-accepted`,
+  );
+}
+
 export async function requestMagicLinkAction(formData: FormData) {
   const auth = getAuthService();
 
@@ -195,6 +232,26 @@ export async function verifyEmailAction(formData: FormData) {
     localizedPath(formData, appRoutes.settings),
     "status",
     "email-verified",
+  );
+}
+
+export async function verifyEmailChangeAction(formData: FormData) {
+  const auth = getAuthService();
+
+  try {
+    await auth.verifyEmailChange(formValue(formData, "token"));
+  } catch (error) {
+    redirectWithStatus(
+      localizedPath(formData, appRoutes.settings),
+      "error",
+      errorCode(error),
+    );
+  }
+
+  redirectWithStatus(
+    localizedPath(formData, appRoutes.settings),
+    "status",
+    "email-change-verified",
   );
 }
 

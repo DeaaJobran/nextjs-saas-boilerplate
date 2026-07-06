@@ -241,6 +241,7 @@
     "active": "active",
     "avatarUrl": "Avatar URL",
     "confirmPassword": "Confirm password",
+    "confirmPasswordDescription": "Required for password accounts; passkey, magic-link, and social-only accounts can leave it blank.",
     "deleteAccount": "Delete account",
     "deleteDescription": "Deletion revokes active sessions and marks the identity as deleted.",
     "deleteTitle": "Account deletion",
@@ -275,6 +276,7 @@
     "sessionsTitle": "Device sessions",
     "startMfaSetup": "Start MFA setup",
     "status": {
+      "emailChangeVerified": "Email address updated.",
       "emailChangeSent": "Email change verification has been issued.",
       "generic": "Settings updated.",
       "mfaEnabled": "Multi-factor authentication enabled.",
@@ -362,6 +364,19 @@
     "submit": "Update password",
     "title": "Choose a new password"
   },
+  "AcceptInvitationPage": {
+    "description": "Create your identity from the invitation token.",
+    "displayName": "Display name",
+    "errors": {
+      "emailTaken": "An account with this email already exists.",
+      "generic": "The invitation is invalid or expired.",
+      "weakPassword": "Use a stronger password that satisfies the password policy."
+    },
+    "password": "Password",
+    "passwordDescription": "Use at least 12 characters with uppercase, lowercase, and a number.",
+    "submit": "Accept invitation",
+    "title": "Accept invitation"
+  },
   "MagicLinkPage": {
     "description": "Confirm this browser should create a session from the magic link token.",
     "submit": "Continue with magic link",
@@ -371,6 +386,11 @@
     "description": "Confirm this email verification token and update the account status.",
     "submit": "Verify email",
     "title": "Verify email"
+  },
+  "VerifyEmailChangePage": {
+    "description": "Confirm this token to update the account email address.",
+    "submit": "Verify email change",
+    "title": "Verify email change"
   },
   "Theme": {
     "dark": "dark",

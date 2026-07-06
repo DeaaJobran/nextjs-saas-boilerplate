@@ -53,6 +53,26 @@ async function createService() {
   });
 }
 
+async function listAuthNotifications() {
+  const runtime = await getDatabaseRuntime();
+  const rows = await runtime.execute<{
+    payload: Record<string, unknown> | string;
+  }>(
+    `
+      SELECT payload
+      FROM outbox_events
+      WHERE event_type = 'auth.notification'
+      ORDER BY created_at ASC
+    `,
+  );
+
+  return rows.map((row) =>
+    typeof row.payload === "string"
+      ? (JSON.parse(row.payload) as Record<string, unknown>)
+      : row.payload,
+  );
+}
+
 describe("auth identity service", () => {
   it("enforces the password policy", async () => {
     await expect(validatePasswordPolicy("weak")).resolves.toEqual({
@@ -105,13 +125,16 @@ describe("auth identity service", () => {
     });
 
     expect(rotated.sessionToken).not.toBe(result.session.sessionToken);
+    await expect(
+      auth.rotateRefreshToken(result.session.refreshToken),
+    ).rejects.toMatchObject({ code: "invalid_refresh_token" });
 
     await auth.revokeSession({ sessionId: rotated.session.id });
 
     await expect(
       auth.getSession(rotated.sessionToken),
     ).resolves.toBeUndefined();
-  }, 30_000);
+  }, 45_000);
 
   it("handles email verification, password reset, and magic-link sign-in", async () => {
     const auth = await createService();
@@ -134,6 +157,12 @@ describe("auth identity service", () => {
       email: "grace@example.test",
     });
 
+    await expect(
+      auth.resetPassword({
+        password: "weak",
+        token: reset!.token,
+      }),
+    ).rejects.toMatchObject({ code: "weak_password" });
     await auth.resetPassword({
       password: "NewStrongPass123",
       token: reset!.token,
@@ -151,6 +180,26 @@ describe("auth identity service", () => {
     });
 
     expect(magicResult.user.id).toBe(user.id);
+    await expect(
+      auth.signInWithMagicLink({ token: magicLink!.token }),
+    ).rejects.toMatchObject({ code: "invalid_token" });
+
+    const emailChange = await auth.requestEmailChange({
+      email: "grace.next@example.test",
+      userId: user.id,
+    });
+    const notifications = await listAuthNotifications();
+
+    expect(
+      notifications.some(
+        (notification) =>
+          notification.kind === "email_change" &&
+          String(notification.link).includes("/auth/verify-email-change"),
+      ),
+    ).toBe(true);
+    await expect(auth.verifyEmailChange(emailChange.token)).resolves.toEqual(
+      expect.objectContaining({ email: "grace.next@example.test" }),
+    );
   }, 45_000);
 
   it("locks repeated failed password attempts", async () => {
@@ -227,6 +276,15 @@ describe("auth identity service", () => {
       email: "member@example.test",
       role: "member",
     });
+
+    await expect(
+      auth.acceptInvitation({
+        displayName: "Member User",
+        password: "weak",
+        token: invitation.token,
+      }),
+    ).rejects.toMatchObject({ code: "weak_password" });
+
     const member = await auth.acceptInvitation({
       displayName: "Member User",
       password: "MemberPass123",
@@ -235,7 +293,38 @@ describe("auth identity service", () => {
 
     expect(member.role).toBe("member");
     expect(member.email).toBe("member@example.test");
-  }, 30_000);
+
+    const adminCreated = await auth.createUserByAdmin({
+      actorId: admin.id,
+      displayName: "Admin Created",
+      email: "created@example.test",
+      role: "member",
+    });
+    const notifications = await listAuthNotifications();
+
+    expect(
+      notifications.some(
+        (notification) =>
+          notification.kind === "invitation" &&
+          String(notification.link).includes("/auth/invitations/accept"),
+      ),
+    ).toBe(true);
+    expect(
+      notifications.some(
+        (notification) =>
+          notification.kind === "password_reset" &&
+          String(notification.link).includes("/auth/reset-password"),
+      ),
+    ).toBe(true);
+
+    await auth.deleteAccount({
+      password: "",
+      userId: adminCreated.user.id,
+    });
+    await expect(auth.listUsers()).resolves.not.toContainEqual(
+      expect.objectContaining({ id: adminCreated.user.id }),
+    );
+  }, 45_000);
 
   it("creates passkey registration and authentication challenges", async () => {
     const auth = await createService();
@@ -255,7 +344,7 @@ describe("auth identity service", () => {
     expect(registrationOptions.challenge).toBeTruthy();
     expect(registrationOptions.rp.id).toBe("app.example.test");
     expect(authenticationOptions.challenge).toBeTruthy();
-  }, 30_000);
+  }, 45_000);
 
   it("supports OAuth provider adapter state and callback handling", async () => {
     const auth = await createService();
@@ -278,6 +367,26 @@ describe("auth identity service", () => {
             email: "oauth@example.test",
             id: "provider-user-1",
             name: "OAuth User",
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "second-provider-access-token",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            avatar_url: "https://example.test/conflict.png",
+            email: "conflict@example.test",
+            id: "provider-user-1",
+            name: "Conflicting User",
           }),
           { status: 200 },
         ),
@@ -319,7 +428,27 @@ describe("auth identity service", () => {
     ).toBeTruthy();
     expect(callback.user.email).toBe("oauth@example.test");
     expect(callback.session.sessionToken).toMatch(/^nss_/);
-  }, 30_000);
+
+    await auth.createUserWithPassword({
+      displayName: "Conflicting User",
+      email: "conflict@example.test",
+      password: "StrongPass123",
+    });
+
+    const conflictingAuthorization = await auth.createOAuthAuthorizationUrl({
+      adapter,
+      redirectUri: "https://app.example.test/auth/social/example/callback",
+    });
+
+    await expect(
+      auth.completeOAuthCallback({
+        adapter,
+        code: "authorization-code",
+        redirectUri: "https://app.example.test/auth/social/example/callback",
+        state: conflictingAuthorization.state,
+      }),
+    ).rejects.toMatchObject({ code: "account_already_linked" });
+  }, 45_000);
 
   it("exposes page and API authorization helpers", () => {
     expect(canAccessPage({ user: { role: "admin" } }, ["admin"])).toBe(true);

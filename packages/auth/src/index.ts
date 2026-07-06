@@ -383,6 +383,26 @@ function createPkceChallenge(verifier: string) {
   return sha256Base64Url(verifier);
 }
 
+function extractClientDataChallenge(
+  response: AuthenticationResponseJSON | RegistrationResponseJSON,
+) {
+  try {
+    const clientData = JSON.parse(
+      Buffer.from(response.response.clientDataJSON, "base64url").toString(
+        "utf8",
+      ),
+    ) as { challenge?: unknown };
+
+    if (typeof clientData.challenge === "string" && clientData.challenge) {
+      return clientData.challenge;
+    }
+  } catch {
+    throw new AuthError("Invalid client data.", "invalid_client_data");
+  }
+
+  throw new AuthError("Invalid client data.", "invalid_client_data");
+}
+
 async function enqueueAuthNotification(
   client: Queryable,
   input: {
@@ -568,17 +588,18 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     kind: TokenKind,
     token: string,
   ) {
+    const timestamp = now().toISOString();
     const rows = await client.execute<AuthTokenRow>(
       `
-        SELECT *
-        FROM auth_tokens
-        WHERE kind = $1
-          AND token_hash = $2
+        UPDATE auth_tokens
+        SET consumed_at = $1
+        WHERE kind = $2
+          AND token_hash = $3
           AND consumed_at IS NULL
-          AND expires_at > $3
-        LIMIT 1
+          AND expires_at > $4
+        RETURNING *
       `,
-      [kind, hashToken(token), now().toISOString()],
+      [timestamp, kind, hashToken(token), timestamp],
     );
     const row = rows[0];
 
@@ -586,12 +607,45 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       throw new AuthError("Invalid or expired token.", "invalid_token");
     }
 
-    await client.execute(
-      "UPDATE auth_tokens SET consumed_at = $1 WHERE id = $2",
-      [now().toISOString(), row.id],
-    );
-
     return row;
+  }
+
+  async function consumePasskeyChallenge(
+    client: Queryable,
+    input: {
+      challenge: string;
+      kind: "passkey_authentication" | "passkey_registration";
+      userId?: string;
+    },
+  ) {
+    const timestamp = now().toISOString();
+    const rows = await client.execute<{
+      challenge: string;
+      id: string;
+      metadata: Record<string, unknown> | string;
+    }>(
+      `
+        UPDATE auth_challenges
+        SET consumed_at = $1
+        WHERE kind = $2
+          AND challenge = $3
+          AND ($4::text IS NULL OR user_id = $4::text)
+          AND consumed_at IS NULL
+          AND expires_at > $1
+        RETURNING id, challenge, metadata
+      `,
+      [timestamp, input.kind, input.challenge, input.userId ?? null],
+    );
+    const challenge = rows[0];
+
+    if (!challenge) {
+      throw new AuthError(
+        "Passkey challenge expired.",
+        "passkey_challenge_expired",
+      );
+    }
+
+    return challenge;
   }
 
   async function createSession(
@@ -784,6 +838,14 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       token: string;
     }) {
       const client = await getClient();
+      const passwordPolicy = await validatePasswordPolicy(input.password, {
+        breachCheck: options.breachCheck,
+      });
+
+      if (!passwordPolicy.valid) {
+        throw new AuthError(passwordPolicy.issues.join(" "), "weak_password");
+      }
+
       const tokenRow = await consumeToken(client, "invitation", input.token);
       const metadata = parseJsonValue<Record<string, unknown>>(
         tokenRow.metadata,
@@ -952,20 +1014,21 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       state: string;
     }) {
       const client = await getClient();
+      const timestamp = now().toISOString();
       const rows = await client.execute<{
         code_verifier: string;
         id: string;
       }>(
         `
-          SELECT id, code_verifier
-          FROM auth_oauth_states
-          WHERE provider = $1
-            AND state_hash = $2
+          UPDATE auth_oauth_states
+          SET consumed_at = $1
+          WHERE provider = $2
+            AND state_hash = $3
             AND consumed_at IS NULL
-            AND expires_at > $3
-          LIMIT 1
+            AND expires_at > $1
+          RETURNING id, code_verifier
         `,
-        [input.adapter.provider, hashToken(input.state), now().toISOString()],
+        [timestamp, input.adapter.provider, hashToken(input.state)],
       );
       const stateRow = rows[0];
 
@@ -975,11 +1038,6 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           "invalid_oauth_state",
         );
       }
-
-      await client.execute(
-        "UPDATE auth_oauth_states SET consumed_at = $1 WHERE id = $2",
-        [now().toISOString(), stateRow.id],
-      );
 
       const tokenResponse = await fetch(input.adapter.tokenEndpoint, {
         body: new URLSearchParams({
@@ -1028,8 +1086,37 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       const profile = input.adapter.mapProfile(
         (await profileResponse.json()) as Record<string, unknown>,
       );
-      let user = await findUserByEmail(client, profile.email);
-      const timestamp = now().toISOString();
+      const existingAccountRows = await client.execute<{ user_id: string }>(
+        `
+          SELECT user_id
+          FROM auth_accounts
+          WHERE provider = $1
+            AND provider_account_id = $2
+          LIMIT 1
+        `,
+        [input.adapter.provider, profile.providerAccountId],
+      );
+      const existingAccount = existingAccountRows[0];
+      const userByEmail = await findUserByEmail(client, profile.email);
+      let user = existingAccount
+        ? await findUserById(client, existingAccount.user_id)
+        : userByEmail;
+
+      if (existingAccount) {
+        if (!user) {
+          throw new AuthError(
+            "This social account is already linked to another user.",
+            "account_already_linked",
+          );
+        }
+
+        if (userByEmail && userByEmail.id !== user.id) {
+          throw new AuthError(
+            "This social account is already linked to another user.",
+            "account_already_linked",
+          );
+        }
+      }
 
       if (!user) {
         const userRows = await client.execute<AuthUserRow>(
@@ -1062,7 +1149,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         user = userRows[0]!;
       }
 
-      await client.execute(
+      const accountRows = await client.execute<{ user_id: string }>(
         `
           INSERT INTO auth_accounts (
             id,
@@ -1078,12 +1165,13 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
           ON CONFLICT (provider, provider_account_id) DO UPDATE SET
-            user_id = EXCLUDED.user_id,
             provider_email = EXCLUDED.provider_email,
             access_token_hash = EXCLUDED.access_token_hash,
             refresh_token_hash = EXCLUDED.refresh_token_hash,
             expires_at = EXCLUDED.expires_at,
             updated_at = EXCLUDED.updated_at
+          WHERE auth_accounts.user_id = EXCLUDED.user_id
+          RETURNING user_id
         `,
         [
           randomUUID(),
@@ -1101,6 +1189,13 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           timestamp,
         ],
       );
+
+      if (!accountRows[0]) {
+        throw new AuthError(
+          "This social account is already linked to another user.",
+          "account_already_linked",
+        );
+      }
 
       const session = await createSession(client, user.id, input.context);
 
@@ -1156,6 +1251,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.invitation,
       });
       const timestamp = now().toISOString();
+      const link = `${appBaseUrl}/auth/invitations/accept?token=${encodeURIComponent(token)}`;
 
       await client.execute(
         `
@@ -1185,6 +1281,13 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           timestamp,
         ],
       );
+      await enqueueAuthNotification(client, {
+        email: input.email,
+        kind: "invitation",
+        link,
+        metadata: { actorId: input.actorId, role: input.role },
+        now: now(),
+      });
       await audit(client, {
         actorId: input.actorId,
         eventType: "auth.invitation.created",
@@ -1192,7 +1295,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       });
 
       return {
-        link: `${appBaseUrl}/auth/invitations/accept?token=${encodeURIComponent(token)}`,
+        link,
         token,
       };
     },
@@ -1245,6 +1348,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.passwordReset,
         userId: user.id,
       });
+      const resetLink = `${appBaseUrl}/auth/reset-password?token=${encodeURIComponent(resetToken)}`;
 
       await client.execute(
         `
@@ -1261,6 +1365,17 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         `,
         [randomUUID(), user.id, user.normalized_email, user.email, timestamp],
       );
+      await enqueueAuthNotification(client, {
+        email: user.email,
+        kind: "password_reset",
+        link: resetLink,
+        metadata: {
+          actorId: input.actorId,
+          purpose: "admin_created_user",
+        },
+        now: now(),
+        userId: user.id,
+      });
       await audit(client, {
         actorId: input.actorId,
         eventType: "auth.user.admin_created",
@@ -1269,7 +1384,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       });
 
       return {
-        resetLink: `${appBaseUrl}/auth/reset-password?token=${encodeURIComponent(resetToken)}`,
+        resetLink,
         resetToken,
         user: toUser(user),
       };
@@ -1532,7 +1647,14 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       const client = await getClient();
       const user = await findUserById(client, input.userId);
 
-      if (!user || !verifyPassword(input.password, user.password_hash)) {
+      if (!user) {
+        throw new AuthError("User not found.", "user_not_found");
+      }
+
+      if (
+        user.password_hash &&
+        !verifyPassword(input.password, user.password_hash)
+      ) {
         throw new AuthError(
           "Password confirmation failed.",
           "invalid_password",
@@ -1644,29 +1766,10 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         throw new AuthError("Passkey not found.", "passkey_not_found");
       }
 
-      const challengeRows = await client.execute<{
-        challenge: string;
-        id: string;
-      }>(
-        `
-          SELECT id, challenge
-          FROM auth_challenges
-          WHERE kind = 'passkey_authentication'
-            AND consumed_at IS NULL
-            AND expires_at > $1
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-        [now().toISOString()],
-      );
-      const challenge = challengeRows[0];
-
-      if (!challenge) {
-        throw new AuthError(
-          "Passkey challenge expired.",
-          "passkey_challenge_expired",
-        );
-      }
+      const challenge = await consumePasskeyChallenge(client, {
+        challenge: extractClientDataChallenge(input.response),
+        kind: "passkey_authentication",
+      });
 
       const verification = await verifyAuthenticationResponse({
         credential: {
@@ -1706,10 +1809,6 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           passkey.id,
         ],
       );
-      await client.execute(
-        "UPDATE auth_challenges SET consumed_at = $1 WHERE id = $2",
-        [now().toISOString(), challenge.id],
-      );
 
       const session = await createSession(
         client,
@@ -1733,31 +1832,11 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       userId: string;
     }) {
       const client = await getClient();
-      const challengeRows = await client.execute<{
-        challenge: string;
-        id: string;
-        metadata: Record<string, unknown> | string;
-      }>(
-        `
-          SELECT id, challenge, metadata
-          FROM auth_challenges
-          WHERE user_id = $1
-            AND kind = 'passkey_registration'
-            AND consumed_at IS NULL
-            AND expires_at > $2
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-        [input.userId, now().toISOString()],
-      );
-      const challenge = challengeRows[0];
-
-      if (!challenge) {
-        throw new AuthError(
-          "Passkey challenge expired.",
-          "passkey_challenge_expired",
-        );
-      }
+      const challenge = await consumePasskeyChallenge(client, {
+        challenge: extractClientDataChallenge(input.response),
+        kind: "passkey_registration",
+        userId: input.userId,
+      });
 
       const verification = await verifyRegistrationResponse({
         expectedChallenge: challenge.challenge,
@@ -1807,10 +1886,6 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           verification.registrationInfo.credentialBackedUp,
           timestamp,
         ],
-      );
-      await client.execute(
-        "UPDATE auth_challenges SET consumed_at = $1 WHERE id = $2",
-        [timestamp, challenge.id],
       );
       await audit(client, {
         eventType: "auth.passkey.registered",
@@ -1979,20 +2054,25 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.emailVerification,
         userId: input.userId,
       });
+      const link = `${appBaseUrl}/auth/verify-email-change?token=${encodeURIComponent(token)}`;
+
+      await enqueueAuthNotification(client, {
+        email: input.email,
+        kind: "email_change",
+        link,
+        metadata: { previousEmail: user.email },
+        now: now(),
+        userId: input.userId,
+      });
 
       return {
-        link: `${appBaseUrl}/auth/verify-email-change?token=${encodeURIComponent(token)}`,
+        link,
         token,
       };
     },
 
     async resetPassword(input: { password: string; token: string }) {
       const client = await getClient();
-      const tokenRow = await consumeToken(
-        client,
-        "password_reset",
-        input.token,
-      );
       const passwordPolicy = await validatePasswordPolicy(input.password, {
         breachCheck: options.breachCheck,
       });
@@ -2001,6 +2081,11 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         throw new AuthError(passwordPolicy.issues.join(" "), "weak_password");
       }
 
+      const tokenRow = await consumeToken(
+        client,
+        "password_reset",
+        input.token,
+      );
       const timestamp = now().toISOString();
 
       await client.execute(
@@ -2039,6 +2124,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
 
     async rotateRefreshToken(refreshToken: string, context: AuthContext = {}) {
       const client = await getClient();
+      const currentRefreshTokenHash = hashToken(refreshToken);
       const rows = await client.execute<AuthSessionRow>(
         `
           SELECT *
@@ -2048,7 +2134,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
             AND refresh_expires_at > $2
           LIMIT 1
         `,
-        [hashToken(refreshToken), now().toISOString()],
+        [currentRefreshTokenHash, now().toISOString()],
       );
       const session = rows[0];
 
@@ -2072,6 +2158,9 @@ export function createAuthService(options: AuthServiceOptions = {}) {
               ip_address = $7,
               user_agent = $8
           WHERE id = $9
+            AND refresh_token_hash = $10
+            AND revoked_at IS NULL
+            AND refresh_expires_at > $5
           RETURNING *
         `,
         [
@@ -2084,8 +2173,14 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           context.ipAddress ?? session.ip_address,
           context.userAgent ?? session.user_agent,
           session.id,
+          currentRefreshTokenHash,
         ],
       );
+      const updatedSession = updatedRows[0];
+
+      if (!updatedSession) {
+        throw new AuthError("Invalid refresh token.", "invalid_refresh_token");
+      }
 
       await audit(client, {
         context,
@@ -2095,7 +2190,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
 
       return {
         refreshToken: nextRefreshToken,
-        session: toSession(updatedRows[0]!),
+        session: toSession(updatedSession),
         sessionToken: nextSessionToken,
       };
     },

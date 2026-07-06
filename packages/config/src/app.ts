@@ -25,6 +25,8 @@ export const appRoutes = {
   signUp: "/auth/sign-up",
   forgotPassword: "/auth/forgot-password",
   resetPassword: "/auth/reset-password",
+  acceptInvitation: "/auth/invitations/accept",
+  verifyEmailChange: "/auth/verify-email-change",
   dashboard: "/dashboard",
   settings: "/settings",
   admin: "/admin",

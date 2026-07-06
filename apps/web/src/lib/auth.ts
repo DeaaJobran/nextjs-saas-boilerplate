@@ -1,5 +1,6 @@
 import {
   authRoleConfig,
+  authSecurityPolicy,
   createAuthService,
   requirePageAccess,
 } from "@nextjs-saas/auth";
@@ -7,8 +8,8 @@ import { appConfig, appRoutes } from "@nextjs-saas/config/app";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-export const sessionCookieName = "nextjs_saas_session";
-export const refreshCookieName = "nextjs_saas_refresh";
+const sessionCookieName = "nextjs_saas_session";
+const refreshCookieName = "nextjs_saas_refresh";
 const adminSessionCookieName = "nextjs_saas_admin_session";
 
 export function getAuthService() {
@@ -28,12 +29,14 @@ export async function setAuthCookies(input: {
 
   cookieStore.set(sessionCookieName, input.sessionToken, {
     httpOnly: true,
+    maxAge: authSecurityPolicy.sessionTtlSeconds,
     path: "/",
     sameSite: "lax",
     secure,
   });
   cookieStore.set(refreshCookieName, input.refreshToken, {
     httpOnly: true,
+    maxAge: authSecurityPolicy.refreshTokenTtlSeconds,
     path: "/",
     sameSite: "lax",
     secure,
