@@ -55,6 +55,12 @@ export default async function PricingPage({
   const providers = await billing.listPaymentProviders();
   const provider = providers.find((candidate) => candidate.enabled)?.provider;
   const plans = await billing.listPublicPlans({ locale, provider });
+  const billingPlanNames = new Set(
+    plans.map((plan) => plan.translation.name.trim().toLowerCase()),
+  );
+  const contentPlans = repository
+    .listPricingPlans(locale)
+    .filter((plan) => !billingPlanNames.has(plan.name.trim().toLowerCase()));
 
   return (
     <main className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:px-8">
@@ -127,6 +133,39 @@ export default async function PricingPage({
             </Card>
           );
         })}
+        {contentPlans.map((plan) => (
+          <Card
+            className={
+              plan.highlighted ? "border-primary shadow-md" : undefined
+            }
+            key={`content-${plan.id}`}
+          >
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{plan.name}</CardTitle>
+                {plan.highlighted ? (
+                  <Badge variant="success">{t("configured")}</Badge>
+                ) : null}
+              </div>
+              <p className="text-3xl font-semibold">{plan.priceLabel}</p>
+              <p className="text-muted-foreground text-sm">
+                {plan.description}
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <ul className="text-muted-foreground grid gap-2 text-sm">
+                {plan.features.map((feature) => (
+                  <li className="bg-muted/50 rounded-md p-3" key={feature}>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <Button asChild>
+                <Link href={appRoutes.signUp}>{plan.ctaLabel}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </main>
   );

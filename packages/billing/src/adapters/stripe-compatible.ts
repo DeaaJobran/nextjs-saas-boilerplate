@@ -136,8 +136,17 @@ export function createStripeCompatiblePaymentProviderAdapter(
   const apiVersion = options.apiVersion ?? "2025-09-30.clover";
   const requestFetch = options.fetchImpl ?? fetch;
 
+  function requestUrl(path: string) {
+    const normalizedBase = apiBaseUrl.endsWith("/")
+      ? apiBaseUrl
+      : `${apiBaseUrl}/`;
+    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+
+    return new URL(normalizedPath, normalizedBase);
+  }
+
   async function request<T>(path: string, body: URLSearchParams): Promise<T> {
-    const response = await requestFetch(new URL(path, apiBaseUrl), {
+    const response = await requestFetch(requestUrl(path), {
       body,
       headers: {
         Authorization: `Bearer ${options.secretKey}`,
@@ -148,7 +157,26 @@ export function createStripeCompatiblePaymentProviderAdapter(
     });
 
     if (!response.ok) {
-      throw new Error(`Stripe-compatible request failed: ${response.status}`);
+      let details = "";
+
+      try {
+        const responseBody = await response.text();
+        const parsed = JSON.parse(responseBody) as {
+          error?: { message?: string };
+        };
+
+        details = parsed.error?.message
+          ? ` - ${parsed.error.message}`
+          : responseBody
+            ? ` - ${responseBody}`
+            : "";
+      } catch {
+        details = "";
+      }
+
+      throw new Error(
+        `Stripe-compatible request failed: ${response.status}${details}`,
+      );
     }
 
     return (await response.json()) as T;
@@ -177,24 +205,29 @@ export function createStripeCompatiblePaymentProviderAdapter(
       };
     },
     async createCheckoutSession(input: CheckoutSessionInput) {
+      const params: Record<string, unknown> = {
+        cancel_url: input.cancelUrl,
+        client_reference_id: input.clientReferenceId,
+        customer_email: input.customerEmail,
+        "discounts[0][coupon]": input.discount?.providerCouponId,
+        "line_items[0][price]": input.price.providerPriceId,
+        "line_items[0][quantity]": input.quantity,
+        "metadata[tenantId]": input.tenantId,
+        mode: input.mode,
+        success_url: input.successUrl,
+      };
+
+      if (input.mode === "subscription") {
+        params["subscription_data[metadata][tenantId]"] = input.tenantId;
+        params["subscription_data[trial_period_days]"] =
+          input.trialDays && input.trialDays > 0 ? input.trialDays : undefined;
+      } else {
+        params["payment_intent_data[metadata][tenantId]"] = input.tenantId;
+      }
+
       const session = await request<JsonRecord>(
         "/v1/checkout/sessions",
-        encodeForm({
-          cancel_url: input.cancelUrl,
-          client_reference_id: input.clientReferenceId,
-          customer_email: input.customerEmail,
-          "discounts[0][coupon]": input.discount?.providerCouponId,
-          "line_items[0][price]": input.price.providerPriceId,
-          "line_items[0][quantity]": input.quantity,
-          "metadata[tenantId]": input.tenantId,
-          mode: input.mode,
-          "subscription_data[metadata][tenantId]": input.tenantId,
-          "subscription_data[trial_period_days]":
-            input.mode === "subscription" && input.trialDays
-              ? input.trialDays
-              : undefined,
-          success_url: input.successUrl,
-        }),
+        encodeForm(params),
       );
 
       return {
@@ -263,15 +296,23 @@ export function createStripeCompatiblePaymentProviderAdapter(
     },
     key: "stripe",
     async updateSubscription(input) {
+      const params: Record<string, unknown> = {
+        cancel_at_period_end: input.cancelAtPeriodEnd,
+        "discounts[0][coupon]": input.providerCouponId,
+      };
+
+      if (
+        input.providerSubscriptionItemId &&
+        (input.priceProviderId !== undefined || input.quantity !== undefined)
+      ) {
+        params["items[0][id]"] = input.providerSubscriptionItemId;
+        params["items[0][price]"] = input.priceProviderId;
+        params["items[0][quantity]"] = input.quantity;
+      }
+
       await request<JsonRecord>(
         `/v1/subscriptions/${encodeURIComponent(input.providerSubscriptionId)}`,
-        encodeForm({
-          cancel_at_period_end: input.cancelAtPeriodEnd,
-          "discounts[0][coupon]": input.providerCouponId,
-          "items[0][id]": input.providerSubscriptionItemId,
-          "items[0][price]": input.priceProviderId,
-          "items[0][quantity]": input.quantity,
-        }),
+        encodeForm(params),
       );
     },
     async verifyWebhook(
@@ -373,7 +414,7 @@ export function createStripeCompatiblePaymentProviderAdapter(
         createdAt: unixToIso(stripeEvent.created) ?? new Date().toISOString(),
         id: asString(stripeEvent.id) ?? "",
         payload,
-        tenantId: asString(payload.tenantId),
+        tenantId: asString(payload.tenantId) ?? metadataTenantId(object),
         type,
       };
     },

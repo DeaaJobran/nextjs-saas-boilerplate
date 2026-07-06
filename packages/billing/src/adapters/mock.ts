@@ -60,7 +60,13 @@ export function createMockPaymentProviderAdapter(
       url.searchParams.set("session", id);
       url.searchParams.set("tenant", input.tenantId);
       url.searchParams.set("price", input.price.id);
+      if (input.price.providerPriceId) {
+        url.searchParams.set("providerPrice", input.price.providerPriceId);
+      }
       url.searchParams.set("mode", input.mode);
+      url.searchParams.set("quantity", String(input.quantity));
+      url.searchParams.set("success", input.successUrl);
+      url.searchParams.set("cancel", input.cancelUrl);
       if (input.discount) {
         url.searchParams.set("coupon", input.discount.code);
       }

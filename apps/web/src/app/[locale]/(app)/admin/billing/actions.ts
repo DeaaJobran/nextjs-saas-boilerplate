@@ -20,11 +20,44 @@ function formValue(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function integerValue(
+  formData: FormData,
+  key: string,
+  options: { fallback?: string; max?: number; min?: number } = {},
+) {
+  const rawValue = formValue(formData, key) || options.fallback;
+  const value = Number(rawValue);
+  const min = options.min ?? 0;
+
+  if (
+    !Number.isInteger(value) ||
+    value < min ||
+    (options.max !== undefined && value > options.max)
+  ) {
+    throw new Error(`${key} must be a valid integer.`);
+  }
+
+  return value;
+}
+
+function optionalIntegerValue(
+  formData: FormData,
+  key: string,
+  options: { max?: number; min?: number } = {},
+) {
+  if (!formValue(formData, key)) {
+    return undefined;
+  }
+
+  return integerValue(formData, key, options);
+}
+
 function lines(value: string) {
-  return value
-    .split(/\r?\n|,/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return value.split(/\r?\n|,/).flatMap((line) => {
+    const trimmed = line.trim();
+
+    return trimmed ? [trimmed] : [];
+  });
 }
 
 function limits(value: string) {
@@ -98,9 +131,9 @@ export async function saveBillingPlanAction(formData: FormData) {
     publicVisible: formData.get("publicVisible") === "on",
     seatBased: formData.get("seatBased") === "on",
     slug: formValue(formData, "slug"),
-    sortOrder: Number(formValue(formData, "sortOrder") || "0"),
+    sortOrder: integerValue(formData, "sortOrder", { fallback: "0" }),
     status: formValue(formData, "status"),
-    trialDays: Number(formValue(formData, "trialDays") || "0"),
+    trialDays: integerValue(formData, "trialDays", { fallback: "0" }),
     usageBased: formData.get("usageBased") === "on",
   });
   revalidateBillingAdmin(formData);
@@ -116,14 +149,19 @@ export async function saveBillingPriceAction(formData: FormData) {
     billingScheme: formValue(formData, "billingScheme"),
     currency: formValue(formData, "currency"),
     interval: formValue(formData, "interval") as BillingInterval,
-    intervalCount: Number(formValue(formData, "intervalCount") || "1"),
+    intervalCount: integerValue(formData, "intervalCount", {
+      fallback: "1",
+      min: 1,
+    }),
     planId: formValue(formData, "planId"),
     priceId: formValue(formData, "priceId") || undefined,
     provider: formValue(formData, "provider"),
     providerPriceId: formValue(formData, "providerPriceId") || undefined,
-    sortOrder: Number(formValue(formData, "sortOrder") || "0"),
+    sortOrder: integerValue(formData, "sortOrder", { fallback: "0" }),
     taxBehavior: formValue(formData, "taxBehavior") as BillingTaxBehavior,
-    unitAmountMinor: Number(formValue(formData, "unitAmountMinor") || "0"),
+    unitAmountMinor: integerValue(formData, "unitAmountMinor", {
+      fallback: "0",
+    }),
     usageType: formValue(formData, "usageType") as BillingUsageType,
   });
   revalidateBillingAdmin(formData);
@@ -136,9 +174,9 @@ export async function saveBillingCouponAction(formData: FormData) {
   await getBillingService().upsertCoupon({
     active: formData.get("active") === "on",
     actorId,
-    amountOffMinor: formValue(formData, "amountOffMinor")
-      ? Number(formValue(formData, "amountOffMinor"))
-      : undefined,
+    amountOffMinor: optionalIntegerValue(formData, "amountOffMinor", {
+      min: 1,
+    }),
     code: formValue(formData, "code"),
     currency: formValue(formData, "currency") || undefined,
     discountType: formValue(
@@ -146,16 +184,21 @@ export async function saveBillingCouponAction(formData: FormData) {
       "discountType",
     ) as BillingCouponDiscountType,
     duration: formValue(formData, "duration") as BillingCouponDuration,
-    durationMonths: formValue(formData, "durationMonths")
-      ? Number(formValue(formData, "durationMonths"))
-      : undefined,
-    maxRedemptions: formValue(formData, "maxRedemptions")
-      ? Number(formValue(formData, "maxRedemptions"))
-      : undefined,
+    durationMonths: optionalIntegerValue(formData, "durationMonths", {
+      min: 1,
+    }),
+    maxRedemptions: optionalIntegerValue(formData, "maxRedemptions", {
+      min: 1,
+    }),
     name: formValue(formData, "name"),
-    percentOffBasisPoints: formValue(formData, "percentOffBasisPoints")
-      ? Number(formValue(formData, "percentOffBasisPoints"))
-      : undefined,
+    percentOffBasisPoints: optionalIntegerValue(
+      formData,
+      "percentOffBasisPoints",
+      {
+        max: 10_000,
+        min: 1,
+      },
+    ),
     provider: formValue(formData, "provider") || undefined,
     providerCouponId: formValue(formData, "providerCouponId") || undefined,
     redeemBy: formValue(formData, "redeemBy") || undefined,
@@ -173,7 +216,7 @@ export async function saveExchangeRateAction(formData: FormData) {
     manual: true,
     provider: formValue(formData, "provider"),
     quoteCurrency: formValue(formData, "quoteCurrency"),
-    rateMicroUnits: Number(formValue(formData, "rateMicroUnits")),
+    rateMicroUnits: integerValue(formData, "rateMicroUnits", { min: 1 }),
   });
   revalidateBillingAdmin(formData);
   redirectSaved(formData, "exchange-rate");
@@ -187,7 +230,7 @@ export async function saveTaxRateAction(formData: FormData) {
     actorId,
     country: formValue(formData, "country"),
     inclusive: formData.get("inclusive") === "on",
-    percentageBasisPoints: Number(formValue(formData, "percentageBasisPoints")),
+    percentageBasisPoints: integerValue(formData, "percentageBasisPoints"),
     provider: formValue(formData, "provider") || undefined,
     region: formValue(formData, "region") || undefined,
     taxRateId: formValue(formData, "taxRateId") || undefined,

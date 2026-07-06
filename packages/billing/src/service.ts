@@ -1052,6 +1052,27 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     payload: PaymentMethodChangedEvent,
   ) {
     const timestamp = now().toISOString();
+    const customerRows = payload.providerCustomerId
+      ? await client.execute<{ tenant_id: string }>(
+          `
+            SELECT tenant_id
+            FROM billing_customers
+            WHERE provider = $1
+              AND provider_customer_id = $2
+            ORDER BY updated_at DESC
+            LIMIT 1
+          `,
+          [provider, payload.providerCustomerId],
+        )
+      : [];
+    const tenantId = payload.tenantId ?? customerRows[0]?.tenant_id;
+
+    if (!tenantId) {
+      throw new BillingError(
+        "Payment method event is missing tenant scope.",
+        "tenant_required",
+      );
+    }
 
     await client.execute(
       `
@@ -1092,7 +1113,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       `,
       [
         randomUUID(),
-        payload.tenantId,
+        tenantId,
         provider,
         payload.providerPaymentMethodId,
         payload.providerCustomerId,
@@ -1585,12 +1606,27 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         );
       }
 
+      if (!subscription.provider_subscription_item_id) {
+        throw new BillingError(
+          "Provider subscription item id is required for plan changes.",
+          "provider_subscription_item_required",
+        );
+      }
+
+      const quantity = input.quantity ?? subscription.quantity;
+
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        throw new BillingError(
+          "Subscription quantity must be a positive integer.",
+          "invalid_quantity",
+        );
+      }
+
       await getAdapter(subscription.provider).updateSubscription({
         priceProviderId: price.providerPriceId,
         providerSubscriptionId: subscription.provider_subscription_id,
-        providerSubscriptionItemId:
-          subscription.provider_subscription_item_id ?? undefined,
-        quantity: Math.max(1, input.quantity ?? subscription.quantity),
+        providerSubscriptionItemId: subscription.provider_subscription_item_id,
+        quantity,
       });
       await audit(client, {
         actorId: input.actorId,
@@ -1598,7 +1634,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         payload: {
           nextPriceId: price.id,
           previousPriceId: subscription.price_id,
-          quantity: Math.max(1, input.quantity ?? subscription.quantity),
+          quantity,
         },
         subjectId: subscription.id,
         subjectType: "subscription",
@@ -1742,8 +1778,16 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         throw new BillingError("Plan is not active.", "plan_not_found");
       }
 
-      const quantity =
-        price.usageType === "licensed" ? Math.max(1, input.quantity ?? 1) : 1;
+      const requestedQuantity = input.quantity ?? 1;
+
+      if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
+        throw new BillingError(
+          "Checkout quantity must be a positive integer.",
+          "invalid_quantity",
+        );
+      }
+
+      const quantity = price.usageType === "licensed" ? requestedQuantity : 1;
       const mode = checkoutModeForPrice(price);
       const clientReferenceId = `${input.organizationId}:${randomUUID()}`;
       const checkout = await getAdapter(
@@ -1915,7 +1959,16 @@ export function createBillingService(options: BillingServiceOptions = {}) {
             received_at
           )
           VALUES ($1, $2, $3, $4, 'processing', $5, $6, $7::jsonb, $8, $9)
-          ON CONFLICT (provider, provider_event_id) DO NOTHING
+          ON CONFLICT (provider, provider_event_id) DO UPDATE SET
+            status = 'processing',
+            tenant_id = COALESCE(EXCLUDED.tenant_id, billing_webhook_events.tenant_id),
+            signature_header = EXCLUDED.signature_header,
+            payload = EXCLUDED.payload,
+            raw_body_sha256 = EXCLUDED.raw_body_sha256,
+            processing_error = NULL,
+            received_at = EXCLUDED.received_at,
+            processed_at = NULL
+          WHERE billing_webhook_events.status = 'failed'
           RETURNING id
         `,
         [
@@ -2345,6 +2398,16 @@ export function createBillingService(options: BillingServiceOptions = {}) {
 
       if (!invoice) {
         throw new BillingError("Invoice not found.", "invoice_not_found");
+      }
+
+      if (
+        input.amountMinor !== undefined &&
+        (!Number.isInteger(input.amountMinor) || input.amountMinor < 1)
+      ) {
+        throw new BillingError(
+          "Refund amount must be a positive integer.",
+          "invalid_refund_amount",
+        );
       }
 
       await requireTenantPermission({

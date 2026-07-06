@@ -306,7 +306,6 @@ describe("billing service", () => {
         providerCustomerId: "cus_mock_1",
         providerPaymentMethodId: "pm_mock_1",
         status: "active",
-        tenantId: organization.id,
         type: "card",
       },
       tenantId: organization.id,
@@ -510,5 +509,96 @@ describe("billing service", () => {
         organizationId: organization.id,
       }),
     ).resolves.toBe(true);
+  }, 30_000);
+
+  it("retries failed webhook events after dependencies become available", async () => {
+    const { organization, runtime } = await createOwnerOrganization();
+    const adapter = createMockPaymentProviderAdapter({
+      baseUrl: "https://app.example.test",
+      webhookSecret: "test-webhook-secret",
+    });
+    const billing = createBillingService({
+      adapters: [adapter],
+      appBaseUrl: "https://app.example.test",
+      client: runtime,
+      now: () => fixedNow,
+    });
+    const invoiceEvent = signedEvent(adapter, {
+      createdAt: fixedNow.toISOString(),
+      id: "evt_invoice_retry",
+      payload: {
+        amountDueMinor: 2900,
+        amountPaidMinor: 2900,
+        currency: "USD",
+        discountMinor: 0,
+        issuedAt: fixedNow.toISOString(),
+        items: [],
+        paidAt: fixedNow.toISOString(),
+        periodEnd,
+        periodStart: fixedNow.toISOString(),
+        providerCustomerId: "cus_retry",
+        providerInvoiceId: "in_retry",
+        providerSubscriptionId: "sub_retry",
+        status: "paid",
+        subtotalMinor: 2900,
+        taxBehavior: "exclusive",
+        taxMinor: 0,
+        tenantId: "",
+        totalMinor: 2900,
+      },
+      type: "invoice.paid",
+    });
+
+    await expect(
+      billing.handleWebhook({
+        provider: "mock",
+        rawBody: invoiceEvent.payload,
+        signatureHeader: invoiceEvent.signatureHeader,
+      }),
+    ).rejects.toMatchObject({ code: "tenant_required" });
+
+    const subscriptionEvent = signedEvent(adapter, {
+      createdAt: fixedNow.toISOString(),
+      id: "evt_subscription_retry",
+      payload: {
+        currentPeriodEnd: periodEnd,
+        currentPeriodStart: fixedNow.toISOString(),
+        priceProviderId: "mock_price_team_usd_month",
+        providerCustomerId: "cus_retry",
+        providerSubscriptionItemId: "si_retry",
+        providerSubscriptionId: "sub_retry",
+        quantity: 1,
+        status: "active",
+        tenantId: organization.id,
+      },
+      tenantId: organization.id,
+      type: "customer.subscription.updated",
+    });
+
+    await billing.handleWebhook({
+      provider: "mock",
+      rawBody: subscriptionEvent.payload,
+      signatureHeader: subscriptionEvent.signatureHeader,
+    });
+    await expect(
+      billing.handleWebhook({
+        provider: "mock",
+        rawBody: invoiceEvent.payload,
+        signatureHeader: invoiceEvent.signatureHeader,
+      }),
+    ).resolves.toEqual({
+      eventId: "evt_invoice_retry",
+      status: "processed",
+    });
+    await expect(
+      billing.listBillingSummary({
+        actorId: "billing_owner",
+        organizationId: organization.id,
+      }),
+    ).resolves.toMatchObject({
+      invoices: expect.arrayContaining([
+        expect.objectContaining({ totalMinor: 2900 }),
+      ]),
+    });
   }, 30_000);
 });

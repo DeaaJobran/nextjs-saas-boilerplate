@@ -301,7 +301,7 @@ export type PaymentMethodChangedEvent = {
   providerCustomerId?: string;
   providerPaymentMethodId: string;
   status: string;
-  tenantId: string;
+  tenantId?: string;
   type: string;
 };
 

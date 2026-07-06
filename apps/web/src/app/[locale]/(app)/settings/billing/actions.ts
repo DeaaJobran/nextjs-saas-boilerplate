@@ -15,6 +15,32 @@ function formValue(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function positiveInteger(formData: FormData, key: string, fallback: string) {
+  const value = Number(formValue(formData, key) || fallback);
+
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${key} must be a positive integer.`);
+  }
+
+  return value;
+}
+
+function optionalPositiveInteger(formData: FormData, key: string) {
+  const rawValue = formValue(formData, key);
+
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${key} must be a positive integer.`);
+  }
+
+  return value;
+}
+
 function localizedBillingPath(formData: FormData) {
   const locale = formValue(formData, "locale");
 
@@ -26,6 +52,8 @@ function redirectWithStatus(formData: FormData, status: string) {
 }
 
 export async function cancelSubscriptionAction(formData: FormData) {
+  await requireCurrentSession();
+
   const context = await getActiveTenantContext("billing.manage");
 
   await getBillingService().cancelSubscription({
@@ -38,6 +66,8 @@ export async function cancelSubscriptionAction(formData: FormData) {
 }
 
 export async function applySubscriptionDiscountAction(formData: FormData) {
+  await requireCurrentSession();
+
   const context = await getActiveTenantContext("billing.manage");
 
   await getBillingService().applyDiscountToSubscription({
@@ -54,6 +84,7 @@ export async function createCheckoutSessionAction(formData: FormData) {
   const session = await requireCurrentSession();
   const context = await getActiveTenantContext("billing.manage");
   const basePath = localizedBillingPath(formData);
+  const quantity = positiveInteger(formData, "quantity", "1");
   const checkout = await getBillingService().createCheckoutSession({
     actorId: context.effectiveUser.id,
     cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}${basePath}?status=checkout-cancelled`,
@@ -61,7 +92,7 @@ export async function createCheckoutSessionAction(formData: FormData) {
     customerEmail: session.user.email,
     organizationId: context.organization.id,
     priceId: formValue(formData, "priceId"),
-    quantity: Number(formValue(formData, "quantity") || "1"),
+    quantity,
     successUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}${basePath}?status=checkout-started`,
   });
 
@@ -69,13 +100,16 @@ export async function createCheckoutSessionAction(formData: FormData) {
 }
 
 export async function changeSubscriptionPlanAction(formData: FormData) {
+  await requireCurrentSession();
+
   const context = await getActiveTenantContext("billing.manage");
+  const quantity = positiveInteger(formData, "quantity", "1");
 
   await getBillingService().changeSubscriptionPlan({
     actorId: context.effectiveUser.id,
     organizationId: context.organization.id,
     priceId: formValue(formData, "priceId"),
-    quantity: Number(formValue(formData, "quantity") || "1"),
+    quantity,
     subscriptionId: formValue(formData, "subscriptionId"),
   });
   revalidatePath(localizedBillingPath(formData));
@@ -83,6 +117,8 @@ export async function changeSubscriptionPlanAction(formData: FormData) {
 }
 
 export async function openBillingPortalAction(formData: FormData) {
+  await requireCurrentSession();
+
   const context = await getActiveTenantContext("billing.manage");
   const portal = await getBillingService().createBillingPortalSession({
     actorId: context.effectiveUser.id,
@@ -94,13 +130,14 @@ export async function openBillingPortalAction(formData: FormData) {
 }
 
 export async function requestRefundAction(formData: FormData) {
+  await requireCurrentSession();
+
   const context = await getActiveTenantContext("billing.refund");
+  const amountMinor = optionalPositiveInteger(formData, "amountMinor");
 
   await getBillingService().requestRefund({
     actorId: context.effectiveUser.id,
-    amountMinor: formValue(formData, "amountMinor")
-      ? Number(formValue(formData, "amountMinor"))
-      : undefined,
+    amountMinor,
     invoiceId: formValue(formData, "invoiceId"),
     providerPaymentId: formValue(formData, "providerPaymentId"),
     reason: formValue(formData, "reason") || undefined,
@@ -110,6 +147,8 @@ export async function requestRefundAction(formData: FormData) {
 }
 
 export async function updateTenantBillingSettingsAction(formData: FormData) {
+  await requireCurrentSession();
+
   const context = await getActiveTenantContext("billing.manage");
 
   await getBillingService().updateTenantBillingSettings({
@@ -124,6 +163,8 @@ export async function updateTenantBillingSettingsAction(formData: FormData) {
 }
 
 export async function updateTaxSettingsAction(formData: FormData) {
+  await requireCurrentSession();
+
   const context = await getActiveTenantContext("billing.manage");
 
   await getBillingService().updateTaxSettings({
