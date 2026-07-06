@@ -12,6 +12,7 @@ import {
 import { createTenantService } from "@nextjs-saas/tenant";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { generateOpenApiSpec } from "./contracts";
 import { createApiService } from "./service";
 
 let dataDir: string;
@@ -405,11 +406,42 @@ describe("public API service", () => {
       principal: rotatedPrincipal,
     });
     await expect(
+      services.api.listMobileDevices({ principal: rotatedPrincipal }),
+    ).resolves.toHaveLength(0);
+    await expect(
+      services.api.upsertPushSubscription({
+        deviceId: session.device.id,
+        principal: rotatedPrincipal,
+        provider: "apns",
+        token: "new-push-token-value",
+        topics: ["tenant.activity"],
+      }),
+    ).rejects.toMatchObject({ code: "mobile_device_not_found" });
+    await expect(
       services.api.authenticateBearerToken({
         authorizationHeader: `Bearer ${rotated.sessionToken}`,
       }),
     ).rejects.toMatchObject({ code: "unauthorized" });
   }, 60_000);
+
+  it("documents every path parameter in the OpenAPI contract", () => {
+    const spec = generateOpenApiSpec({
+      baseUrl: "https://app.example.test",
+      title: "Example API",
+      version: "0.3.0",
+    });
+    const revokeDevice = spec.paths["/api/v1/mobile/devices/{deviceId}"]
+      ?.delete as { parameters?: Array<{ name: string }> };
+    const completeUpload = spec.paths["/api/v1/mobile/uploads/{intentId}"]
+      ?.put as { parameters?: Array<{ name: string }> };
+
+    expect(revokeDevice.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "deviceId" })]),
+    );
+    expect(completeUpload.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "intentId" })]),
+    );
+  });
 
   it("generates OAuth authorization URLs from configured providers", async () => {
     const runtime = await getRuntime();

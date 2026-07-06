@@ -414,6 +414,15 @@ function pathToOpenApiPath(path: string) {
   return path;
 }
 
+function extractPathParameters(path: string) {
+  return [...path.matchAll(/\{([^}]+)\}/gu)].map((match) => ({
+    in: "path",
+    name: match[1],
+    required: true,
+    schema: { type: "string" },
+  }));
+}
+
 function routeSecurity(route: ApiRouteContract) {
   return route.requiredScopes.length > 0
     ? [{ bearerAuth: route.requiredScopes }]
@@ -433,16 +442,7 @@ export function generateOpenApiSpec(input: {
     paths[path][route.method.toLowerCase()] = {
       description: route.description,
       operationId: route.id,
-      parameters: route.path.includes("{organizationId}")
-        ? [
-            {
-              in: "path",
-              name: "organizationId",
-              required: true,
-              schema: { type: "string" },
-            },
-          ]
-        : undefined,
+      parameters: extractPathParameters(route.path),
       responses: {
         "200": {
           content: {

@@ -1735,6 +1735,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
         SELECT *
         FROM mobile_devices
         WHERE user_id = $1
+          AND revoked_at IS NULL
         ORDER BY last_seen_at DESC
       `,
       [input.principal.actorId],
@@ -1823,7 +1824,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
     const timestamp = now().toISOString();
     const tokenHash = hashLookupToken(input.token);
 
-    await client.execute(
+    const rows = await client.execute<{ id: string }>(
       `
         INSERT INTO mobile_push_subscriptions (
           id,
@@ -1847,6 +1848,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
           topics = EXCLUDED.topics,
           enabled = true,
           updated_at = EXCLUDED.updated_at
+        RETURNING id
       `,
       [
         randomUUID(),
@@ -1858,6 +1860,14 @@ export function createApiService(options: ApiServiceOptions = {}) {
         input.principal.actorId,
       ],
     );
+
+    if (!rows[0]) {
+      throw new ApiError(
+        "Mobile device is not available for push registration.",
+        "mobile_device_not_found",
+        404,
+      );
+    }
   }
 
   async function createDeepLink(input: {
@@ -2050,7 +2060,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
       );
     }
 
-    // TODO(Build Area 10): hand the validated upload stream to the storage adapter once the storage module lands; Build Area 9 owns the token-bound mobile upload control flow and metadata contract.
+    // TODO(storage): hand the validated upload stream to the configured storage adapter once binary object persistence is available for mobile uploads.
     return toMobileUploadIntent(intent);
   }
 
