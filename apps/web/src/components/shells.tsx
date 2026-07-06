@@ -32,6 +32,7 @@ export async function MarketingShell({
   locale: Locale;
 }) {
   const t = await getTranslations({ locale, namespace: "Navigation" });
+  const shellT = await getTranslations({ locale, namespace: "Shell" });
 
   return (
     <div className="bg-background min-h-dvh">
@@ -41,7 +42,7 @@ export async function MarketingShell({
             {appConfig.shortName}
           </Link>
           <nav
-            aria-label="Main navigation"
+            aria-label={shellT("mainNavigation")}
             className="hidden items-center gap-1 md:flex"
           >
             <Button asChild variant="ghost">
@@ -76,6 +77,7 @@ export async function AuthShell({
   locale: Locale;
 }) {
   const t = await getTranslations({ locale, namespace: "Navigation" });
+  const shellT = await getTranslations({ locale, namespace: "Shell" });
 
   return (
     <main className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)]">
@@ -86,12 +88,9 @@ export async function AuthShell({
         <div className="max-w-lg space-y-4">
           <p className="text-primary text-sm font-medium">{t("signIn")}</p>
           <h1 className="text-3xl font-semibold tracking-tight">
-            A reusable auth surface ready for the identity module.
+            {shellT("authTitle")}
           </h1>
-          <p className="text-muted-foreground">
-            This layout gives future sign-in, passkey, MFA, and recovery flows a
-            stable responsive contract.
-          </p>
+          <p className="text-muted-foreground">{shellT("authDescription")}</p>
         </div>
       </section>
       <section className="flex min-h-dvh items-center justify-center p-4 sm:p-8">
@@ -111,6 +110,7 @@ export async function DashboardShell({
   title: string;
 }) {
   const t = await getTranslations({ locale, namespace: "Navigation" });
+  const shellT = await getTranslations({ locale, namespace: "Shell" });
 
   return (
     <div className="bg-muted/30 min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -118,7 +118,10 @@ export async function DashboardShell({
         <div className="flex h-16 items-center border-b px-5 font-semibold">
           {appConfig.shortName}
         </div>
-        <nav aria-label="Application navigation" className="grid gap-1 p-3">
+        <nav
+          aria-label={shellT("applicationNavigation")}
+          className="grid gap-1 p-3"
+        >
           {appNav.map((item) => {
             const Icon = item.icon;
             return (
@@ -153,7 +156,7 @@ export async function DashboardShell({
         </main>
       </div>
       <nav
-        aria-label="Mobile application navigation"
+        aria-label={shellT("mobileApplicationNavigation")}
         className="bg-background/95 fixed inset-x-0 bottom-0 z-40 border-t p-2 backdrop-blur lg:hidden"
       >
         <div className="grid grid-cols-3 gap-1">
@@ -187,19 +190,27 @@ export async function AdminShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
+  const shellT = await getTranslations({ locale, namespace: "Shell" });
+  const navigationT = await getTranslations({
+    locale,
+    namespace: "Navigation",
+  });
+
   return (
-    <DashboardShell locale={locale} title="Admin">
+    <DashboardShell locale={locale} title={navigationT("admin")}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-primary text-sm font-medium">Admin surface</p>
+          <p className="text-primary text-sm font-medium">
+            {shellT("adminEyebrow")}
+          </p>
           <h2 className="text-2xl font-semibold tracking-tight">
-            Content and operational controls
+            {shellT("adminTitle")}
           </h2>
         </div>
         <Button asChild variant="outline">
           <Link href={`${appRoutes.admin}/content`}>
             <BarChart3Icon aria-hidden="true" className="size-4" />
-            Content registry
+            {shellT("contentRegistry")}
           </Link>
         </Button>
       </div>

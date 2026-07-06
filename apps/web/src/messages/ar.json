@@ -1,18 +1,245 @@
 {
+  "Actions": {
+    "openAdmin": "فتح الإدارة",
+    "openSettings": "فتح الإعدادات",
+    "submit": "إرسال",
+    "viewDashboard": "عرض لوحة التحكم"
+  },
+  "AdminContent": {
+    "action": "الإجراء",
+    "adminBadge": "الإدارة",
+    "contentChangesSaved": "تم حفظ تغييرات المحتوى وإعادة تفعيل المسارات العامة.",
+    "description": "صفحات الهبوط والأسعار والتواصل والصفحات القانونية تدار من سجلات محتوى في قاعدة البيانات.",
+    "edit": "تحرير",
+    "email": "البريد الإلكتروني",
+    "emptySubmissions": "لا توجد رسائل تواصل بعد.",
+    "locale": "اللغة",
+    "name": "الاسم",
+    "recentSubmissionsDescription": "الرسائل المرسلة عبر نموذج التواصل العام تحفظ في قاعدة البيانات لمراجعة الإدارة.",
+    "recentSubmissionsTitle": "أحدث رسائل التواصل",
+    "status": "الحالة",
+    "submitted": "وقت الإرسال",
+    "title": "سجل المحتوى المدار",
+    "type": "النوع",
+    "pageTitle": "العنوان",
+    "publishState": "حالة النشر"
+  },
+  "AdminEditor": {
+    "addField": "إضافة حقل",
+    "addPlan": "إضافة خطة",
+    "addSection": "إضافة قسم",
+    "contactDescription": "اضبط تسميات الحقول وحدود التحقق وتوجيه المستلمين وحماية الرسائل المزعجة للغة المحددة.",
+    "contactEditing": "تحرير إعدادات التواصل للغة {locale}.",
+    "contactSettings": "إعدادات التواصل",
+    "contentVersion": "إصدار المحتوى",
+    "createDescription": "يضيف سجل صفحة مترجم إلى نفس نظام المحتوى في قاعدة البيانات المستخدم في المسارات العامة.",
+    "createManagedPage": "إنشاء صفحة مدارة",
+    "createPage": "إنشاء صفحة",
+    "ctaHref": "رابط زر الدعوة",
+    "ctaLabel": "نص زر الدعوة",
+    "description": "الوصف",
+    "editDescription": "تكتب التحديثات في مستودع محتوى قاعدة البيانات وتفعل المسار العام مباشرة.",
+    "editManagedPage": "تحرير صفحة مدارة",
+    "enabled": "مفعل",
+    "disabled": "معطل",
+    "eyebrow": "النص التمهيدي",
+    "features": "الميزات",
+    "field": "الحقل {number}",
+    "fields": "الحقول",
+    "firstSectionBody": "محتوى القسم الأول",
+    "highlighted": "مميز",
+    "items": "العناصر",
+    "label": "التسمية",
+    "locale": "اللغة",
+    "maximumLength": "الحد الأقصى للطول",
+    "minimumLength": "الحد الأدنى للطول",
+    "oneFeaturePerLine": "ميزة واحدة في كل سطر.",
+    "oneItemPerLine": "عنصر واحد في كل سطر.",
+    "openGraphImage": "صورة Open Graph",
+    "optional": "اختياري",
+    "plan": "الخطة {number}",
+    "planName": "اسم الخطة",
+    "plans": "الخطط",
+    "pricingDescription": "إدارة عرض الخطط المترجمة بينما تتحكم محولات الفوترة في سلوك مزود الدفع.",
+    "pricingEditing": "تحرير خطط الأسعار للغة {locale}.",
+    "pricingPlans": "خطط الأسعار",
+    "priceLabel": "تسمية السعر",
+    "publishState": "حالة النشر",
+    "recipientEmail": "بريد المستلم",
+    "remove": "إزالة",
+    "required": "مطلوب",
+    "saveContactSettings": "حفظ إعدادات التواصل",
+    "savePage": "حفظ الصفحة",
+    "savePricingPlans": "حفظ خطط الأسعار",
+    "section": "القسم {number}",
+    "sectionBody": "محتوى القسم",
+    "sectionTitle": "عنوان القسم",
+    "sections": "الأقسام",
+    "sectionsDescription": "أضف وأزل وأعد ترتيب كتل المحتوى عبر حقول منظمة.",
+    "seoDescription": "وصف SEO",
+    "seoTitle": "عنوان SEO",
+    "spamProtection": "حماية الرسائل المزعجة",
+    "standard": "قياسي",
+    "subjectPrefix": "بادئة الموضوع",
+    "successMessage": "رسالة النجاح",
+    "slug": "المعرف",
+    "title": "العنوان",
+    "type": "النوع"
+  },
+  "AdminOverview": {
+    "adminBadge": "الإدارة",
+    "contactDescription": "محفوظة عبر نموذج التواصل المدار",
+    "contactMessages": "رسائل التواصل",
+    "localeDescription": "الإنجليزية والعربية مهيأتان",
+    "locales": "اللغات",
+    "managedPages": "الصفحات المدارة",
+    "managedPagesDescription": "سجلات محتوى قابلة للتحرير"
+  },
+  "AdminValidation": {
+    "contactFieldsRequired": "يلزم وجود حقل تواصل واحد على الأقل.",
+    "pageSectionsRequired": "يلزم وجود قسم واحد على الأقل في الصفحة.",
+    "pricingPlansRequired": "يلزم وجود خطة أسعار واحدة على الأقل."
+  },
+  "ContactForm": {
+    "ariaLabel": "طلب تواصل",
+    "company": "الشركة",
+    "sending": "جار الإرسال...",
+    "submit": "إرسال"
+  },
+  "ContactPage": {
+    "eyebrow": "تواصل مدار"
+  },
+  "ContactFieldType": {
+    "email": "بريد إلكتروني",
+    "text": "نص",
+    "textarea": "منطقة نص"
+  },
+  "ContactSubmissionStatus": {
+    "new": "جديدة",
+    "reviewed": "تمت مراجعتها"
+  },
+  "ContactValidation": {
+    "email": "يجب أن يكون {field} بريدا إلكترونيا صالحا.",
+    "locale": "اللغة المحددة غير مدعومة.",
+    "maxLength": "يجب ألا يتجاوز {field} {max} حرفا.",
+    "minLength": "يجب أن يكون {field} {min} حرفا على الأقل.",
+    "required": "{field} مطلوب."
+  },
+  "DashboardPage": {
+    "chartDescription": "نشاط تجريبي يعرض عبر مكون الرسم البياني القابل لإعادة الاستخدام.",
+    "chartTitle": "نشاط تجريبي",
+    "cards": {
+      "layouts": {
+        "label": "التخطيطات",
+        "value": "5 عقود للواجهات"
+      },
+      "locales": {
+        "label": "اللغات",
+        "value": "الإنجليزية والعربية"
+      },
+      "uiPrimitives": {
+        "label": "مكونات الواجهة",
+        "value": "نماذج وجداول ورسوم"
+      }
+    },
+    "days": {
+      "fri": "الجمعة",
+      "mon": "الاثنين",
+      "thu": "الخميس",
+      "tue": "الثلاثاء",
+      "wed": "الأربعاء"
+    },
+    "modules": {
+      "applicationShell": "هيكل التطبيق",
+      "billingBoundary": "حدود مزود الفوترة",
+      "core": "النواة",
+      "localization": "التوطين",
+      "localizationFoundation": "أساس التوطين",
+      "billing": "الفوترة",
+      "queued": "في الانتظار",
+      "ready": "جاهز"
+    },
+    "table": {
+      "module": "الوحدة",
+      "owner": "المالك",
+      "status": "الحالة"
+    }
+  },
+  "Errors": {
+    "globalTitle": "تعذر عرض هيكل التطبيق.",
+    "loadingDescription": "جار تجهيز واجهة التطبيق المطلوبة.",
+    "loadingTitle": "جار التحميل",
+    "notFoundDescription": "الصفحة المطلوبة غير متاحة لهذه اللغة.",
+    "notFoundTitle": "الصفحة غير موجودة",
+    "routeTitle": "تعذر عرض هذا المسار.",
+    "returnHome": "العودة للرئيسية",
+    "tryAgain": "حاول مرة أخرى"
+  },
+  "LocaleSwitcher": {
+    "switch": "تبديل اللغة إلى {locale}"
+  },
+  "MarketingPage": {
+    "reviewPricing": "راجع الأسعار"
+  },
   "Navigation": {
-    "home": "الرئيسية",
-    "pricing": "الأسعار",
-    "contact": "تواصل",
-    "legal": "القانونية",
-    "dashboard": "لوحة التحكم",
-    "settings": "الإعدادات",
     "admin": "الإدارة",
+    "contact": "تواصل",
+    "dashboard": "لوحة التحكم",
+    "home": "الرئيسية",
+    "legal": "القانونية",
+    "pricing": "الأسعار",
+    "settings": "الإعدادات",
     "signIn": "تسجيل الدخول"
   },
-  "Actions": {
-    "viewDashboard": "عرض لوحة التحكم",
-    "openSettings": "فتح الإعدادات",
-    "openAdmin": "فتح الإدارة",
-    "submit": "إرسال"
+  "PageKind": {
+    "contact": "تواصل",
+    "landing": "هبوط",
+    "legal": "قانونية",
+    "pricing": "أسعار"
+  },
+  "PricingPage": {
+    "configured": "مهيأة",
+    "eyebrow": "أسعار مدارة"
+  },
+  "PublicationState": {
+    "archived": "مؤرشفة",
+    "draft": "مسودة",
+    "published": "منشورة",
+    "scheduled": "مجدولة"
+  },
+  "SettingsPage": {
+    "accountDescription": "صفحات الإعدادات تستخدم نفس الهيكل المتجاوب مثل وحدات المنتج.",
+    "accountTitle": "إعدادات التطبيق",
+    "email": "البريد الإلكتروني",
+    "displayName": "اسم العرض",
+    "defaultDisplayName": "مستخدم تجريبي",
+    "defaultEmail": "demo@example.com",
+    "layoutNote": "سيعاد استخدام هذا التخطيط للسمات واللغة والتنبيهات وإعدادات المؤسسة.",
+    "profileDescription": "مكونات النماذج تحجز العقد اللازم لوحدة الهوية.",
+    "profileTitle": "إعدادات الملف الشخصي",
+    "saveProfile": "حفظ الملف الشخصي",
+    "securityNote": "تفصل عناصر التحكم الحساسة أمنيا قبل إضافة الإجراءات المدمرة."
+  },
+  "Shell": {
+    "adminEyebrow": "واجهة الإدارة",
+    "adminTitle": "المحتوى وعناصر التحكم التشغيلية",
+    "applicationNavigation": "تنقل التطبيق",
+    "authDescription": "يوفر هذا التخطيط عقدا متجاوبا مستقرا لتدفقات تسجيل الدخول ومفاتيح المرور والتحقق متعدد العوامل والاسترداد.",
+    "authTitle": "واجهة مصادقة قابلة لإعادة الاستخدام وجاهزة لوحدة الهوية.",
+    "contentRegistry": "سجل المحتوى",
+    "mainNavigation": "التنقل الرئيسي",
+    "mobileApplicationNavigation": "تنقل التطبيق للجوال"
+  },
+  "SignInPage": {
+    "description": "ستربط وحدة الهوية المزودين بهذا التخطيط المستقر للمصادقة.",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "submit": "تسجيل الدخول",
+    "title": "تسجيل الدخول إلى {appName}"
+  },
+  "Theme": {
+    "dark": "الوضع الداكن",
+    "light": "الوضع الفاتح",
+    "switch": "التبديل إلى {theme}"
   }
 }

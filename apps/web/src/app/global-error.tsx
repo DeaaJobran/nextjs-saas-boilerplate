@@ -8,6 +8,9 @@ import {
 } from "@nextjs-saas/localization";
 import { ErrorState } from "@nextjs-saas/ui";
 
+import arMessages from "../messages/ar.json";
+import enMessages from "../messages/en.json";
+
 function getErrorLocale(): Locale {
   if (typeof window === "undefined") {
     return defaultLocale;
@@ -18,6 +21,11 @@ function getErrorLocale(): Locale {
   return isLocale(locale) ? locale : defaultLocale;
 }
 
+const errorMessages = {
+  ar: arMessages.Errors,
+  en: enMessages.Errors,
+} satisfies Record<Locale, typeof enMessages.Errors>;
+
 export default function GlobalError({
   error,
   reset,
@@ -26,7 +34,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const locale = getErrorLocale();
-  const isArabic = locale === "ar";
+  const messages = errorMessages[locale];
 
   return (
     <html dir={getTextDirection(locale)} lang={locale}>
@@ -34,15 +42,11 @@ export default function GlobalError({
         <main className="flex min-h-dvh items-center justify-center p-6">
           <ErrorState
             action={{
-              label: isArabic ? "حاول مرة أخرى" : "Try again",
+              label: messages.tryAgain,
               onClick: reset,
             }}
             description={error.message}
-            title={
-              isArabic
-                ? "تعذر عرض هيكل التطبيق."
-                : "The application shell failed to render."
-            }
+            title={messages.globalTitle}
           />
         </main>
       </body>

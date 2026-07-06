@@ -9,6 +9,7 @@ import {
 } from "@nextjs-saas/ui";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { Link } from "../../../../i18n/navigation";
 import { getContentRepository } from "../../../../lib/content-store";
@@ -38,6 +39,7 @@ export default async function PricingPage({
 }) {
   const { locale: value } = await params;
   const locale = assertLocale(value);
+  const t = await getTranslations({ locale, namespace: "PricingPage" });
   const repository = await getContentRepository();
   const page = repository.getPage({ kind: "pricing", locale });
 
@@ -48,7 +50,7 @@ export default async function PricingPage({
   return (
     <main className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-3xl space-y-3">
-        <p className="text-primary text-sm font-medium">Managed pricing</p>
+        <p className="text-primary text-sm font-medium">{t("eyebrow")}</p>
         <h1 className="text-4xl font-semibold tracking-tight">{page.title}</h1>
         <p className="text-muted-foreground text-lg">{page.description}</p>
       </div>
@@ -64,7 +66,7 @@ export default async function PricingPage({
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>{plan.name}</CardTitle>
                 {plan.highlighted ? (
-                  <Badge variant="success">Configured</Badge>
+                  <Badge variant="success">{t("configured")}</Badge>
                 ) : null}
               </div>
               <p className="text-3xl font-semibold">{plan.priceLabel}</p>

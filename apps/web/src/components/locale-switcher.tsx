@@ -3,19 +3,20 @@
 import { type Locale, localeLabels, locales } from "@nextjs-saas/localization";
 import { Button } from "@nextjs-saas/ui";
 import { LanguagesIcon } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Link, usePathname } from "../i18n/navigation";
 
 export function LocaleSwitcher() {
   const currentLocale = useLocale() as Locale;
+  const t = useTranslations("LocaleSwitcher");
   const pathname = usePathname();
   const nextLocale =
     locales.find((locale) => locale !== currentLocale) ?? currentLocale;
 
   return (
     <Button
-      aria-label={`Switch language to ${localeLabels[nextLocale]}`}
+      aria-label={t("switch", { locale: localeLabels[nextLocale] })}
       asChild
       variant="outline"
     >

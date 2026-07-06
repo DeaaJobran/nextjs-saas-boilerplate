@@ -5,10 +5,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@nextjs-saas/ui";
+import { getTranslations } from "next-intl/server";
 
 import { getContentRepository } from "../../../../lib/content-store";
 
 export default async function AdminPage() {
+  const t = await getTranslations("AdminOverview");
   const repository = await getContentRepository();
   const pages = repository.listAllPages();
   const submissions = repository.listContactSubmissions();
@@ -16,19 +18,19 @@ export default async function AdminPage() {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {[
-        ["Managed pages", String(pages.length), "editable content records"],
-        ["Locales", "2", "English and Arabic configured"],
+        [t("managedPages"), String(pages.length), t("managedPagesDescription")],
+        [t("locales"), "2", t("localeDescription")],
         [
-          "Contact messages",
+          t("contactMessages"),
           String(submissions.length),
-          "saved through the managed contact form",
+          t("contactDescription"),
         ],
       ].map(([title, value, description]) => (
         <Card key={title}>
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-3">
               {title}
-              <Badge variant="outline">Admin</Badge>
+              <Badge variant="outline">{t("adminBadge")}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>

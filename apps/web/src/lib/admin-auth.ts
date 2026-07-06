@@ -10,7 +10,7 @@ export async function requireAdminAuth() {
       throw new Error("ADMIN_SESSION_TOKEN is required for admin mutations.");
     }
 
-    return;
+    return "development-admin";
   }
 
   const cookieStore = await cookies();
@@ -19,4 +19,6 @@ export async function requireAdminAuth() {
   if (sessionToken !== expectedToken) {
     throw new Error("Admin authentication is required.");
   }
+
+  return "admin-session";
 }

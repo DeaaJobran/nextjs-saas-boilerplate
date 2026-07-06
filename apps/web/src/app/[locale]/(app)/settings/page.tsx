@@ -7,54 +7,51 @@ import {
   Field,
   TextInput,
 } from "@nextjs-saas/ui";
+import { getTranslations } from "next-intl/server";
 
 async function handleSaveProfile() {
   "use server";
   // TODO: Persist profile updates once the identity and database modules exist.
 }
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const t = await getTranslations("SettingsPage");
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Profile settings</CardTitle>
+          <CardTitle>{t("profileTitle")}</CardTitle>
           <p className="text-muted-foreground text-sm">
-            Form primitives reserve the contract for the identity module.
+            {t("profileDescription")}
           </p>
         </CardHeader>
         <CardContent>
           <form action={handleSaveProfile} className="grid gap-4">
-            <Field label="Display name">
-              <TextInput defaultValue="Demo User" name="name" />
+            <Field label={t("displayName")}>
+              <TextInput defaultValue={t("defaultDisplayName")} name="name" />
             </Field>
-            <Field label="Email">
+            <Field label={t("email")}>
               <TextInput
-                defaultValue="demo@example.com"
+                defaultValue={t("defaultEmail")}
                 name="email"
                 type="email"
               />
             </Field>
-            <Button type="submit">Save profile</Button>
+            <Button type="submit">{t("saveProfile")}</Button>
           </form>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Application settings</CardTitle>
+          <CardTitle>{t("accountTitle")}</CardTitle>
           <p className="text-muted-foreground text-sm">
-            Settings pages use the same responsive shell as product modules.
+            {t("accountDescription")}
           </p>
         </CardHeader>
         <CardContent className="text-muted-foreground grid gap-3 text-sm">
-          <p>
-            Theme, locale, notifications, and organization settings will reuse
-            this layout.
-          </p>
-          <p>
-            Security-sensitive controls are separated before destructive actions
-            are added.
-          </p>
+          <p>{t("layoutNote")}</p>
+          <p>{t("securityNote")}</p>
         </CardContent>
       </Card>
     </div>

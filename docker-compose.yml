@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: nextjs_saas
+      POSTGRES_PASSWORD: nextjs_saas
+      POSTGRES_USER: nextjs_saas
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextjs_saas -d nextjs_saas"]
+      interval: 5s
+      retries: 10
+      start_period: 10s
+      timeout: 5s
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

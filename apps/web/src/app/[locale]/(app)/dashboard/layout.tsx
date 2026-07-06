@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import { DashboardShell } from "../../../../components/shells";
 import { assertLocale } from "../../../../lib/locale";
 
@@ -9,9 +11,14 @@ export default async function DashboardLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const resolvedLocale = assertLocale(locale);
+  const t = await getTranslations({
+    locale: resolvedLocale,
+    namespace: "Navigation",
+  });
 
   return (
-    <DashboardShell locale={assertLocale(locale)} title="Dashboard">
+    <DashboardShell locale={resolvedLocale} title={t("dashboard")}>
       {children}
     </DashboardShell>
   );

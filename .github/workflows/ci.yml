@@ -13,6 +13,22 @@ jobs:
   quality:
     name: quality
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: nextjs_saas
+          POSTGRES_PASSWORD: nextjs_saas
+          POSTGRES_USER: nextjs_saas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nextjs_saas -d nextjs_saas"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://nextjs_saas:nextjs_saas@127.0.0.1:5432/nextjs_saas
 
     steps:
       - name: Checkout
@@ -31,6 +47,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Prepare database
+        run: |
+          pnpm db:migrate
+          pnpm db:seed
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
