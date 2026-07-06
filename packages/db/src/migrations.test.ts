@@ -143,6 +143,42 @@ describe("database migrations", () => {
     ]);
   }, 15_000);
 
+  it("creates tenant administration tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'impersonation_sessions',
+          'organization_feature_flags',
+          'organization_invitations',
+          'organization_memberships',
+          'organization_quotas',
+          'organization_usage_limits',
+          'organizations',
+          'tenant_audit_events'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "impersonation_sessions",
+      "organization_feature_flags",
+      "organization_invitations",
+      "organization_memberships",
+      "organization_quotas",
+      "organization_usage_limits",
+      "organizations",
+      "tenant_audit_events",
+    ]);
+  }, 15_000);
+
   it("seeds content and records versions and audit events for admin changes", async () => {
     databaseRuntimeOpened = true;
 

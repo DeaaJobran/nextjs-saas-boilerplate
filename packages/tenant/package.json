@@ -1,0 +1,21 @@
+{
+  "name": "@nextjs-saas/tenant",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/tenant/src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nextjs-saas/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

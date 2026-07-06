@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -797,6 +798,311 @@ export const authAuditEvents = pgTable(
     ),
     index("auth_audit_events_type_created_idx").on(
       table.eventType,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const organizations = pgTable(
+  "organizations",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdBy: text("created_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    defaultLocale: text("default_locale").notNull().default("en"),
+    deletedAt: timestamp("deleted_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    deletedBy: text("deleted_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    description: text("description"),
+    id: text("id").primaryKey(),
+    logoUrl: text("logo_url"),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    status: text("status").notNull().default("active"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    websiteUrl: text("website_url"),
+  },
+  (table) => [
+    uniqueIndex("organizations_slug_active_unique")
+      .on(table.slug)
+      .where(sql`deleted_at IS NULL`),
+  ],
+);
+
+export const organizationMemberships = pgTable(
+  "organization_memberships",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    customPermissions: jsonb("custom_permissions").$type<string[]>().notNull(),
+    invitedBy: text("invited_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    joinedAt: timestamp("joined_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    removedAt: timestamp("removed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    removedBy: text("removed_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    role: text("role").notNull(),
+    status: text("status").notNull().default("active"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.userId] }),
+    index("organization_memberships_user_active_idx").on(
+      table.userId,
+      table.status,
+      table.removedAt,
+    ),
+    index("organization_memberships_org_role_idx").on(
+      table.organizationId,
+      table.role,
+      table.status,
+    ),
+  ],
+);
+
+export const organizationInvitations = pgTable(
+  "organization_invitations",
+  {
+    acceptedAt: timestamp("accepted_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    acceptedBy: text("accepted_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdBy: text("created_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    customPermissions: jsonb("custom_permissions").$type<string[]>().notNull(),
+    email: text("email").notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    normalizedEmail: text("normalized_email").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    rejectedAt: timestamp("rejected_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    rejectedBy: text("rejected_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    role: text("role").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("organization_invitations_token_hash_unique").on(
+      table.tokenHash,
+    ),
+    index("organization_invitations_email_active_idx").on(
+      table.normalizedEmail,
+      table.acceptedAt,
+      table.rejectedAt,
+      table.expiresAt,
+    ),
+    index("organization_invitations_org_active_idx").on(
+      table.organizationId,
+      table.acceptedAt,
+      table.rejectedAt,
+      table.expiresAt,
+    ),
+  ],
+);
+
+export const organizationFeatureFlags = pgTable(
+  "organization_feature_flags",
+  {
+    enabled: boolean("enabled").notNull().default(false),
+    key: text("flag_key").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.key] })],
+);
+
+export const organizationUsageLimits = pgTable(
+  "organization_usage_limits",
+  {
+    key: text("limit_key").notNull(),
+    limitValue: bigint("limit_value", { mode: "number" }).notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    resetAt: timestamp("reset_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    usedValue: bigint("used_value", { mode: "number" }).notNull().default(0),
+    windowSeconds: integer("window_seconds"),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.key] })],
+);
+
+export const organizationQuotas = pgTable("organization_quotas", {
+  aiTokenLimit: bigint("ai_token_limit", { mode: "number" }).notNull(),
+  aiTokenUsed: bigint("ai_token_used", { mode: "number" }).notNull().default(0),
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  storageBytesLimit: bigint("storage_bytes_limit", {
+    mode: "number",
+  }).notNull(),
+  storageBytesUsed: bigint("storage_bytes_used", {
+    mode: "number",
+  })
+    .notNull()
+    .default(0),
+  updatedAt: timestamp("updated_at", {
+    mode: "string",
+    withTimezone: true,
+  }).notNull(),
+  updatedBy: text("updated_by").references(() => authUsers.id, {
+    onDelete: "set null",
+  }),
+});
+
+export const impersonationSessions = pgTable(
+  "impersonation_sessions",
+  {
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    endedAt: timestamp("ended_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    endedBy: text("ended_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    startedAt: timestamp("started_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    subjectUserId: text("subject_user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("impersonation_sessions_actor_active_idx").on(
+      table.actorId,
+      table.endedAt,
+      table.expiresAt,
+    ),
+    index("impersonation_sessions_subject_active_idx").on(
+      table.subjectUserId,
+      table.endedAt,
+      table.expiresAt,
+    ),
+  ],
+);
+
+export const tenantAuditEvents = pgTable(
+  "tenant_audit_events",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    impersonationSessionId: text("impersonation_session_id").references(
+      () => impersonationSessions.id,
+      { onDelete: "set null" },
+    ),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    subjectId: text("subject_id"),
+    subjectType: text("subject_type").notNull(),
+  },
+  (table) => [
+    index("tenant_audit_events_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("tenant_audit_events_actor_created_idx").on(
+      table.actorId,
       table.createdAt,
     ),
   ],

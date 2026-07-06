@@ -13,6 +13,7 @@
     "@nextjs-saas/config": "workspace:*",
     "@nextjs-saas/db": "workspace:*",
     "@nextjs-saas/localization": "workspace:*",
+    "@nextjs-saas/tenant": "workspace:*",
     "@nextjs-saas/ui": "workspace:*",
     "@simplewebauthn/browser": "^13.3.0",
     "lucide-react": "^1.23.0",

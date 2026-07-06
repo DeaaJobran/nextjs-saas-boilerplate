@@ -24,6 +24,7 @@ async function grantUserAccess(page: import("@playwright/test").Page) {
 const cases = [
   { height: 740, route: "/en", width: 375 },
   { height: 900, route: "/en/dashboard", width: 768 },
+  { height: 900, route: "/en/settings/organization", width: 390 },
   { height: 900, route: "/en/admin/content", width: 1024 },
   { height: 900, route: "/ar", width: 1440 },
 ];
@@ -37,7 +38,10 @@ for (const viewport of cases) {
       width: viewport.width,
     });
 
-    if (viewport.route.includes("/dashboard")) {
+    if (
+      viewport.route.includes("/dashboard") ||
+      viewport.route.includes("/settings")
+    ) {
       await grantUserAccess(page);
     }
 
