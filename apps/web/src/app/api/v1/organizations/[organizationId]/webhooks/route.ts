@@ -26,6 +26,7 @@ export async function GET(
     request,
     requiredScopes: ["webhooks:read"],
     routeId: "listWebhookEndpoints",
+    tenantId: organizationId,
   });
 }
 
@@ -59,5 +60,6 @@ export async function POST(
     request,
     requiredScopes: ["webhooks:write"],
     routeId: "createWebhookEndpoint",
+    tenantId: organizationId,
   });
 }

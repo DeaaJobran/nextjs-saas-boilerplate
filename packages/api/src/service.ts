@@ -14,6 +14,7 @@ import {
 import {
   createApiKeySecret,
   getDatabaseRuntime,
+  hashApiKey,
   type Queryable,
   runMigrations,
   verifyApiKeySecret,
@@ -248,8 +249,12 @@ function addSeconds(date: Date, seconds: number) {
   return new Date(date.getTime() + seconds * 1000);
 }
 
-function hashLookupValue(value: string, secret: string) {
+function hashApiLookupValue(value: string, secret: string) {
   return createHmac("sha256", secret).update(value).digest("base64url");
+}
+
+function hashMobileSessionFamily(sessionId: string) {
+  return hashApiKey(`mobile-session:${sessionId}`);
 }
 
 function stableJson(value: unknown): string {
@@ -686,8 +691,8 @@ export function createApiService(options: ApiServiceOptions = {}) {
     return "development-api-lookup-hash-secret-change-before-production";
   }
 
-  function hashValue(value: string) {
-    return hashLookupValue(value, getLookupHashSecret());
+  function hashLookupToken(value: string) {
+    return hashApiLookupValue(value, getLookupHashSecret());
   }
 
   async function getActiveOrganization(
@@ -903,6 +908,9 @@ export function createApiService(options: ApiServiceOptions = {}) {
   }) {
     const client = await getClient();
     const timestamp = now().toISOString();
+    const tenantId = input.tenantId ?? input.principal?.tenantId ?? null;
+    const actorId = input.principal?.actorId ?? null;
+    const apiKeyId = getPrincipalApiKeyId(input.principal) ?? null;
 
     await client.execute(
       `
@@ -927,17 +935,17 @@ export function createApiService(options: ApiServiceOptions = {}) {
       `,
       [
         randomUUID(),
-        input.tenantId ?? input.principal?.tenantId,
-        input.principal?.actorId,
-        getPrincipalApiKeyId(input.principal),
+        tenantId,
+        actorId,
+        apiKeyId,
         input.context?.requestId ?? randomUUID(),
         input.method,
         input.path,
         input.statusCode,
-        input.errorCode,
-        input.context?.ipAddress,
-        input.context?.userAgent,
-        input.context?.idempotencyKey,
+        input.errorCode ?? null,
+        input.context?.ipAddress ?? null,
+        input.context?.userAgent ?? null,
+        input.context?.idempotencyKey ?? null,
         Math.max(0, Math.round(input.durationMs ?? 0)),
         JSON.stringify({
           principalType: input.principal?.type,
@@ -966,9 +974,9 @@ export function createApiService(options: ApiServiceOptions = {}) {
       `,
       [
         randomUUID(),
-        input.tenantId ?? input.principal?.tenantId,
-        input.principal?.actorId,
-        getPrincipalApiKeyId(input.principal),
+        tenantId,
+        actorId,
+        apiKeyId,
         input.routeId,
         input.method,
         input.path,
@@ -1019,7 +1027,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
       `,
       [
         storedKey,
-        input.tenantId,
+        input.tenantId ?? null,
         input.scope,
         bodyHash,
         addSeconds(timestamp, 60).toISOString(),
@@ -1047,7 +1055,10 @@ export function createApiService(options: ApiServiceOptions = {}) {
         );
       }
 
-      if (existing.response_body && existing.response_status) {
+      if (
+        existing.response_body !== null &&
+        existing.response_status !== null
+      ) {
         return {
           body: parseJson<Record<string, unknown>>(
             existing.response_body,
@@ -1057,6 +1068,12 @@ export function createApiService(options: ApiServiceOptions = {}) {
           status: existing.response_status,
         };
       }
+
+      throw new ApiError(
+        "A request with this idempotency key is already in progress.",
+        "idempotency_in_progress",
+        409,
+      );
     }
 
     const response = await input.handler();
@@ -1123,7 +1140,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
         keyPrefix,
         hash,
         JSON.stringify(scopes),
-        input.expiresAt,
+        input.expiresAt ?? null,
         timestamp,
         input.actorId,
       ],
@@ -1284,8 +1301,8 @@ export function createApiService(options: ApiServiceOptions = {}) {
         eventId,
         input.organizationId,
         input.eventType,
-        input.subjectType,
-        input.subjectId,
+        input.subjectType ?? null,
+        input.subjectId ?? null,
         JSON.stringify(input.payload ?? {}),
         timestamp,
       ],
@@ -1372,12 +1389,12 @@ export function createApiService(options: ApiServiceOptions = {}) {
         randomUUID(),
         input.organizationId,
         input.url,
-        input.description,
+        input.description ?? null,
         JSON.stringify([...new Set(input.eventTypes)]),
         hash,
         secret.slice(0, 12),
         timestamp,
-        input.actorId ?? input.principal.actorId,
+        input.actorId ?? input.principal.actorId ?? null,
       ],
     );
 
@@ -1440,7 +1457,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
         deliveryId,
         input.tenantId,
         input.endpointId,
-        input.eventId,
+        input.eventId ?? null,
         input.eventType,
         input.status ?? "queued",
         JSON.stringify(input.payload ?? {}),
@@ -1512,7 +1529,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
     const client = await getClient();
     const timestamp = now().toISOString();
     const fingerprintHash = input.deviceFingerprint
-      ? hashValue(input.deviceFingerprint)
+      ? hashLookupToken(input.deviceFingerprint)
       : undefined;
 
     if (fingerprintHash) {
@@ -1532,7 +1549,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
         [
           input.deviceName,
           input.platform,
-          input.appVersion,
+          input.appVersion ?? null,
           timestamp,
           input.userId,
           fingerprintHash,
@@ -1565,8 +1582,8 @@ export function createApiService(options: ApiServiceOptions = {}) {
         input.userId,
         input.platform,
         input.deviceName,
-        fingerprintHash,
-        input.appVersion,
+        fingerprintHash ?? null,
+        input.appVersion ?? null,
         timestamp,
       ],
     );
@@ -1637,7 +1654,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
         device.id,
         authResult.session.session.id,
         authResult.user.id,
-        hashValue(authResult.session.session.id),
+        hashMobileSessionFamily(authResult.session.session.id),
         timestamp,
       ],
     );
@@ -1695,7 +1712,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
             updated_at = $1
         WHERE id = $3
       `,
-      [timestamp, input.appVersion, mobileSession.device_id],
+      [timestamp, input.appVersion ?? null, mobileSession.device_id],
     );
 
     return rotated;
@@ -1804,7 +1821,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
 
     const client = await getClient();
     const timestamp = now().toISOString();
-    const tokenHash = hashValue(input.token);
+    const tokenHash = hashLookupToken(input.token);
 
     await client.execute(
       `
@@ -1891,12 +1908,12 @@ export function createApiService(options: ApiServiceOptions = {}) {
       `,
       [
         id,
-        input.tenantId,
-        input.principal.actorId,
+        input.tenantId ?? null,
+        input.principal.actorId ?? null,
         input.route,
         JSON.stringify(input.params ?? {}),
         url.toString(),
-        input.expiresAt,
+        input.expiresAt ?? null,
         timestamp,
       ],
     );
@@ -1971,8 +1988,8 @@ export function createApiService(options: ApiServiceOptions = {}) {
         input.fileName,
         input.contentType,
         input.byteSize,
-        input.checksumSha256,
-        hashValue(token),
+        input.checksumSha256 ?? null,
+        hashLookupToken(token),
         addSeconds(timestamp, mobileUploadTtlSeconds).toISOString(),
         JSON.stringify(input.metadata ?? {}),
         timestamp.toISOString(),
@@ -2017,10 +2034,10 @@ export function createApiService(options: ApiServiceOptions = {}) {
       [
         timestamp,
         input.intentId,
-        hashValue(input.token),
+        hashLookupToken(input.token),
         input.contentType,
         input.byteSize,
-        input.checksumSha256,
+        input.checksumSha256 ?? null,
       ],
     );
     const intent = rows[0];
@@ -2198,7 +2215,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
         device.id,
         result.session.session.id,
         result.user.id,
-        hashValue(result.session.session.id),
+        hashMobileSessionFamily(result.session.session.id),
         timestamp,
       ],
     );

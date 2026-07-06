@@ -52,6 +52,7 @@ type ApiRouteConfig<T> = {
   requiredScopes?: readonly string[];
   request: Request;
   routeId: string;
+  tenantId?: string;
 };
 
 export async function handleApiOptions(request: Request) {
@@ -74,7 +75,7 @@ export async function handleApiRoute<T>(config: ApiRouteConfig<T>) {
     config.request.headers.get("origin"),
   );
   let principal: ApiPrincipal | undefined;
-  let tenantId: string | undefined;
+  let tenantId: string | undefined = config.tenantId;
 
   try {
     const shouldAuthenticate =

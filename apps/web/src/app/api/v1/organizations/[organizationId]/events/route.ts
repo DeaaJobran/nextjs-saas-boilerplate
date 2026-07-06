@@ -43,6 +43,7 @@ export async function GET(
     request,
     requiredScopes: ["events:read"],
     routeId: "listEvents",
+    tenantId: organizationId,
   });
 }
 
@@ -88,5 +89,6 @@ export async function POST(
     request,
     requiredScopes: ["events:write"],
     routeId: "createEvent",
+    tenantId: organizationId,
   });
 }

@@ -34,5 +34,6 @@ export async function POST(
     request,
     requiredScopes: ["webhooks:write"],
     routeId: "testWebhookEndpoint",
+    tenantId: organizationId,
   });
 }

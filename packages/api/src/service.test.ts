@@ -186,6 +186,70 @@ describe("public API service", () => {
     expect(Number(usageRows[0]?.count)).toBe(1);
   }, 60_000);
 
+  it("rejects duplicate idempotent requests while the first request is in progress", async () => {
+    const { organization, services, user } =
+      await createOwnerScenario("Idempotency Labs");
+    const createdKey = await services.api.createPersonalAccessToken({
+      actorId: user.id,
+      name: "Automation",
+      scopes: ["events:write"],
+    });
+    const principal = await services.api.authenticateBearerToken({
+      authorizationHeader: `Bearer ${createdKey.secret}`,
+    });
+    const requestBody = { eventType: "example.created", payload: { ok: true } };
+    let releaseRequest!: () => void;
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    const first = services.api.withIdempotency({
+      handler: async () => {
+        markStarted();
+        await release;
+
+        return {
+          body: (await services.api.createEvent({
+            eventType: requestBody.eventType,
+            organizationId: organization.id,
+            payload: requestBody.payload,
+            principal,
+          })) as Record<string, unknown>,
+          status: 201,
+        };
+      },
+      key: "in-flight-event-create",
+      requestBody,
+      scope: "events.create",
+      tenantId: organization.id,
+    });
+
+    await started;
+
+    await expect(
+      services.api.withIdempotency({
+        handler: async () => ({
+          body: {},
+          status: 201,
+        }),
+        key: "in-flight-event-create",
+        requestBody,
+        scope: "events.create",
+        tenantId: organization.id,
+      }),
+    ).rejects.toMatchObject({ code: "idempotency_in_progress" });
+
+    releaseRequest();
+
+    await expect(first).resolves.toMatchObject({
+      cached: false,
+      status: 201,
+    });
+  }, 60_000);
+
   it("supports personal access tokens, tenant permission checks, and signed webhook delivery records", async () => {
     const { organization, runtime, services, user } =
       await createOwnerScenario("Webhook Labs");

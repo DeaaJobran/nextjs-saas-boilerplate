@@ -22,5 +22,6 @@ export async function GET(
     request,
     requiredScopes: ["tenant:read"],
     routeId: "getOrganization",
+    tenantId: organizationId,
   });
 }

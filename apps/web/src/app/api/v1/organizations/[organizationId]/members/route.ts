@@ -24,5 +24,6 @@ export async function GET(
     request,
     requiredScopes: ["members:read"],
     routeId: "listOrganizationMembers",
+    tenantId: organizationId,
   });
 }
