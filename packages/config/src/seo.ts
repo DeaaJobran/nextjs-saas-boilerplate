@@ -11,7 +11,9 @@ export function createPageMetadata(seo: PageSeo): Metadata {
 
   return {
     metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
-    title,
+    title: {
+      absolute: title,
+    },
     description: seo.description,
     openGraph: {
       title,

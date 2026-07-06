@@ -1,10 +1,19 @@
-import type { Locale } from "@nextjs-saas/localization";
+import { type Locale, locales } from "@nextjs-saas/localization";
+import { z } from "zod";
 
 import { appConfig, appRoutes } from "./app";
 
-export type PublishState = "draft" | "published" | "scheduled" | "archived";
+export const publishStates = [
+  "draft",
+  "published",
+  "scheduled",
+  "archived",
+] as const;
 
-export type PageKind = "landing" | "pricing" | "contact" | "legal";
+export const pageKinds = ["landing", "pricing", "contact", "legal"] as const;
+
+export type PublishState = (typeof publishStates)[number];
+export type PageKind = (typeof pageKinds)[number];
 
 export type PageSeo = {
   title: string;
@@ -29,6 +38,7 @@ export type ManagedPage = {
   kind: PageKind;
   slug: string;
   locale: Locale;
+  version?: string;
   title: string;
   description: string;
   seo: PageSeo;
@@ -53,18 +63,156 @@ export type ContactField = {
   label: string;
   type: "email" | "text" | "textarea";
   required: boolean;
+  minLength?: number;
+  maxLength?: number;
+};
+
+export type ContactRouting = {
+  recipientEmail: string;
+  subjectPrefix: string;
+  spamProtectionEnabled: boolean;
+  successMessage: string;
+};
+
+export type ContactSubmission = {
+  id: string;
+  locale: Locale;
+  name: string;
+  email: string;
+  message: string;
+  submittedAt: string;
+  status: "new" | "reviewed";
+  values: Record<string, string>;
+};
+
+export type ContentSnapshot = {
+  pages: ManagedPage[];
+  pricingPlans: Record<Locale, PricingPlan[]>;
+  contactFields: Record<Locale, ContactField[]>;
+  contactRouting: Record<Locale, ContactRouting>;
+  contactSubmissions: ContactSubmission[];
 };
 
 export type ContentRepository = {
+  getSnapshot(): ContentSnapshot;
   listPages(locale: Locale): ManagedPage[];
+  listAllPages(): ManagedPage[];
   getPage(input: {
     kind: PageKind;
     locale: Locale;
     slug?: string;
   }): ManagedPage | undefined;
+  getPageById(id: string): ManagedPage | undefined;
   listPricingPlans(locale: Locale): PricingPlan[];
   listContactFields(locale: Locale): ContactField[];
+  getContactRouting(locale: Locale): ContactRouting;
+  listContactSubmissions(locale?: Locale): ContactSubmission[];
 };
+
+const nonEmptyString = z.string().trim().min(1);
+const isoDateString = z.iso.datetime();
+
+const localeSchema = z.enum(locales);
+const publishStateSchema = z.enum(publishStates);
+const pageKindSchema = z.enum(pageKinds);
+
+const pageSeoSchema = z.object({
+  title: nonEmptyString,
+  description: nonEmptyString,
+  ogImage: z.string().trim().optional(),
+});
+
+const pageSectionSchema = z.object({
+  id: nonEmptyString,
+  eyebrow: z.string().trim().optional(),
+  title: nonEmptyString,
+  body: nonEmptyString,
+  items: z.array(nonEmptyString).optional(),
+  cta: z
+    .object({
+      label: nonEmptyString,
+      href: nonEmptyString,
+    })
+    .optional(),
+});
+
+export const managedPageSchema = z.object({
+  id: nonEmptyString,
+  kind: pageKindSchema,
+  slug: nonEmptyString,
+  locale: localeSchema,
+  version: z.string().trim().optional(),
+  title: nonEmptyString,
+  description: nonEmptyString,
+  seo: pageSeoSchema,
+  publishState: publishStateSchema,
+  publishedAt: isoDateString.optional(),
+  updatedAt: isoDateString,
+  sections: z.array(pageSectionSchema).min(1),
+});
+
+const pricingPlanSchema = z.object({
+  id: nonEmptyString,
+  name: nonEmptyString,
+  priceLabel: nonEmptyString,
+  description: nonEmptyString,
+  features: z.array(nonEmptyString).min(1),
+  ctaLabel: nonEmptyString,
+  highlighted: z.boolean().optional(),
+});
+
+const contactFieldSchema = z.object({
+  id: nonEmptyString,
+  label: nonEmptyString,
+  type: z.enum(["email", "text", "textarea"]),
+  required: z.boolean(),
+  minLength: z.number().int().min(0).optional(),
+  maxLength: z.number().int().min(1).optional(),
+});
+
+const contactRoutingSchema = z.object({
+  recipientEmail: z.email(),
+  subjectPrefix: nonEmptyString,
+  spamProtectionEnabled: z.boolean(),
+  successMessage: nonEmptyString,
+});
+
+export const contactSubmissionSchema = z.object({
+  id: nonEmptyString,
+  locale: localeSchema,
+  name: nonEmptyString,
+  email: z.email(),
+  message: nonEmptyString,
+  submittedAt: isoDateString,
+  status: z.enum(["new", "reviewed"]),
+  values: z.record(z.string(), z.string()),
+});
+
+const localizedPricingPlansSchema: z.ZodType<Record<Locale, PricingPlan[]>> =
+  z.object({
+    ar: z.array(pricingPlanSchema),
+    en: z.array(pricingPlanSchema),
+  });
+
+const localizedContactFieldsSchema: z.ZodType<Record<Locale, ContactField[]>> =
+  z.object({
+    ar: z.array(contactFieldSchema),
+    en: z.array(contactFieldSchema),
+  });
+
+const localizedContactRoutingSchema: z.ZodType<Record<Locale, ContactRouting>> =
+  z.object({
+    ar: contactRoutingSchema,
+    en: contactRoutingSchema,
+  });
+
+export const contentSnapshotSchema: z.ZodType<ContentSnapshot> = z.object({
+  pages: z.array(managedPageSchema),
+  pricingPlans: localizedPricingPlansSchema,
+  contactFields: localizedContactFieldsSchema,
+  contactRouting: localizedContactRoutingSchema,
+  contactSubmissions: z.array(contactSubmissionSchema),
+});
 
 const updatedAt = "2026-07-06T00:00:00.000Z";
 
@@ -214,11 +362,34 @@ const pages = [
     ],
   },
   {
+    id: "contact-ar",
+    kind: "contact",
+    slug: "contact",
+    locale: "ar",
+    title: "تواصل معنا",
+    description: "واجهة تواصل قابلة للضبط لمسارات المنتج والدعم.",
+    seo: {
+      title: `تواصل معنا | ${appConfig.name}`,
+      description: "حقول التواصل والتوجيه تتحكم بها إعدادات مشتركة.",
+    },
+    publishState: "published",
+    publishedAt: updatedAt,
+    updatedAt,
+    sections: [
+      {
+        id: "intro",
+        title: "اجعل مسارات التواصل قابلة للضبط.",
+        body: "مخطط النموذج والتوجيه والنصوص وقواعد التحقق مركزية حتى يمكن تخصيصها لكل مستأجر لاحقا.",
+      },
+    ],
+  },
+  {
     id: "legal-privacy-en",
     kind: "legal",
     slug: "privacy",
     locale: "en",
     title: "Privacy Policy",
+    version: "2026.07",
     description: "Versioned legal content placeholder for the boilerplate.",
     seo: {
       title: `Privacy Policy | ${appConfig.name}`,
@@ -242,6 +413,7 @@ const pages = [
     slug: "privacy",
     locale: "ar",
     title: "سياسة الخصوصية",
+    version: "2026.07",
     description: "محتوى قانوني قابل للإصدار داخل القالب.",
     seo: {
       title: `سياسة الخصوصية | ${appConfig.name}`,
@@ -311,35 +483,203 @@ const pricingPlans = {
 
 const contactFields = {
   en: [
-    { id: "name", label: "Name", type: "text", required: true },
-    { id: "email", label: "Email", type: "email", required: true },
-    { id: "message", label: "Message", type: "textarea", required: true },
+    {
+      id: "name",
+      label: "Name",
+      maxLength: 120,
+      minLength: 2,
+      required: true,
+      type: "text",
+    },
+    {
+      id: "email",
+      label: "Email",
+      maxLength: 180,
+      required: true,
+      type: "email",
+    },
+    {
+      id: "message",
+      label: "Message",
+      maxLength: 5000,
+      minLength: 10,
+      required: true,
+      type: "textarea",
+    },
   ],
   ar: [
-    { id: "name", label: "الاسم", type: "text", required: true },
-    { id: "email", label: "البريد الإلكتروني", type: "email", required: true },
-    { id: "message", label: "الرسالة", type: "textarea", required: true },
+    {
+      id: "name",
+      label: "الاسم",
+      maxLength: 120,
+      minLength: 2,
+      required: true,
+      type: "text",
+    },
+    {
+      id: "email",
+      label: "البريد الإلكتروني",
+      maxLength: 180,
+      required: true,
+      type: "email",
+    },
+    {
+      id: "message",
+      label: "الرسالة",
+      maxLength: 5000,
+      minLength: 10,
+      required: true,
+      type: "textarea",
+    },
   ],
 } satisfies Record<Locale, ContactField[]>;
 
-export function createContentRepository(): ContentRepository {
+const contactRouting = {
+  en: {
+    recipientEmail: "support@example.com",
+    subjectPrefix: "[Next.js SaaS Boilerplate]",
+    spamProtectionEnabled: true,
+    successMessage: "Thanks. Your message has been saved for review.",
+  },
+  ar: {
+    recipientEmail: "support@example.com",
+    subjectPrefix: "[Next.js SaaS Boilerplate]",
+    spamProtectionEnabled: true,
+    successMessage: "شكرا لك. تم حفظ رسالتك للمراجعة.",
+  },
+} satisfies Record<Locale, ContactRouting>;
+
+export const defaultContentSnapshot = contentSnapshotSchema.parse({
+  contactFields,
+  contactRouting,
+  contactSubmissions: [],
+  pages,
+  pricingPlans,
+});
+
+export function cloneContentSnapshot(
+  snapshot: ContentSnapshot,
+): ContentSnapshot {
+  return structuredClone(snapshot);
+}
+
+export function parseContentSnapshot(value: unknown): ContentSnapshot {
+  return contentSnapshotSchema.parse(value);
+}
+
+export function createContentRepository(
+  snapshot: ContentSnapshot = defaultContentSnapshot,
+): ContentRepository {
+  const content = parseContentSnapshot(snapshot);
+
   return {
+    getSnapshot() {
+      return cloneContentSnapshot(content);
+    },
     listPages(locale) {
-      return pages.filter((page) => page.locale === locale);
+      return content.pages.filter((page) => page.locale === locale);
+    },
+    listAllPages() {
+      return [...content.pages];
     },
     getPage({ kind, locale, slug }) {
-      return pages.find(
+      return content.pages.find(
         (page) =>
           page.kind === kind &&
           page.locale === locale &&
           (slug === undefined || page.slug === slug),
       );
     },
+    getPageById(id) {
+      return content.pages.find((page) => page.id === id);
+    },
     listPricingPlans(locale) {
-      return pricingPlans[locale];
+      return content.pricingPlans[locale];
     },
     listContactFields(locale) {
-      return contactFields[locale];
+      return content.contactFields[locale];
+    },
+    getContactRouting(locale) {
+      return content.contactRouting[locale];
+    },
+    listContactSubmissions(locale) {
+      return locale
+        ? content.contactSubmissions.filter(
+            (submission) => submission.locale === locale,
+          )
+        : [...content.contactSubmissions];
     },
   };
+}
+
+export function upsertManagedPage(
+  snapshot: ContentSnapshot,
+  page: ManagedPage,
+): ContentSnapshot {
+  const nextPage = managedPageSchema.parse(page);
+  const nextSnapshot = cloneContentSnapshot(snapshot);
+  const existingIndex = nextSnapshot.pages.findIndex(
+    (item) => item.id === nextPage.id,
+  );
+
+  const duplicateSlug = nextSnapshot.pages.find(
+    (item) =>
+      item.id !== nextPage.id &&
+      item.locale === nextPage.locale &&
+      item.kind === nextPage.kind &&
+      item.slug === nextPage.slug,
+  );
+
+  if (duplicateSlug) {
+    throw new Error(
+      `Managed page slug "${nextPage.slug}" already exists for ${nextPage.locale}/${nextPage.kind}.`,
+    );
+  }
+
+  if (existingIndex >= 0) {
+    nextSnapshot.pages[existingIndex] = nextPage;
+  } else {
+    nextSnapshot.pages.push(nextPage);
+  }
+
+  return parseContentSnapshot(nextSnapshot);
+}
+
+export function updateContactConfiguration(
+  snapshot: ContentSnapshot,
+  locale: Locale,
+  fields: ContactField[],
+  routing: ContactRouting,
+): ContentSnapshot {
+  const nextSnapshot = cloneContentSnapshot(snapshot);
+
+  nextSnapshot.contactFields[locale] = z
+    .array(contactFieldSchema)
+    .parse(fields);
+  nextSnapshot.contactRouting[locale] = contactRoutingSchema.parse(routing);
+
+  return parseContentSnapshot(nextSnapshot);
+}
+
+export function updatePricingPlans(
+  snapshot: ContentSnapshot,
+  locale: Locale,
+  plans: PricingPlan[],
+): ContentSnapshot {
+  const nextSnapshot = cloneContentSnapshot(snapshot);
+  nextSnapshot.pricingPlans[locale] = z.array(pricingPlanSchema).parse(plans);
+
+  return parseContentSnapshot(nextSnapshot);
+}
+
+export function recordContactSubmission(
+  snapshot: ContentSnapshot,
+  submission: ContactSubmission,
+): ContentSnapshot {
+  const nextSnapshot = cloneContentSnapshot(snapshot);
+  nextSnapshot.contactSubmissions.unshift(
+    contactSubmissionSchema.parse(submission),
+  );
+
+  return parseContentSnapshot(nextSnapshot);
 }

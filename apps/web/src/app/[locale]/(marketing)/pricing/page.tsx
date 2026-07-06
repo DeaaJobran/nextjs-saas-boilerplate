@@ -1,4 +1,3 @@
-import { createContentRepository } from "@nextjs-saas/config/content";
 import { createPageMetadata } from "@nextjs-saas/config/seo";
 import {
   Badge,
@@ -12,6 +11,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { Link } from "../../../../i18n/navigation";
+import { getContentRepository } from "../../../../lib/content-store";
 import { assertLocale } from "../../../../lib/locale";
 
 export async function generateMetadata({
@@ -21,7 +21,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale: value } = await params;
   const locale = assertLocale(value);
-  const page = createContentRepository().getPage({ kind: "pricing", locale });
+  const repository = await getContentRepository();
+  const page = repository.getPage({ kind: "pricing", locale });
 
   if (!page) {
     notFound();
@@ -37,7 +38,7 @@ export default async function PricingPage({
 }) {
   const { locale: value } = await params;
   const locale = assertLocale(value);
-  const repository = createContentRepository();
+  const repository = await getContentRepository();
   const page = repository.getPage({ kind: "pricing", locale });
 
   if (!page) {

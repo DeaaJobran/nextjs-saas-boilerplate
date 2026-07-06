@@ -19,6 +19,7 @@ node_modules/
 
 # local implementation notes
 /docs/
+.local/
 
 # next.js
 /.next/

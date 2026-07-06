@@ -1,4 +1,3 @@
-import { createContentRepository } from "@nextjs-saas/config/content";
 import {
   createPageMetadata,
   createSoftwareApplicationJsonLd,
@@ -10,6 +9,7 @@ import { notFound } from "next/navigation";
 
 import { ManagedPageSections } from "../../../components/managed-page";
 import { Link } from "../../../i18n/navigation";
+import { getContentRepository } from "../../../lib/content-store";
 import { assertLocale } from "../../../lib/locale";
 
 export async function generateMetadata({
@@ -19,7 +19,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale: value } = await params;
   const locale = assertLocale(value);
-  const page = createContentRepository().getPage({ kind: "landing", locale });
+  const repository = await getContentRepository();
+  const page = repository.getPage({ kind: "landing", locale });
 
   if (!page) {
     notFound();
@@ -35,7 +36,8 @@ export default async function HomePage({
 }) {
   const { locale: value } = await params;
   const locale = assertLocale(value);
-  const page = createContentRepository().getPage({ kind: "landing", locale });
+  const repository = await getContentRepository();
+  const page = repository.getPage({ kind: "landing", locale });
 
   if (!page) {
     notFound();

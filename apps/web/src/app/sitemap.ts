@@ -1,11 +1,12 @@
 import { appRoutes } from "@nextjs-saas/config/app";
-import { createContentRepository } from "@nextjs-saas/config/content";
 import { env } from "@nextjs-saas/config/env";
 import { locales } from "@nextjs-saas/localization";
 import type { MetadataRoute } from "next";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const repository = createContentRepository();
+import { getContentRepository } from "../lib/content-store";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const repository = await getContentRepository();
   const staticRoutes = [
     appRoutes.marketing,
     appRoutes.pricing,

@@ -23,6 +23,12 @@ export function Field({
   const id = React.useId();
   const descriptionId = `${id}-description`;
   const errorId = `${id}-error`;
+  const describedBy = [
+    description ? descriptionId : undefined,
+    error ? errorId : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -32,9 +38,7 @@ export function Field({
       </LabelPrimitive.Root>
       {React.isValidElement(children)
         ? React.cloneElement(children, {
-            "aria-describedby": error
-              ? `${descriptionId} ${errorId}`
-              : descriptionId,
+            "aria-describedby": describedBy || undefined,
             "aria-invalid": Boolean(error),
             id,
           } as React.HTMLAttributes<HTMLElement>)

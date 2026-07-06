@@ -23,15 +23,15 @@ export function EmptyState({
           <p className="text-muted-foreground text-sm">{description}</p>
         </div>
         {action ? (
-          <Button asChild={Boolean(action.href)} variant="outline">
-            {action.href ? (
+          action.href ? (
+            <Button asChild variant="outline">
               <a href={action.href}>{action.label}</a>
-            ) : (
-              <button onClick={action.onClick} type="button">
-                {action.label}
-              </button>
-            )}
-          </Button>
+            </Button>
+          ) : (
+            <Button onClick={action.onClick} type="button" variant="outline">
+              {action.label}
+            </Button>
+          )
         ) : null}
       </CardContent>
     </Card>

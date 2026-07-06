@@ -148,10 +148,34 @@ export async function DashboardShell({
             <LocaleSwitcher />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
+        <main className="mx-auto w-full max-w-7xl p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
           {children}
         </main>
       </div>
+      <nav
+        aria-label="Mobile application navigation"
+        className="bg-background/95 fixed inset-x-0 bottom-0 z-40 border-t p-2 backdrop-blur lg:hidden"
+      >
+        <div className="grid grid-cols-3 gap-1">
+          {appNav.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <Button
+                asChild
+                className="h-auto min-h-14 flex-col gap-1 px-2 py-2 text-xs"
+                key={item.href}
+                variant="ghost"
+              >
+                <Link href={item.href}>
+                  <Icon aria-hidden="true" className="size-4" />
+                  {t(item.labelKey)}
+                </Link>
+              </Button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

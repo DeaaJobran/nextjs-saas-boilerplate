@@ -5,7 +5,17 @@ export function formatDate(
   value: Date | string | number,
   options: Intl.DateTimeFormatOptions = { dateStyle: "medium" },
 ) {
-  return new Intl.DateTimeFormat(locale, options).format(new Date(value));
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  try {
+    return new Intl.DateTimeFormat(locale, options).format(date);
+  } catch {
+    return "";
+  }
 }
 
 export function formatNumber(

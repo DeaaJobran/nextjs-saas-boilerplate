@@ -5,28 +5,24 @@ import { Button } from "@nextjs-saas/ui";
 import { LanguagesIcon } from "lucide-react";
 import { useLocale } from "next-intl";
 
-import { useRouter } from "../i18n/navigation";
+import { Link, usePathname } from "../i18n/navigation";
 
 export function LocaleSwitcher() {
   const currentLocale = useLocale() as Locale;
-  const router = useRouter();
+  const pathname = usePathname();
   const nextLocale =
     locales.find((locale) => locale !== currentLocale) ?? currentLocale;
 
   return (
     <Button
       aria-label={`Switch language to ${localeLabels[nextLocale]}`}
-      onClick={() => {
-        const pathname =
-          window.location.pathname.replace(/^\/(en|ar)(?=\/|$)/, "") || "/";
-
-        router.replace(pathname, { locale: nextLocale });
-      }}
-      type="button"
+      asChild
       variant="outline"
     >
-      <LanguagesIcon aria-hidden="true" className="size-4" />
-      {localeLabels[nextLocale]}
+      <Link href={pathname} locale={nextLocale}>
+        <LanguagesIcon aria-hidden="true" className="size-4" />
+        {localeLabels[nextLocale]}
+      </Link>
     </Button>
   );
 }

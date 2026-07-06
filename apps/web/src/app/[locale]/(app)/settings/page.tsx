@@ -8,6 +8,11 @@ import {
   TextInput,
 } from "@nextjs-saas/ui";
 
+async function handleSaveProfile() {
+  "use server";
+  // TODO: Persist profile updates once the identity and database modules exist.
+}
+
 export default function SettingsPage() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -19,7 +24,7 @@ export default function SettingsPage() {
           </p>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-4">
+          <form action={handleSaveProfile} className="grid gap-4">
             <Field label="Display name">
               <TextInput defaultValue="Demo User" name="name" />
             </Field>

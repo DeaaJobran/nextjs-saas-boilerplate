@@ -20,6 +20,20 @@ export function MetricLineChart({
   description: string;
   title: string;
 }) {
+  if (data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="text-muted-foreground flex h-64 items-center justify-center text-sm">
+          No data available
+        </CardContent>
+      </Card>
+    );
+  }
+
   const width = 640;
   const height = 240;
   const padding = 32;
