@@ -90,10 +90,16 @@
     "adminBadge": "الإدارة",
     "contactDescription": "محفوظة عبر نموذج التواصل المدار",
     "contactMessages": "رسائل التواصل",
+    "impersonations": "جلسات الانتحال",
+    "impersonationsDescription": "جلسات دعم أو إدارة نشطة",
     "localeDescription": "الإنجليزية والعربية مهيأتان",
     "locales": "اللغات",
     "managedPages": "الصفحات المدارة",
-    "managedPagesDescription": "سجلات محتوى قابلة للتحرير"
+    "managedPagesDescription": "سجلات محتوى قابلة للتحرير",
+    "organizations": "المؤسسات",
+    "organizationsDescription": "مساحات عمل المستأجرين",
+    "tenantMembers": "أعضاء المستأجرين",
+    "tenantMembersDescription": "عضويات المؤسسات النشطة"
   },
   "AdminUsers": {
     "createUser": "إنشاء مستخدم",
@@ -154,43 +160,42 @@
     "required": "{field} مطلوب."
   },
   "DashboardPage": {
-    "chartDescription": "نشاط تجريبي يعرض عبر مكون الرسم البياني القابل لإعادة الاستخدام.",
-    "chartTitle": "نشاط تجريبي",
+    "audit": {
+      "created": "وقت الإنشاء",
+      "empty": "لا توجد أحداث تدقيق للمستأجر بعد.",
+      "event": "الحدث",
+      "title": "أحدث تدقيق للمستأجر"
+    },
     "cards": {
-      "layouts": {
-        "label": "التخطيطات",
-        "value": "5 عقود للواجهات"
+      "apiKeys": {
+        "label": "مفاتيح API النشطة"
       },
-      "locales": {
-        "label": "اللغات",
-        "value": "الإنجليزية والعربية"
+      "invitations": {
+        "label": "الدعوات المعلقة"
       },
-      "uiPrimitives": {
-        "label": "مكونات الواجهة",
-        "value": "نماذج وجداول ورسوم"
+      "members": {
+        "label": "الأعضاء"
       }
     },
-    "days": {
-      "fri": "الجمعة",
-      "mon": "الاثنين",
-      "thu": "الخميس",
-      "tue": "الثلاثاء",
-      "wed": "الأربعاء"
-    },
-    "modules": {
-      "applicationShell": "هيكل التطبيق",
-      "billingBoundary": "حدود مزود الفوترة",
-      "core": "النواة",
-      "localization": "التوطين",
-      "localizationFoundation": "أساس التوطين",
-      "billing": "الفوترة",
-      "queued": "في الانتظار",
-      "ready": "جاهز"
-    },
-    "table": {
-      "module": "الوحدة",
-      "owner": "المالك",
+    "disabled": "معطل",
+    "enabled": "مفعل",
+    "flags": {
+      "empty": "لا توجد أعلام ميزات مهيأة.",
+      "key": "العلم",
       "status": "الحالة"
+    },
+    "limits": {
+      "empty": "لا توجد حدود استخدام مهيأة.",
+      "key": "الحد",
+      "limit": "القيمة",
+      "used": "المستخدم"
+    },
+    "notConfigured": "غير مهيأ",
+    "organizationFallback": "لم تتم إضافة تفاصيل ملف المؤسسة بعد.",
+    "quotas": {
+      "ai": "رموز الذكاء الاصطناعي",
+      "storage": "التخزين",
+      "title": "الحصص"
     }
   },
   "Errors": {
@@ -206,6 +211,120 @@
   "LocaleSwitcher": {
     "switch": "تبديل اللغة إلى {locale}"
   },
+  "Organization": {
+    "endImpersonation": "إنهاء الانتحال",
+    "switch": "تبديل",
+    "switcherLabel": "المؤسسة النشطة"
+  },
+  "OrganizationInvitationPage": {
+    "accept": "قبول الدعوة",
+    "description": "استخدم الحساب الحالي للانضمام إلى هذه المؤسسة أو ارفض الدعوة.",
+    "invalid": "دعوة المؤسسة غير صالحة أو منتهية.",
+    "reject": "رفض الدعوة",
+    "title": "الانضمام إلى مؤسسة في {appName}"
+  },
+  "OrganizationSettings": {
+    "apiKeys": {
+      "action": "الإجراء",
+      "active": "نشط",
+      "create": "إنشاء مفتاح API",
+      "empty": "لم يتم إنشاء مفاتيح API لهذا المستأجر.",
+      "name": "الاسم",
+      "prefix": "البادئة",
+      "revoke": "إلغاء",
+      "revoked": "ملغى",
+      "scopes": "النطاقات",
+      "scopesDescription": "نطاق API واحد في كل سطر أو افصل بينها بفواصل.",
+      "secretDescription": "انسخ هذا السر الآن. يظهر مرة واحدة ولا يحفظ كنص صريح.",
+      "secretLoading": "جار تحميل سر مفتاح API لمرة واحدة.",
+      "secretReveal": "عرض السر",
+      "secretTitle": "سر مفتاح API الجديد",
+      "secretUnavailable": "تم عرض سر مفتاح API لمرة واحدة بالفعل أو انتهت صلاحيته.",
+      "status": "الحالة",
+      "title": "مفاتيح API للمستأجر"
+    },
+    "audit": {
+      "created": "وقت الإنشاء",
+      "empty": "لا توجد أحداث تدقيق للمستأجر.",
+      "event": "الحدث",
+      "title": "سجل تدقيق المستأجر"
+    },
+    "controls": {
+      "aiLimit": "حد رموز الذكاء الاصطناعي",
+      "currentUsage": "الاستخدام الحالي: {storage} وحدة تخزين، {ai} رمز ذكاء اصطناعي.",
+      "limitValue": "قيمة الحد",
+      "saveLimit": "حفظ الحد",
+      "saveQuota": "حفظ الحصص",
+      "storageQuota": "حصة التخزين بالبايت",
+      "title": "عناصر تحكم المستأجر",
+      "windowSeconds": "ثواني النافذة"
+    },
+    "disabled": "معطل",
+    "enabled": "مفعل",
+    "flags": {
+      "enabled": "مفعل",
+      "save": "حفظ العلم",
+      "title": "أعلام الميزات"
+    },
+    "invite": {
+      "description": "ادع عضوا إلى المؤسسة النشطة بدور وصلاحيات مخصصة اختيارية.",
+      "email": "البريد الإلكتروني",
+      "permissions": "صلاحيات مخصصة",
+      "permissionsDescription": "استخدم معرفات الصلاحيات المعروفة فقط. يتم تجاهل القيم غير المعروفة.",
+      "role": "الدور",
+      "submit": "دعوة عضو",
+      "title": "دعوة عضو"
+    },
+    "invitations": {
+      "accepted": "مقبولة",
+      "action": "الإجراء",
+      "cancel": "إلغاء",
+      "email": "البريد الإلكتروني",
+      "empty": "لم يتم إنشاء دعوات مؤسسة.",
+      "pending": "معلقة",
+      "rejected": "مرفوضة",
+      "role": "الدور",
+      "status": "الحالة",
+      "title": "الدعوات"
+    },
+    "members": {
+      "action": "الإجراء",
+      "email": "البريد الإلكتروني",
+      "empty": "لا يوجد أعضاء.",
+      "name": "الاسم",
+      "remove": "إزالة",
+      "role": "الدور والصلاحيات",
+      "roleSelect": "دور العضو",
+      "title": "أعضاء الفريق",
+      "update": "تحديث العضو"
+    },
+    "permissions": {
+      "title": "صلاحياتك في المستأجر"
+    },
+    "profile": {
+      "description": "قيم ملف المؤسسة مدعومة بقاعدة البيانات ومقيدة بالمستأجر.",
+      "descriptionField": "الوصف",
+      "locale": "اللغة الافتراضية",
+      "logo": "رابط الشعار",
+      "name": "الاسم",
+      "save": "حفظ المؤسسة",
+      "title": "ملف المؤسسة",
+      "website": "رابط الموقع"
+    },
+    "status": {
+      "api-key-created": "تم إنشاء مفتاح API.",
+      "api-key-revoked": "تم إلغاء مفتاح API.",
+      "feature-flag-updated": "تم تحديث علم الميزة.",
+      "invalid-role": "اختر دور مستأجر مدعوما.",
+      "invitation-cancelled": "تم إلغاء الدعوة.",
+      "member-invited": "تم إنشاء الدعوة.",
+      "member-removed": "تمت إزالة العضو.",
+      "member-updated": "تم تحديث العضو.",
+      "organization-updated": "تم تحديث المؤسسة.",
+      "quota-updated": "تم تحديث الحصة.",
+      "usage-limit-updated": "تم تحديث حد الاستخدام."
+    }
+  },
   "MarketingPage": {
     "reviewPricing": "راجع الأسعار"
   },
@@ -215,6 +334,7 @@
     "dashboard": "لوحة التحكم",
     "home": "الرئيسية",
     "legal": "القانونية",
+    "organization": "المؤسسة",
     "pricing": "الأسعار",
     "settings": "الإعدادات",
     "signIn": "تسجيل الدخول"
@@ -301,8 +421,58 @@
     "authTitle": "واجهة مصادقة قابلة لإعادة الاستخدام وجاهزة لوحدة الهوية.",
     "contentRegistry": "سجل المحتوى",
     "identityRegistry": "سجل الهوية",
+    "impersonationNotice": "{actor} ينتحل {subject}. كل الإجراءات مسجلة في التدقيق.",
     "mainNavigation": "التنقل الرئيسي",
-    "mobileApplicationNavigation": "تنقل التطبيق للجوال"
+    "mobileApplicationNavigation": "تنقل التطبيق للجوال",
+    "tenantRegistry": "سجل المستأجرين"
+  },
+  "SuperAdmin": {
+    "activeImpersonations": {
+      "actor": "الفاعل",
+      "empty": "لا توجد جلسات انتحال نشطة.",
+      "reason": "السبب",
+      "subject": "المستخدم المستهدف",
+      "title": "جلسات الانتحال النشطة"
+    },
+    "audit": {
+      "created": "وقت الإنشاء",
+      "empty": "لا توجد أحداث تدقيق للمستأجر.",
+      "event": "الحدث",
+      "title": "تدقيق المستأجر العام"
+    },
+    "cards": {
+      "impersonations": "جلسات الانتحال النشطة",
+      "members": "أعضاء المستأجرين",
+      "organizations": "المؤسسات"
+    },
+    "impersonation": {
+      "description": "ابدأ جلسة انتحال دعم أو إدارة محددة المدة. السبب مطلوب وتظهر الجلسة في واجهة التطبيق.",
+      "member": "العضو",
+      "organization": "المؤسسة",
+      "reason": "السبب",
+      "start": "بدء الانتحال",
+      "title": "انتحال الدعم"
+    },
+    "members": {
+      "email": "البريد الإلكتروني",
+      "empty": "لا يوجد أعضاء مستأجرين.",
+      "organization": "المؤسسة",
+      "role": "الدور",
+      "title": "أعضاء المستأجرين"
+    },
+    "organizations": {
+      "empty": "لا توجد مؤسسات.",
+      "members": "الأعضاء",
+      "name": "الاسم",
+      "slug": "المعرف",
+      "title": "المؤسسات"
+    },
+    "status": {
+      "generic": "اكتمل إجراء إدارة المستأجر.",
+      "invalidImpersonationTarget": "اختر عضوا صالحا من المستأجر للانتحال.",
+      "impersonationEnded": "تم إنهاء الانتحال.",
+      "impersonationStarted": "تم بدء الانتحال."
+    }
   },
   "SignInPage": {
     "createAccount": "إنشاء حساب",

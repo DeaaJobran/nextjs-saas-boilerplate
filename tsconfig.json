@@ -31,6 +31,8 @@
       "@nextjs-saas/jobs/*": ["./packages/jobs/src/*"],
       "@nextjs-saas/localization": ["./packages/localization/src/index.ts"],
       "@nextjs-saas/localization/*": ["./packages/localization/src/*"],
+      "@nextjs-saas/tenant": ["./packages/tenant/src/index.ts"],
+      "@nextjs-saas/tenant/*": ["./packages/tenant/src/*"],
       "@nextjs-saas/ui": ["./packages/ui/src/index.ts"],
       "@nextjs-saas/ui/*": ["./packages/ui/src/*"]
     }

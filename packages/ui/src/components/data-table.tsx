@@ -10,11 +10,13 @@ export type DataTableColumn<TData> = {
 };
 
 export function DataTable<TData>({
+  ariaLabel,
   columns,
   data,
   empty,
   emptyLabel,
 }: {
+  ariaLabel?: string;
   columns: DataTableColumn<TData>[];
   data: TData[];
   empty?: React.ReactNode;
@@ -33,7 +35,12 @@ export function DataTable<TData>({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border">
+    <div
+      aria-label={ariaLabel}
+      className="focus-visible:ring-ring w-full overflow-x-auto rounded-lg border focus-visible:ring-2 focus-visible:outline-none"
+      role={ariaLabel ? "region" : undefined}
+      tabIndex={0}
+    >
       <table className="w-full min-w-[42rem] caption-bottom text-sm">
         <thead className="bg-muted/60 text-muted-foreground">
           <tr>

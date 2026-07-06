@@ -27,10 +27,25 @@ const authIdentityTables = [
   "auth_users",
 ] as const;
 
+const tenantAdminTables = [
+  "tenant_audit_events",
+  "impersonation_sessions",
+  "organization_feature_flags",
+  "organization_usage_limits",
+  "organization_quotas",
+  "organization_invitations",
+  "organization_memberships",
+  "organizations",
+] as const;
+
 async function lockServiceFoundationTables(client: Queryable) {
   await client.execute(`
     LOCK TABLE
-      ${[...serviceFoundationTables, ...authIdentityTables].join(",\n      ")}
+      ${[
+        ...serviceFoundationTables,
+        ...tenantAdminTables,
+        ...authIdentityTables,
+      ].join(",\n      ")}
     IN EXCLUSIVE MODE
   `);
 }
@@ -43,6 +58,10 @@ export async function resetDatabaseData() {
     await lockServiceFoundationTables(transaction);
 
     for (const tableName of serviceFoundationTables) {
+      await transaction.execute(`DELETE FROM ${tableName}`);
+    }
+
+    for (const tableName of tenantAdminTables) {
       await transaction.execute(`DELETE FROM ${tableName}`);
     }
 

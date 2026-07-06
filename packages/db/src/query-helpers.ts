@@ -17,6 +17,11 @@ export type SqlFragment = {
   sql: string;
 };
 
+export type TenantScope = {
+  actorId?: string;
+  tenantId: string;
+};
+
 export function createPagination({
   defaultLimit = 20,
   maxLimit = 100,
@@ -122,6 +127,44 @@ export function createSearchFragment({
     params: [`%${normalizedQuery}%`],
     sql: `(${columns.map((column) => `${column} ILIKE $1`).join(" OR ")})`,
   };
+}
+
+export function createTenantScope(input: {
+  actorId?: string;
+  tenantId: string;
+}): TenantScope {
+  const tenantId = input.tenantId.trim();
+
+  if (!tenantId) {
+    throw new Error("Tenant scope requires a tenant id.");
+  }
+
+  return {
+    actorId: input.actorId,
+    tenantId,
+  };
+}
+
+export function createTenantFilterFragment({
+  column = "tenant_id",
+  tenantId,
+}: {
+  column?: string;
+  tenantId: string;
+}): SqlFragment {
+  return {
+    params: [createTenantScope({ tenantId }).tenantId],
+    sql: `WHERE ${column} = $1`,
+  };
+}
+
+export function assertTenantScopeMatches(
+  record: { tenantId?: string | null },
+  scope: TenantScope,
+) {
+  if (record.tenantId !== scope.tenantId) {
+    throw new Error("Record does not belong to the requested tenant scope.");
+  }
 }
 
 export function combineWhereFragments(

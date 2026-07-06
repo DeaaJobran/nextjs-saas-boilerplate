@@ -12,13 +12,16 @@ async function grantAdminAccess(page: Page) {
 
 async function grantUserAccess(page: Page) {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const email = `user-${suffix}@example.test`;
 
   await page.goto("/en/auth/sign-up");
   await page.getByLabel("Display name").fill("Playwright User");
-  await page.getByLabel("Email").fill(`user-${suffix}@example.test`);
+  await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("StrongPass123");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/en\/dashboard/);
+
+  return { email };
 }
 
 test("renders the localized marketing page", async ({ page }) => {
@@ -40,8 +43,14 @@ test("renders dashboard, settings, and admin shells", async ({ page }) => {
 
   await page.goto("/en/dashboard");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "storage" })).toBeVisible();
+
+  await page.goto("/en/settings/organization");
   await expect(
-    page.getByRole("heading", { name: "Demo activity" }),
+    page.getByRole("heading", { name: "Organization profile" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Team members" }),
   ).toBeVisible();
 
   await page.goto("/en/settings");
@@ -74,6 +83,9 @@ test("renders mobile application navigation", async ({ page }) => {
   await expect(
     mobileNav.getByRole("link", { name: "Dashboard" }),
   ).toBeVisible();
+  await expect(
+    mobileNav.getByRole("link", { name: "Organization" }),
+  ).toBeVisible();
   await expect(mobileNav.getByRole("link", { name: "Settings" })).toBeVisible();
   await expect(mobileNav.getByRole("link", { name: "Admin" })).toBeVisible();
 
@@ -81,6 +93,51 @@ test("renders mobile application navigation", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 1, name: "Settings" }),
   ).toBeVisible();
+});
+
+test("tenant settings can create a tenant API key", async ({ page }) => {
+  const keyName = `E2E key ${Date.now()}`;
+
+  await grantUserAccess(page);
+  await page.goto("/en/settings/organization");
+  await page.getByLabel("Name").last().fill(keyName);
+  await page.getByLabel("Scopes").fill("tenant:read");
+  await page.getByRole("button", { name: "Create API key" }).click();
+
+  await expect(page).toHaveURL(/api-key-created/);
+  await expect(
+    page.getByRole("heading", { name: "New API key secret" }),
+  ).toBeVisible();
+  await expect(page.getByRole("cell", { name: keyName })).toBeVisible();
+});
+
+test("super admin can start an audited impersonation session", async ({
+  page,
+}) => {
+  const { email } = await grantUserAccess(page);
+
+  await page.context().clearCookies();
+  await grantAdminAccess(page);
+  await page.goto("/en/admin/super");
+  await page.getByLabel("Member").selectOption({
+    label: `Playwright User Workspace / Playwright User / ${email}`,
+  });
+  await page
+    .getByLabel("Reason")
+    .fill("Investigate tenant support request from Playwright.");
+  await page.getByRole("button", { name: "Start impersonation" }).click();
+
+  await expect(page).toHaveURL(/\/en\/dashboard\?status=impersonation-started/);
+  await expect(
+    page.getByText(`admin@example.test is impersonating ${email}`),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "tenant.impersonation.started" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "End impersonation" }).click();
+  await expect(page).toHaveURL(
+    /\/en\/admin\/super\?status=impersonation-ended/,
+  );
 });
 
 test("supports Arabic RTL routes", async ({ page }) => {

@@ -61,6 +61,10 @@ async function getCurrentSession() {
   return getAuthService().getSession(sessionToken);
 }
 
+export async function getOptionalCurrentSession() {
+  return getCurrentSession();
+}
+
 export async function requireCurrentSession() {
   const session = await getCurrentSession();
 

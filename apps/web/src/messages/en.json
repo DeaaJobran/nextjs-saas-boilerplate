@@ -90,10 +90,16 @@
     "adminBadge": "Admin",
     "contactDescription": "saved through the managed contact form",
     "contactMessages": "Contact messages",
+    "impersonations": "Impersonations",
+    "impersonationsDescription": "active support/admin sessions",
     "localeDescription": "English and Arabic configured",
     "locales": "Locales",
     "managedPages": "Managed pages",
-    "managedPagesDescription": "editable content records"
+    "managedPagesDescription": "editable content records",
+    "organizations": "Organizations",
+    "organizationsDescription": "tenant workspaces",
+    "tenantMembers": "Tenant members",
+    "tenantMembersDescription": "active organization memberships"
   },
   "AdminUsers": {
     "createUser": "Create user",
@@ -154,43 +160,42 @@
     "required": "{field} is required."
   },
   "DashboardPage": {
-    "chartDescription": "Demo activity rendered through the reusable chart primitive.",
-    "chartTitle": "Demo activity",
+    "audit": {
+      "created": "Created",
+      "empty": "No tenant audit events yet.",
+      "event": "Event",
+      "title": "Recent tenant audit"
+    },
     "cards": {
-      "layouts": {
-        "label": "Layouts",
-        "value": "5 shell contracts"
+      "apiKeys": {
+        "label": "Active API keys"
       },
-      "locales": {
-        "label": "Locales",
-        "value": "English and Arabic"
+      "invitations": {
+        "label": "Pending invitations"
       },
-      "uiPrimitives": {
-        "label": "UI primitives",
-        "value": "Forms, tables, charts"
+      "members": {
+        "label": "Members"
       }
     },
-    "days": {
-      "fri": "Fri",
-      "mon": "Mon",
-      "thu": "Thu",
-      "tue": "Tue",
-      "wed": "Wed"
-    },
-    "modules": {
-      "applicationShell": "Application shell",
-      "billingBoundary": "Billing provider boundary",
-      "core": "Core",
-      "localization": "Localization",
-      "localizationFoundation": "Localization foundation",
-      "billing": "Billing",
-      "queued": "queued",
-      "ready": "ready"
-    },
-    "table": {
-      "module": "Module",
-      "owner": "Owner",
+    "disabled": "disabled",
+    "enabled": "enabled",
+    "flags": {
+      "empty": "No feature flags configured.",
+      "key": "Flag",
       "status": "Status"
+    },
+    "limits": {
+      "empty": "No usage limits configured.",
+      "key": "Limit",
+      "limit": "Limit",
+      "used": "Used"
+    },
+    "notConfigured": "Not configured",
+    "organizationFallback": "Organization profile details have not been added yet.",
+    "quotas": {
+      "ai": "AI tokens",
+      "storage": "Storage",
+      "title": "Quotas"
     }
   },
   "Errors": {
@@ -206,6 +211,120 @@
   "LocaleSwitcher": {
     "switch": "Switch language to {locale}"
   },
+  "Organization": {
+    "endImpersonation": "End impersonation",
+    "switch": "Switch",
+    "switcherLabel": "Active organization"
+  },
+  "OrganizationInvitationPage": {
+    "accept": "Accept invitation",
+    "description": "Use the current signed-in account to join this organization, or reject the invitation.",
+    "invalid": "This organization invitation is invalid or expired.",
+    "reject": "Reject invitation",
+    "title": "Join organization in {appName}"
+  },
+  "OrganizationSettings": {
+    "apiKeys": {
+      "action": "Action",
+      "active": "active",
+      "create": "Create API key",
+      "empty": "No tenant API keys have been created.",
+      "name": "Name",
+      "prefix": "Prefix",
+      "revoke": "Revoke",
+      "revoked": "revoked",
+      "scopes": "Scopes",
+      "scopesDescription": "One API scope per line or comma.",
+      "secretDescription": "Copy this secret now. It is shown once and will not be stored in plaintext.",
+      "secretLoading": "Loading the one-time API key secret.",
+      "secretReveal": "Reveal secret",
+      "secretTitle": "New API key secret",
+      "secretUnavailable": "The one-time API key secret was already shown or has expired.",
+      "status": "Status",
+      "title": "Tenant API keys"
+    },
+    "audit": {
+      "created": "Created",
+      "empty": "No tenant audit events are available.",
+      "event": "Event",
+      "title": "Tenant audit log"
+    },
+    "controls": {
+      "aiLimit": "AI token limit",
+      "currentUsage": "Current usage: {storage} storage units, {ai} AI tokens.",
+      "limitValue": "Limit value",
+      "saveLimit": "Save limit",
+      "saveQuota": "Save quotas",
+      "storageQuota": "Storage quota in bytes",
+      "title": "Tenant controls",
+      "windowSeconds": "Window seconds"
+    },
+    "disabled": "disabled",
+    "enabled": "enabled",
+    "flags": {
+      "enabled": "Enabled",
+      "save": "Save flag",
+      "title": "Feature flags"
+    },
+    "invite": {
+      "description": "Invite a member into the active organization with a role and optional custom permissions.",
+      "email": "Email",
+      "permissions": "Custom permissions",
+      "permissionsDescription": "Use known permission ids only. Unknown values are ignored.",
+      "role": "Role",
+      "submit": "Invite member",
+      "title": "Invite member"
+    },
+    "invitations": {
+      "accepted": "accepted",
+      "action": "Action",
+      "cancel": "Cancel",
+      "email": "Email",
+      "empty": "No organization invitations have been created.",
+      "pending": "pending",
+      "rejected": "rejected",
+      "role": "Role",
+      "status": "Status",
+      "title": "Invitations"
+    },
+    "members": {
+      "action": "Action",
+      "email": "Email",
+      "empty": "No members are available.",
+      "name": "Name",
+      "remove": "Remove",
+      "role": "Role and permissions",
+      "roleSelect": "Member role",
+      "title": "Team members",
+      "update": "Update member"
+    },
+    "permissions": {
+      "title": "Your tenant permissions"
+    },
+    "profile": {
+      "description": "Organization profile values are database-backed and tenant-scoped.",
+      "descriptionField": "Description",
+      "locale": "Default locale",
+      "logo": "Logo URL",
+      "name": "Name",
+      "save": "Save organization",
+      "title": "Organization profile",
+      "website": "Website URL"
+    },
+    "status": {
+      "api-key-created": "API key created.",
+      "api-key-revoked": "API key revoked.",
+      "feature-flag-updated": "Feature flag updated.",
+      "invalid-role": "Choose a supported tenant role.",
+      "invitation-cancelled": "Invitation cancelled.",
+      "member-invited": "Invitation created.",
+      "member-removed": "Member removed.",
+      "member-updated": "Member updated.",
+      "organization-updated": "Organization updated.",
+      "quota-updated": "Quota updated.",
+      "usage-limit-updated": "Usage limit updated."
+    }
+  },
   "MarketingPage": {
     "reviewPricing": "Review pricing"
   },
@@ -215,6 +334,7 @@
     "dashboard": "Dashboard",
     "home": "Home",
     "legal": "Legal",
+    "organization": "Organization",
     "pricing": "Pricing",
     "settings": "Settings",
     "signIn": "Sign in"
@@ -301,8 +421,58 @@
     "authTitle": "A reusable auth surface ready for the identity module.",
     "contentRegistry": "Content registry",
     "identityRegistry": "Identity registry",
+    "impersonationNotice": "{actor} is impersonating {subject}. Actions are audited.",
     "mainNavigation": "Main navigation",
-    "mobileApplicationNavigation": "Mobile application navigation"
+    "mobileApplicationNavigation": "Mobile application navigation",
+    "tenantRegistry": "Tenant registry"
+  },
+  "SuperAdmin": {
+    "activeImpersonations": {
+      "actor": "Actor",
+      "empty": "No active impersonation sessions.",
+      "reason": "Reason",
+      "subject": "Subject",
+      "title": "Active impersonations"
+    },
+    "audit": {
+      "created": "Created",
+      "empty": "No tenant audit events are available.",
+      "event": "Event",
+      "title": "Global tenant audit"
+    },
+    "cards": {
+      "impersonations": "Active impersonations",
+      "members": "Tenant members",
+      "organizations": "Organizations"
+    },
+    "impersonation": {
+      "description": "Start a time-limited support/admin impersonation session. A reason is required and the session is shown in the app chrome.",
+      "member": "Member",
+      "organization": "Organization",
+      "reason": "Reason",
+      "start": "Start impersonation",
+      "title": "Support impersonation"
+    },
+    "members": {
+      "email": "Email",
+      "empty": "No tenant members are available.",
+      "organization": "Organization",
+      "role": "Role",
+      "title": "Tenant members"
+    },
+    "organizations": {
+      "empty": "No organizations are available.",
+      "members": "Members",
+      "name": "Name",
+      "slug": "Slug",
+      "title": "Organizations"
+    },
+    "status": {
+      "generic": "Tenant administration action completed.",
+      "invalidImpersonationTarget": "Choose a valid tenant member to impersonate.",
+      "impersonationEnded": "Impersonation ended.",
+      "impersonationStarted": "Impersonation started."
+    }
   },
   "SignInPage": {
     "createAccount": "Create account",

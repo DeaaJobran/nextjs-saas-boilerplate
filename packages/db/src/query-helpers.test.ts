@@ -6,11 +6,14 @@ import {
   verifyApiKeySecret,
 } from "./conventions";
 import {
+  assertTenantScopeMatches,
   combineWhereFragments,
   createEqualityFilterFragment,
   createPagination,
   createSearchFragment,
   createSortFragment,
+  createTenantFilterFragment,
+  createTenantScope,
 } from "./query-helpers";
 
 describe("database helper conventions", () => {
@@ -52,6 +55,38 @@ describe("database helper conventions", () => {
       params: ["ready", "tenant_1", "%Ada%"],
       sql: "WHERE status = $1 AND tenant_id = $2 AND (name ILIKE $3 OR email ILIKE $3)",
     });
+  });
+
+  it("creates explicit tenant scopes and tenant filters", () => {
+    expect(
+      createTenantScope({ actorId: "user_1", tenantId: "tenant_1" }),
+    ).toEqual({
+      actorId: "user_1",
+      tenantId: "tenant_1",
+    });
+    expect(() => createTenantScope({ tenantId: " " })).toThrow(
+      "Tenant scope requires a tenant id.",
+    );
+    expect(
+      createTenantFilterFragment({
+        column: "organization_id",
+        tenantId: "tenant_1",
+      }),
+    ).toEqual({
+      params: ["tenant_1"],
+      sql: "WHERE organization_id = $1",
+    });
+  });
+
+  it("rejects records outside the requested tenant scope", () => {
+    const scope = createTenantScope({ tenantId: "tenant_1" });
+
+    expect(() =>
+      assertTenantScopeMatches({ tenantId: "tenant_1" }, scope),
+    ).not.toThrow();
+    expect(() =>
+      assertTenantScopeMatches({ tenantId: "tenant_2" }, scope),
+    ).toThrow("Record does not belong to the requested tenant scope.");
   });
 
   it("hashes API keys with a salted verifier without storing the secret", () => {

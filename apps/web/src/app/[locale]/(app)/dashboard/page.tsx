@@ -5,50 +5,64 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
-  MetricLineChart,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
 
-type ModuleStatus = "queued" | "ready";
+import { assertLocale } from "../../../../lib/locale";
+import {
+  getActiveTenantContext,
+  getTenantService,
+} from "../../../../lib/tenant";
 
-export default async function DashboardPage() {
-  const t = await getTranslations("DashboardPage");
-  const metrics = [
-    { label: t("days.mon"), value: 12 },
-    { label: t("days.tue"), value: 18 },
-    { label: t("days.wed"), value: 16 },
-    { label: t("days.thu"), value: 24 },
-    { label: t("days.fri"), value: 28 },
-  ];
-  const modules: {
-    name: string;
-    owner: string;
-    status: ModuleStatus;
-  }[] = [
-    {
-      name: t("modules.applicationShell"),
-      owner: t("modules.core"),
-      status: "ready",
-    },
-    {
-      name: t("modules.localizationFoundation"),
-      owner: t("modules.localization"),
-      status: "ready",
-    },
-    {
-      name: t("modules.billingBoundary"),
-      owner: t("modules.billing"),
-      status: "queued",
-    },
-  ];
+export default async function DashboardPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const resolvedLocale = assertLocale(locale);
+  const [t, context] = await Promise.all([
+    getTranslations("DashboardPage"),
+    getActiveTenantContext("dashboard.read"),
+  ]);
+  const summary = await getTenantService().getDashboardSummary({
+    organizationId: context.organization.id,
+    userId: context.effectiveUser.id,
+  });
+  const numberFormatter = new Intl.NumberFormat(resolvedLocale);
+  const byteFormatter = new Intl.NumberFormat(resolvedLocale, {
+    maximumFractionDigits: 1,
+    style: "unit",
+    unit: "gigabyte",
+  });
+  const dateTimeFormatter = new Intl.DateTimeFormat(resolvedLocale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const formatNumber = (value: number) => numberFormatter.format(value);
+  const formatBytes = (value: number) =>
+    byteFormatter.format(value / 1024 / 1024 / 1024);
 
   return (
     <div className="grid gap-6">
+      <section className="grid gap-2">
+        <Badge className="w-fit" variant="outline">
+          {summary.membership.role}
+        </Badge>
+        <div className="max-w-3xl">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {summary.organization.name}
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            {summary.organization.description ?? t("organizationFallback")}
+          </p>
+        </div>
+      </section>
       <section className="grid gap-4 md:grid-cols-3">
         {[
-          [t("cards.layouts.label"), t("cards.layouts.value")],
-          [t("cards.locales.label"), t("cards.locales.value")],
-          [t("cards.uiPrimitives.label"), t("cards.uiPrimitives.value")],
+          [t("cards.members.label"), formatNumber(summary.memberCount)],
+          [t("cards.invitations.label"), formatNumber(summary.invitationCount)],
+          [t("cards.apiKeys.label"), formatNumber(summary.activeApiKeyCount)],
         ].map(([label, value]) => (
           <Card key={label}>
             <CardHeader>
@@ -62,26 +76,89 @@ export default async function DashboardPage() {
           </Card>
         ))}
       </section>
-      <MetricLineChart
-        data={metrics}
-        description={t("chartDescription")}
-        title={t("chartTitle")}
-      />
       <DataTable
         columns={[
-          { key: "name", header: t("table.module"), cell: (row) => row.name },
-          { key: "owner", header: t("table.owner"), cell: (row) => row.owner },
+          { key: "key", header: t("flags.key"), cell: (row) => row.key },
           {
-            key: "status",
-            header: t("table.status"),
+            key: "enabled",
+            header: t("flags.status"),
             cell: (row) => (
-              <Badge variant={row.status === "ready" ? "success" : "warning"}>
-                {t(`modules.${row.status}`)}
+              <Badge variant={row.enabled ? "success" : "warning"}>
+                {row.enabled ? t("enabled") : t("disabled")}
               </Badge>
             ),
           },
         ]}
-        data={modules}
+        data={summary.featureFlags}
+        emptyLabel={t("flags.empty")}
+      />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("quotas.title")}</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">
+                {t("quotas.storage")}
+              </span>
+              <span className="font-medium">
+                {summary.quota
+                  ? `${formatBytes(summary.quota.storageBytesUsed)} / ${formatBytes(summary.quota.storageBytesLimit)}`
+                  : t("notConfigured")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">{t("quotas.ai")}</span>
+              <span className="font-medium">
+                {summary.quota
+                  ? `${formatNumber(summary.quota.aiTokenUsed)} / ${formatNumber(summary.quota.aiTokenLimit)}`
+                  : t("notConfigured")}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("audit.title")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              columns={[
+                {
+                  cell: (event) => event.eventType,
+                  header: t("audit.event"),
+                  key: "event",
+                },
+                {
+                  cell: (event) =>
+                    dateTimeFormatter.format(new Date(event.createdAt)),
+                  header: t("audit.created"),
+                  key: "created",
+                },
+              ]}
+              data={summary.auditEvents}
+              emptyLabel={t("audit.empty")}
+            />
+          </CardContent>
+        </Card>
+      </div>
+      <DataTable
+        columns={[
+          { key: "key", header: t("limits.key"), cell: (row) => row.key },
+          {
+            key: "used",
+            header: t("limits.used"),
+            cell: (row) => formatNumber(row.usedValue),
+          },
+          {
+            key: "limit",
+            header: t("limits.limit"),
+            cell: (row) => formatNumber(row.limitValue),
+          },
+        ]}
+        data={summary.usageLimits}
+        emptyLabel={t("limits.empty")}
       />
     </div>
   );

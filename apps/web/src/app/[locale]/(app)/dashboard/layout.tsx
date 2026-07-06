@@ -1,8 +1,9 @@
 import { getTranslations } from "next-intl/server";
 
+import { OrganizationSwitcher } from "../../../../components/organization-switcher";
 import { DashboardShell } from "../../../../components/shells";
-import { requireCurrentSession } from "../../../../lib/auth";
 import { assertLocale } from "../../../../lib/locale";
+import { getActiveTenantContext } from "../../../../lib/tenant";
 
 export default async function DashboardLayout({
   children,
@@ -13,14 +14,39 @@ export default async function DashboardLayout({
 }) {
   const { locale } = await params;
   const resolvedLocale = assertLocale(locale);
-  await requireCurrentSession();
-  const t = await getTranslations({
-    locale: resolvedLocale,
-    namespace: "Navigation",
-  });
+  const [t, shellT, tenantContext] = await Promise.all([
+    getTranslations({
+      locale: resolvedLocale,
+      namespace: "Navigation",
+    }),
+    getTranslations({
+      locale: resolvedLocale,
+      namespace: "Shell",
+    }),
+    getActiveTenantContext("dashboard.read"),
+  ]);
 
   return (
-    <DashboardShell locale={resolvedLocale} title={t("dashboard")}>
+    <DashboardShell
+      impersonationNotice={
+        tenantContext.impersonation
+          ? shellT("impersonationNotice", {
+              actor: tenantContext.authUser.email,
+              subject: tenantContext.effectiveUser.email,
+            })
+          : undefined
+      }
+      locale={resolvedLocale}
+      tenantControls={
+        <OrganizationSwitcher
+          activeOrganization={tenantContext.organization}
+          impersonationSessionId={tenantContext.impersonation?.id}
+          locale={resolvedLocale}
+          organizations={tenantContext.organizations}
+        />
+      }
+      title={t("dashboard")}
+    >
       {children}
     </DashboardShell>
   );

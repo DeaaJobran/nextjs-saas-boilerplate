@@ -3,6 +3,7 @@ import type { Locale } from "@nextjs-saas/localization";
 import { Button } from "@nextjs-saas/ui";
 import {
   BarChart3Icon,
+  Building2Icon,
   GaugeIcon,
   LayoutDashboardIcon,
   SettingsIcon,
@@ -20,6 +21,11 @@ const appNav = [
     href: appRoutes.dashboard,
     icon: LayoutDashboardIcon,
     labelKey: "dashboard",
+  },
+  {
+    href: appRoutes.organizationSettings,
+    icon: Building2Icon,
+    labelKey: "organization",
   },
   { href: appRoutes.settings, icon: SettingsIcon, labelKey: "settings" },
   { href: appRoutes.admin, icon: ShieldIcon, labelKey: "admin" },
@@ -103,11 +109,15 @@ export async function AuthShell({
 
 export async function DashboardShell({
   children,
+  impersonationNotice,
   locale,
+  tenantControls,
   title,
 }: {
   children: React.ReactNode;
+  impersonationNotice?: string;
   locale: Locale;
+  tenantControls?: React.ReactNode;
   title: string;
 }) {
   const t = await getTranslations({ locale, namespace: "Navigation" });
@@ -142,12 +152,18 @@ export async function DashboardShell({
         </nav>
       </aside>
       <div className="min-w-0">
-        <header className="bg-background/90 sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b px-4 backdrop-blur sm:px-6">
+        {impersonationNotice ? (
+          <div className="bg-destructive text-destructive-foreground px-4 py-2 text-sm font-medium sm:px-6">
+            {impersonationNotice}
+          </div>
+        ) : null}
+        <header className="bg-background/90 sticky top-0 z-30 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b px-4 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <GaugeIcon aria-hidden="true" className="text-primary size-5" />
             <h1 className="truncate text-lg font-semibold">{title}</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            {tenantControls}
             <ThemeToggle />
             <LocaleSwitcher />
           </div>
@@ -160,7 +176,7 @@ export async function DashboardShell({
         aria-label={shellT("mobileApplicationNavigation")}
         className="bg-background/95 fixed inset-x-0 bottom-0 z-40 border-t p-2 backdrop-blur lg:hidden"
       >
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {appNav.map((item) => {
             const Icon = item.icon;
 
@@ -218,6 +234,12 @@ export async function AdminShell({
           <Link href={appRoutes.adminUsers}>
             <UsersIcon aria-hidden="true" className="size-4" />
             {shellT("identityRegistry")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={appRoutes.adminSuper}>
+            <ShieldIcon aria-hidden="true" className="size-4" />
+            {shellT("tenantRegistry")}
           </Link>
         </Button>
       </div>

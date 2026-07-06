@@ -1,7 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-const routes = ["/en", "/en/dashboard", "/en/admin/content", "/ar"];
+const routes = [
+  "/en",
+  "/en/dashboard",
+  "/en/settings/organization",
+  "/en/admin/content",
+  "/ar",
+];
 
 async function grantAdminAccess(page: Page) {
   await page.context().addCookies([
@@ -28,7 +34,7 @@ for (const route of routes) {
   test(`${route} has no critical accessibility violations`, async ({
     page,
   }) => {
-    if (route.includes("/dashboard")) {
+    if (route.includes("/dashboard") || route.includes("/settings")) {
       await grantUserAccess(page);
     }
 
