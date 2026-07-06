@@ -55,10 +55,23 @@ const billingRuntimeTables = [
   "billing_tenant_settings",
 ] as const;
 
+const apiRuntimeTables = [
+  "mobile_upload_intents",
+  "mobile_deep_links",
+  "mobile_push_subscriptions",
+  "mobile_sessions",
+  "mobile_devices",
+  "api_webhook_deliveries",
+  "api_webhook_endpoints",
+  "api_usage_records",
+  "api_audit_events",
+] as const;
+
 async function lockServiceFoundationTables(client: Queryable) {
   await client.execute(`
     LOCK TABLE
       ${[
+        ...apiRuntimeTables,
         ...billingRuntimeTables,
         ...serviceFoundationTables,
         ...tenantAdminTables,
@@ -74,6 +87,10 @@ export async function resetDatabaseData() {
   await runMigrations(runtime);
   await runtime.transaction(async (transaction) => {
     await lockServiceFoundationTables(transaction);
+
+    for (const tableName of apiRuntimeTables) {
+      await transaction.execute(`DELETE FROM ${tableName}`);
+    }
 
     for (const tableName of billingRuntimeTables) {
       await transaction.execute(`DELETE FROM ${tableName}`);

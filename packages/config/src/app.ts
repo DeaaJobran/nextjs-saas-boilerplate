@@ -20,6 +20,7 @@ export const appRoutes = {
   marketing: "/",
   pricing: "/pricing",
   contact: "/contact",
+  apiDocs: "/api",
   legal: "/legal/privacy",
   signIn: "/auth/sign-in",
   signUp: "/auth/sign-up",

@@ -3,6 +3,7 @@ import type { Locale } from "@nextjs-saas/localization";
 import { Button } from "@nextjs-saas/ui";
 import {
   BarChart3Icon,
+  BookOpenIcon,
   Building2Icon,
   CreditCardIcon,
   GaugeIcon,
@@ -74,6 +75,12 @@ export async function MarketingShell({
             </Button>
             <Button asChild variant="ghost">
               <Link href={appRoutes.contact}>{t("contact")}</Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href={appRoutes.apiDocs}>
+                <BookOpenIcon aria-hidden="true" className="size-4" />
+                {t("api")}
+              </Link>
             </Button>
           </nav>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">

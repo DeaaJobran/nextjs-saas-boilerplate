@@ -476,6 +476,7 @@
   },
   "Navigation": {
     "admin": "Admin",
+    "api": "API",
     "billing": "Billing",
     "contact": "Contact",
     "dashboard": "Dashboard",
@@ -485,6 +486,26 @@
     "pricing": "Pricing",
     "settings": "Settings",
     "signIn": "Sign in"
+  },
+  "ApiDocsPage": {
+    "authDescription": "Use bearer authentication with tenant API keys, personal access tokens, or registered mobile session tokens.",
+    "authTitle": "Authentication",
+    "copyOpenApi": "OpenAPI JSON",
+    "copySdk": "TypeScript SDK",
+    "description": "Versioned REST contracts, generated OpenAPI output, mobile-safe sessions, webhooks, idempotency, CORS, audit logging, and realtime event streams.",
+    "endpointCount": "{count} endpoints",
+    "eyebrow": "Public API",
+    "generatedDescription": "This page renders from the API route catalog used to generate the OpenAPI document and TypeScript SDK.",
+    "generatedTitle": "Generated contracts",
+    "method": "Method",
+    "path": "Path",
+    "publicAccess": "Public",
+    "scope": "Scope",
+    "scopesDescription": "Scopes are checked before tenant permission checks. Tenant API keys may use equivalent tenant scopes where configured.",
+    "scopesTitle": "Scopes",
+    "title": "Developer API",
+    "versionLabel": "Version",
+    "version": "Version {version}"
   },
   "PageKind": {
     "contact": "contact",

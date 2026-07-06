@@ -275,6 +275,44 @@ describe("database migrations", () => {
     expect(Number(priceRows[0]?.count)).toBeGreaterThan(0);
   }, 15_000);
 
+  it("creates public API, webhook, realtime, and mobile support tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'api_audit_events',
+          'api_usage_records',
+          'api_webhook_deliveries',
+          'api_webhook_endpoints',
+          'mobile_deep_links',
+          'mobile_devices',
+          'mobile_push_subscriptions',
+          'mobile_sessions',
+          'mobile_upload_intents'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "api_audit_events",
+      "api_usage_records",
+      "api_webhook_deliveries",
+      "api_webhook_endpoints",
+      "mobile_deep_links",
+      "mobile_devices",
+      "mobile_push_subscriptions",
+      "mobile_sessions",
+      "mobile_upload_intents",
+    ]);
+  }, 15_000);
+
   it("seeds content and records versions and audit events for admin changes", async () => {
     databaseRuntimeOpened = true;
 

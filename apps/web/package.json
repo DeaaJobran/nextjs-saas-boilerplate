@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nextjs-saas/api": "workspace:*",
     "@nextjs-saas/auth": "workspace:*",
     "@nextjs-saas/billing": "workspace:*",
     "@nextjs-saas/config": "workspace:*",
