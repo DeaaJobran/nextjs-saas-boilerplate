@@ -138,7 +138,8 @@
     "contactFieldsRequired": "At least one contact field is required.",
     "defaultLocaleMustBeEnabled": "The default locale must be enabled.",
     "pageSectionsRequired": "At least one page section is required.",
-    "pricingPlansRequired": "At least one pricing plan is required."
+    "pricingPlansRequired": "At least one pricing plan is required.",
+    "routingDefaultLocaleMustBeEnabled": "The routing default locale ({locale}) must stay enabled."
   },
   "ContactForm": {
     "ariaLabel": "Contact request",

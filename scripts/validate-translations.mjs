@@ -46,7 +46,7 @@ async function readSupportedLocales() {
     throw new Error("Unable to read supported locales from locales.ts.");
   }
 
-  return [...match[1].matchAll(/"([^"]+)"/g)].map((entry) => entry[1]);
+  return [...match[1].matchAll(/['"]([^'"]+)['"]/g)].map((entry) => entry[1]);
 }
 
 async function readMessageFiles(locales) {

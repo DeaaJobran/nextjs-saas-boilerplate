@@ -15,7 +15,12 @@ import {
   updatePricingPlans,
   upsertManagedPage,
 } from "@nextjs-saas/config/content";
-import { isLocale, type Locale, locales } from "@nextjs-saas/localization";
+import {
+  defaultLocale as routingDefaultLocale,
+  isLocale,
+  type Locale,
+  locales,
+} from "@nextjs-saas/localization";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -385,14 +390,17 @@ export async function saveLocalizationSettingsAction(formData: FormData) {
   const actorId = await requireAdminAuth();
   const adminLocale = readLocale(formData, "adminLocale");
   const selected = readText(formData, "selected") || `landing-${adminLocale}`;
-  const defaultLocale = readLocale(formData, "defaultLocale");
+  const selectedDefaultLocale = readLocale(formData, "defaultLocale");
   const enabledLocales = formData
     .getAll("enabledLocales")
     .flatMap((value) =>
       typeof value === "string" && isLocale(value) ? [value] : [],
     );
 
-  if (enabledLocales.length === 0 || !enabledLocales.includes(defaultLocale)) {
+  if (
+    enabledLocales.length === 0 ||
+    !enabledLocales.includes(selectedDefaultLocale)
+  ) {
     const t = await getTranslations({
       locale: adminLocale,
       namespace: "AdminValidation",
@@ -401,10 +409,21 @@ export async function saveLocalizationSettingsAction(formData: FormData) {
     throw new Error(t("defaultLocaleMustBeEnabled"));
   }
 
+  if (!enabledLocales.includes(routingDefaultLocale)) {
+    const t = await getTranslations({
+      locale: adminLocale,
+      namespace: "AdminValidation",
+    });
+
+    throw new Error(
+      t("routingDefaultLocaleMustBeEnabled", { locale: routingDefaultLocale }),
+    );
+  }
+
   await updateContentSnapshot(
     (currentSnapshot) =>
       updateLocalizationSettings(currentSnapshot, {
-        defaultLocale,
+        defaultLocale: selectedDefaultLocale,
         enabledLocales,
       }),
     { actorId },
@@ -422,7 +441,7 @@ export async function saveLocalizationSettingsAction(formData: FormData) {
   redirectToAdminContent({
     adminLocale: enabledLocales.includes(adminLocale)
       ? adminLocale
-      : defaultLocale,
+      : selectedDefaultLocale,
     saved: "localization",
     selected,
   });

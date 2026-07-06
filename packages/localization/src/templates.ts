@@ -2,7 +2,7 @@ import { defaultLocale, type Locale } from "./locales";
 
 export type TemplateValue = Date | boolean | null | number | string | undefined;
 export type TemplateValues = Record<string, TemplateValue>;
-export type LocalizedText = Record<Locale, string>;
+export type LocalizedText = Partial<Record<Locale, string>>;
 
 export type LocalizedEmailTemplate = {
   html?: LocalizedText;
@@ -63,6 +63,10 @@ export function renderLocalizedText(
   fallbackLocale: Locale = defaultLocale,
 ) {
   const template = text[locale] ?? text[fallbackLocale];
+
+  if (typeof template !== "string") {
+    return "";
+  }
 
   return template.replace(/\{([a-zA-Z0-9_.-]+)\}/g, (_, key: string) =>
     stringifyTemplateValue(values[key]),

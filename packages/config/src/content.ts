@@ -235,6 +235,10 @@ export const localizationSettingsSchema: z.ZodType<LocalizationSettings> = z
   .refine(
     (settings) => settings.enabledLocales.includes(settings.defaultLocale),
     "The default locale must be enabled.",
+  )
+  .refine(
+    (settings) => settings.enabledLocales.includes(defaultLocale),
+    "The compiled routing default locale must remain enabled.",
   ) as z.ZodType<LocalizationSettings>;
 
 export const contentSnapshotSchema: z.ZodType<ContentSnapshot> = z.object({

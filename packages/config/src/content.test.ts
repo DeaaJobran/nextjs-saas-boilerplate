@@ -44,6 +44,15 @@ describe("content repository", () => {
     expect(repository.listEnabledLocales()).toEqual(["en", "ar"]);
   });
 
+  it("keeps the compiled routing default locale enabled", () => {
+    expect(() =>
+      updateLocalizationSettings(defaultContentSnapshot, {
+        defaultLocale: "ar",
+        enabledLocales: ["ar"],
+      }),
+    ).toThrow("compiled routing default locale");
+  });
+
   it("updates managed pages without mutating the default snapshot", () => {
     const repository = createContentRepository();
     const page = repository.getPage({ kind: "landing", locale: "en" });

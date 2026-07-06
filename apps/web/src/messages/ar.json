@@ -138,7 +138,8 @@
     "contactFieldsRequired": "يلزم وجود حقل تواصل واحد على الأقل.",
     "defaultLocaleMustBeEnabled": "يجب أن تكون اللغة الافتراضية مفعلة.",
     "pageSectionsRequired": "يلزم وجود قسم واحد على الأقل في الصفحة.",
-    "pricingPlansRequired": "يلزم وجود خطة أسعار واحدة على الأقل."
+    "pricingPlansRequired": "يلزم وجود خطة أسعار واحدة على الأقل.",
+    "routingDefaultLocaleMustBeEnabled": "يجب أن تبقى لغة التوجيه الافتراضية ({locale}) مفعلة."
   },
   "ContactForm": {
     "ariaLabel": "طلب تواصل",

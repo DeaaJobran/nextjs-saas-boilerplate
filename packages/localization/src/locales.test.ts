@@ -73,6 +73,16 @@ describe("localization primitives", () => {
     expect(email.text).toContain("42");
   });
 
+  it("renders an empty string when localized template text is missing", () => {
+    const email = renderLocalizedEmailTemplate("ar", {
+      subject: {},
+      text: { en: "Fallback message" },
+    });
+
+    expect(email.subject).toBe("");
+    expect(email.text).toBe("Fallback message");
+  });
+
   it("renders localized invoice/PDF template labels", () => {
     const invoice = renderLocalizedInvoiceTemplate("en", {
       billToLabel: { ar: "إلى", en: "Bill to" },

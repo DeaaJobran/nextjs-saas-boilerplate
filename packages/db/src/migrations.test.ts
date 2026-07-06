@@ -246,7 +246,7 @@ describe("database migrations", () => {
       (currentSnapshot) =>
         updateLocalizationSettings(currentSnapshot, {
           defaultLocale: "ar",
-          enabledLocales: ["ar"],
+          enabledLocales: ["en", "ar"],
         }),
       { actorId: "vitest-admin" },
     );
@@ -260,7 +260,7 @@ describe("database migrations", () => {
 
     expect(snapshot.localization).toEqual({
       defaultLocale: "ar",
-      enabledLocales: ["ar"],
+      enabledLocales: ["en", "ar"],
     });
     expect(Number(auditRows[0]?.count)).toBeGreaterThan(0);
   }, 15_000);
