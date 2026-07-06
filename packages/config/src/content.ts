@@ -1,4 +1,9 @@
-import { type Locale, locales } from "@nextjs-saas/localization";
+import {
+  defaultLocale,
+  type Locale,
+  locales,
+  uniqueLocales,
+} from "@nextjs-saas/localization";
 import { z } from "zod";
 
 import { appConfig, appRoutes } from "./app";
@@ -85,16 +90,25 @@ export type ContactSubmission = {
   values: Record<string, string>;
 };
 
+export type LocalizationSettings = {
+  defaultLocale: Locale;
+  enabledLocales: Locale[];
+};
+
 export type ContentSnapshot = {
   pages: ManagedPage[];
   pricingPlans: Record<Locale, PricingPlan[]>;
   contactFields: Record<Locale, ContactField[]>;
   contactRouting: Record<Locale, ContactRouting>;
   contactSubmissions: ContactSubmission[];
+  localization: LocalizationSettings;
 };
 
 export type ContentRepository = {
   getSnapshot(): ContentSnapshot;
+  getLocalizationSettings(): LocalizationSettings;
+  isLocaleEnabled(locale: Locale): boolean;
+  listEnabledLocales(): Locale[];
   listPages(locale: Locale): ManagedPage[];
   listAllPages(): ManagedPage[];
   getPage(input: {
@@ -115,6 +129,16 @@ const isoDateString = z.iso.datetime();
 const localeSchema = z.enum(locales);
 const publishStateSchema = z.enum(publishStates);
 const pageKindSchema = z.enum(pageKinds);
+
+function localizedRecordSchema<T extends z.ZodType>(
+  valueSchema: T,
+): z.ZodType<Record<Locale, z.infer<T>>> {
+  return z.object(
+    Object.fromEntries(
+      locales.map((locale) => [locale, valueSchema]),
+    ) as Record<Locale, T>,
+  ) as unknown as z.ZodType<Record<Locale, z.infer<T>>>;
+}
 
 const pageSeoSchema = z.object({
   title: nonEmptyString,
@@ -188,23 +212,34 @@ export const contactSubmissionSchema = z.object({
   values: z.record(z.string(), z.string()),
 });
 
-const localizedPricingPlansSchema: z.ZodType<Record<Locale, PricingPlan[]>> =
-  z.object({
-    ar: z.array(pricingPlanSchema),
-    en: z.array(pricingPlanSchema),
-  });
+const localizedPricingPlansSchema = localizedRecordSchema(
+  z.array(pricingPlanSchema),
+);
 
-const localizedContactFieldsSchema: z.ZodType<Record<Locale, ContactField[]>> =
-  z.object({
-    ar: z.array(contactFieldSchema),
-    en: z.array(contactFieldSchema),
-  });
+const localizedContactFieldsSchema = localizedRecordSchema(
+  z.array(contactFieldSchema),
+);
 
-const localizedContactRoutingSchema: z.ZodType<Record<Locale, ContactRouting>> =
-  z.object({
-    ar: contactRoutingSchema,
-    en: contactRoutingSchema,
-  });
+const localizedContactRoutingSchema =
+  localizedRecordSchema(contactRoutingSchema);
+
+export const localizationSettingsSchema: z.ZodType<LocalizationSettings> = z
+  .object({
+    defaultLocale: localeSchema,
+    enabledLocales: z.array(localeSchema).min(1),
+  })
+  .transform((settings) => ({
+    defaultLocale: settings.defaultLocale,
+    enabledLocales: uniqueLocales(settings.enabledLocales),
+  }))
+  .refine(
+    (settings) => settings.enabledLocales.includes(settings.defaultLocale),
+    "The default locale must be enabled.",
+  )
+  .refine(
+    (settings) => settings.enabledLocales.includes(defaultLocale),
+    "The compiled routing default locale must remain enabled.",
+  ) as z.ZodType<LocalizationSettings>;
 
 export const contentSnapshotSchema: z.ZodType<ContentSnapshot> = z.object({
   pages: z.array(managedPageSchema),
@@ -212,6 +247,7 @@ export const contentSnapshotSchema: z.ZodType<ContentSnapshot> = z.object({
   contactFields: localizedContactFieldsSchema,
   contactRouting: localizedContactRoutingSchema,
   contactSubmissions: z.array(contactSubmissionSchema),
+  localization: localizationSettingsSchema,
 });
 
 const updatedAt = "2026-07-06T00:00:00.000Z";
@@ -549,10 +585,16 @@ const contactRouting = {
   },
 } satisfies Record<Locale, ContactRouting>;
 
+export const defaultLocalizationSettings = localizationSettingsSchema.parse({
+  defaultLocale,
+  enabledLocales: locales,
+});
+
 export const defaultContentSnapshot = contentSnapshotSchema.parse({
   contactFields,
   contactRouting,
   contactSubmissions: [],
+  localization: defaultLocalizationSettings,
   pages,
   pricingPlans,
 });
@@ -575,6 +617,15 @@ export function createContentRepository(
   return {
     getSnapshot() {
       return cloneContentSnapshot(content);
+    },
+    getLocalizationSettings() {
+      return { ...content.localization };
+    },
+    isLocaleEnabled(locale) {
+      return content.localization.enabledLocales.includes(locale);
+    },
+    listEnabledLocales() {
+      return [...content.localization.enabledLocales];
     },
     listPages(locale) {
       return content.pages.filter((page) => page.locale === locale);
@@ -610,6 +661,17 @@ export function createContentRepository(
         : [...content.contactSubmissions];
     },
   };
+}
+
+export function updateLocalizationSettings(
+  snapshot: ContentSnapshot,
+  settings: LocalizationSettings,
+): ContentSnapshot {
+  const nextSnapshot = cloneContentSnapshot(snapshot);
+
+  nextSnapshot.localization = localizationSettingsSchema.parse(settings);
+
+  return parseContentSnapshot(nextSnapshot);
 }
 
 export function upsertManagedPage(

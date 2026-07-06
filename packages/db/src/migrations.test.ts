@@ -3,7 +3,10 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { upsertManagedPage } from "@nextjs-saas/config/content";
+import {
+  updateLocalizationSettings,
+  upsertManagedPage,
+} from "@nextjs-saas/config/content";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getDatabaseRuntime, resetDatabaseRuntimeForTests } from "./client";
@@ -179,6 +182,25 @@ describe("database migrations", () => {
     ]);
   }, 15_000);
 
+  it("creates localization settings table", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = 'localization_settings'
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "localization_settings",
+    ]);
+  }, 15_000);
+
   it("seeds content and records versions and audit events for admin changes", async () => {
     databaseRuntimeOpened = true;
 
@@ -212,6 +234,34 @@ describe("database migrations", () => {
     );
 
     expect(Number(versionRows[0]?.count)).toBeGreaterThan(0);
+    expect(Number(auditRows[0]?.count)).toBeGreaterThan(0);
+  }, 15_000);
+
+  it("persists and audits localization settings", async () => {
+    databaseRuntimeOpened = true;
+
+    await resetContentDatabase();
+
+    await updateContentSnapshot(
+      (currentSnapshot) =>
+        updateLocalizationSettings(currentSnapshot, {
+          defaultLocale: "ar",
+          enabledLocales: ["en", "ar"],
+        }),
+      { actorId: "vitest-admin" },
+    );
+
+    const snapshot = await readContentSnapshot();
+    const runtime = await getDatabaseRuntime();
+    const auditRows = await runtime.execute<{ count: string }>(
+      "SELECT count(*)::text AS count FROM content_audit_events WHERE entity_id = $1 AND actor_id = $2",
+      ["default", "vitest-admin"],
+    );
+
+    expect(snapshot.localization).toEqual({
+      defaultLocale: "ar",
+      enabledLocales: ["en", "ar"],
+    });
     expect(Number(auditRows[0]?.count)).toBeGreaterThan(0);
   }, 15_000);
 

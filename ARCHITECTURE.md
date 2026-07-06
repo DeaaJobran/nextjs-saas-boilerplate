@@ -53,6 +53,12 @@ The web app consumes `@nextjs-saas/tenant` through tenant context helpers and se
 
 Admin surfaces cover content, users, tenant controls, and super-admin impersonation. Impersonation must remain explicit, time-bound, auditable, and guarded by privileged auth checks.
 
+### Localization
+
+Locale routing is handled by `next-intl` with English and Arabic as compiled locales. Runtime support is managed through the content repository: admins control the active locale list and default locale, while the app uses those settings for route availability, navigation, and sitemap output. User and tenant preferred locales are persisted in the auth and tenant domains and validated against supported locales.
+
+UI code must use logical direction utilities and logical Tailwind classes (`start`, `end`, `ps`, `pe`, `border-e`, `text-start`) so components work in both LTR and RTL. Shared UI controls should document and preserve direction-safe spacing when they become reusable primitives.
+
 ## Current Module Boundaries
 
 Implemented packages:
@@ -90,6 +96,7 @@ Do not add empty packages for reserved boundaries. Introduce each one with real 
 - Environment variables are validated through `packages/config/src/env.ts`.
 - Routes should use `appRoutes` from `@nextjs-saas/config/app` where a shared route constant exists.
 - Locales and text direction should come from `@nextjs-saas/localization`.
+- Message files under `apps/web/src/messages` must pass `pnpm i18n:check` before merging.
 - User-facing content should come from managed content, localization, or configuration. Hardcoded strings are acceptable only for developer-facing diagnostics, stable technical labels, or temporary code with an explicit `TODO`.
 
 ## Quality Expectations

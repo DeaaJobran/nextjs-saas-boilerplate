@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./format": "./src/format.ts",
-    "./locales": "./src/locales.ts"
+    "./locales": "./src/locales.ts",
+    "./templates": "./src/templates.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

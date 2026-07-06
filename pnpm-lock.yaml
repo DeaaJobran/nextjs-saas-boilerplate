@@ -182,6 +182,9 @@ importers:
       '@nextjs-saas/db':
         specifier: workspace:*
         version: link:../db
+      '@nextjs-saas/localization':
+        specifier: workspace:*
+        version: link:../localization
       '@simplewebauthn/server':
         specifier: ^13.3.2
         version: 13.3.2
@@ -270,6 +273,9 @@ importers:
       '@nextjs-saas/db':
         specifier: workspace:*
         version: link:../db
+      '@nextjs-saas/localization':
+        specifier: workspace:*
+        version: link:../localization
     devDependencies:
       '@types/node':
         specifier: ^20

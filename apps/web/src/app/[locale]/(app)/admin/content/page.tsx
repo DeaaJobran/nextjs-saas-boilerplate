@@ -14,15 +14,18 @@ import { getTranslations } from "next-intl/server";
 import {
   ContactSettingsEditor,
   CreateManagedPageForm,
+  LocalizationSettingsEditor,
   ManagedPageEditor,
   PricingPlansEditor,
 } from "../../../../../components/admin-content-editor";
 import { Link } from "../../../../../i18n/navigation";
 import { getContentRepository } from "../../../../../lib/content-store";
 import { assertLocale } from "../../../../../lib/locale";
+import { formatLocaleDateTime } from "../../../../../lib/locale-formatters";
 import {
   createManagedPageAction,
   saveContactSettingsAction,
+  saveLocalizationSettingsAction,
   saveManagedPageAction,
   savePricingPlansAction,
 } from "./actions";
@@ -154,6 +157,12 @@ export default async function AdminContentPage({
           action={createManagedPageAction}
           adminLocale={adminLocale}
         />
+        <LocalizationSettingsEditor
+          action={saveLocalizationSettingsAction}
+          adminLocale={adminLocale}
+          selectedPageId={selectedPage.id}
+          settings={repository.getLocalizationSettings()}
+        />
         <PricingPlansEditor
           action={savePricingPlansAction}
           adminLocale={adminLocale}
@@ -185,7 +194,8 @@ export default async function AdminContentPage({
               {
                 key: "submittedAt",
                 header: t("submitted"),
-                cell: (row) => new Date(row.submittedAt).toLocaleString(),
+                cell: (row) =>
+                  formatLocaleDateTime(adminLocale, row.submittedAt),
               },
               {
                 key: "status",

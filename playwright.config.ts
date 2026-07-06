@@ -12,9 +12,11 @@ if (!process.env.DATABASE_URL) {
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  fullyParallel: true,
+  // The E2E suite shares one Next.js server and database; keep tests serial until each test provisions isolated storage.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  workers: 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://127.0.0.1:3000",

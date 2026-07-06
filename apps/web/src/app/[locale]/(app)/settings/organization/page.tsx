@@ -1,6 +1,7 @@
 import { type TenantPermission } from "@nextjs-saas/tenant";
 import { getTranslations } from "next-intl/server";
 
+import { getContentRepository } from "../../../../../lib/content-store";
 import { assertLocale } from "../../../../../lib/locale";
 import {
   getActiveTenantContext,
@@ -32,6 +33,8 @@ function statusMessage(
       return t("status.feature-flag-updated");
     case "invalid-role":
       return t("status.invalid-role");
+    case "invalid-locale":
+      return t("status.invalid-locale");
     case "invitation-cancelled":
       return t("status.invitation-cancelled");
     case "member-invited":
@@ -76,6 +79,7 @@ export default async function OrganizationSettingsPage({
     quota,
     apiKeys,
     auditEvents,
+    contentRepository,
   ] = await Promise.all([
     tenant.listMembers({
       actorId: context.effectiveUser.id,
@@ -109,6 +113,7 @@ export default async function OrganizationSettingsPage({
           organizationId: context.organization.id,
         })
       : Promise.resolve([]),
+    getContentRepository(),
   ]);
   const capabilities = {
     canInvite: hasPermission(context.membership.permissions, "members.invite"),
@@ -148,6 +153,7 @@ export default async function OrganizationSettingsPage({
       auditEvents={auditEvents}
       capabilities={capabilities}
       context={context}
+      enabledLocales={contentRepository.listEnabledLocales()}
       featureFlags={featureFlags}
       invitations={invitations}
       members={members}

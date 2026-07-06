@@ -8,6 +8,7 @@ import {
   CardTitle,
   DataTable,
   Field,
+  SelectInput,
   TextInput,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
@@ -25,8 +26,8 @@ type AdminUsersSearchParams = {
 
 function RoleSelect({ roles }: { roles: readonly AuthRole[] }) {
   return (
-    <select
-      className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+    <SelectInput
+      className="h-10 text-sm"
       defaultValue={authRoleConfig.defaultAdminManagedRole}
       name="role"
       required
@@ -36,7 +37,7 @@ function RoleSelect({ roles }: { roles: readonly AuthRole[] }) {
           {role}
         </option>
       ))}
-    </select>
+    </SelectInput>
   );
 }
 

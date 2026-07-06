@@ -90,6 +90,21 @@ describe("auth identity service", () => {
     });
   });
 
+  it("rejects unsupported profile locales", async () => {
+    const auth = await createService();
+
+    await expect(
+      auth.createUserWithPassword({
+        displayName: "Locale User",
+        email: "locale@example.test",
+        locale: "fr",
+        password: "StrongPass123",
+      }),
+    ).rejects.toMatchObject({
+      code: "unsupported_locale",
+    });
+  }, 15_000);
+
   it("creates users, signs in, rotates refresh tokens, and revokes sessions", async () => {
     const auth = await createService();
     const user = await auth.createUserWithPassword({

@@ -179,6 +179,7 @@ describe("jobs", () => {
       const startedAt = new Date("2026-07-06T10:00:00.000Z");
       const reclaimAt = new Date("2026-07-06T10:02:00.000Z");
       const jobId = await enqueueJob({
+        availableAt: startedAt,
         maxAttempts: 3,
         type: "sync-report",
       });
@@ -216,6 +217,7 @@ describe("jobs", () => {
       const startedAt = new Date("2026-07-06T10:00:00.000Z");
       const reclaimAt = new Date("2026-07-06T10:02:00.000Z");
       const jobId = await enqueueJob({
+        availableAt: startedAt,
         maxAttempts: 1,
         type: "sync-report",
       });

@@ -1,12 +1,12 @@
 import { appRoutes } from "@nextjs-saas/config/app";
 import { env } from "@nextjs-saas/config/env";
-import { locales } from "@nextjs-saas/localization";
 import type { MetadataRoute } from "next";
 
 import { getContentRepository } from "../lib/content-store";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const repository = await getContentRepository();
+  const enabledLocales = repository.listEnabledLocales();
   const staticRoutes = [
     appRoutes.marketing,
     appRoutes.pricing,
@@ -19,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const legalRoutes: string[] = [];
 
-  for (const locale of locales) {
+  for (const locale of enabledLocales) {
     for (const page of repository.listPages(locale)) {
       if (page.kind === "legal" && page.publishState === "published") {
         legalRoutes.push(`/${locale}/legal/${page.slug}`);
@@ -28,8 +28,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   return [
-    ...locales.flatMap((locale) =>
+    ...enabledLocales.flatMap((locale) =>
       staticRoutes.map((route) => ({
+        alternates: {
+          languages: Object.fromEntries(
+            enabledLocales.map((alternateLocale) => [
+              alternateLocale,
+              `${env.NEXT_PUBLIC_APP_URL}/${alternateLocale}${
+                route === "/" ? "" : route
+              }`,
+            ]),
+          ),
+        },
         url: `${env.NEXT_PUBLIC_APP_URL}/${locale}${route === "/" ? "" : route}`,
         lastModified: new Date(),
       })),

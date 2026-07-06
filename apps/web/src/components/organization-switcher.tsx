@@ -1,5 +1,5 @@
 import type { Organization } from "@nextjs-saas/tenant";
-import { Button } from "@nextjs-saas/ui";
+import { Button, SelectInput } from "@nextjs-saas/ui";
 import { Building2Icon, ShieldAlertIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -33,8 +33,8 @@ export async function OrganizationSwitcher({
             aria-hidden="true"
             className="text-muted-foreground pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2"
           />
-          <select
-            className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 max-w-52 rounded-md border py-2 ps-9 pe-3 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          <SelectInput
+            className="h-10 max-w-52 py-2 ps-9 pe-3 text-sm"
             defaultValue={activeOrganization.id}
             disabled={Boolean(impersonationSessionId)}
             id="organizationId"
@@ -45,7 +45,7 @@ export async function OrganizationSwitcher({
                 {organization.name}
               </option>
             ))}
-          </select>
+          </SelectInput>
         </div>
         <Button
           disabled={Boolean(impersonationSessionId)}

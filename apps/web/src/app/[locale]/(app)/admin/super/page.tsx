@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  SelectInput,
   Textarea,
 } from "@nextjs-saas/ui";
 import { ShieldAlertIcon } from "lucide-react";
@@ -117,8 +118,8 @@ export default async function SuperAdminPage({
                 {t("impersonation.member")}
                 <span aria-hidden="true"> *</span>
               </label>
-              <select
-                className="border-input bg-background ring-offset-background focus-visible:ring-ring h-11 rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              <SelectInput
+                className="text-sm"
                 disabled={summary.members.length === 0}
                 id="impersonation-target"
                 name="target"
@@ -136,7 +137,7 @@ export default async function SuperAdminPage({
                     {member.email}
                   </option>
                 ))}
-              </select>
+              </SelectInput>
             </div>
             <div className="grid gap-2">
               <label

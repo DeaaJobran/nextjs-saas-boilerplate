@@ -7,6 +7,8 @@ import {
   type ContentSnapshot,
   createContentRepository,
   defaultContentSnapshot,
+  defaultLocalizationSettings,
+  type LocalizationSettings,
   type ManagedPage,
   parseContentSnapshot,
   type PricingPlan,
@@ -86,6 +88,11 @@ type ContactSubmissionRow = {
   values: Record<string, string> | string;
 };
 
+type LocalizationSettingsRow = {
+  default_locale: Locale;
+  enabled_locales: Locale[] | string;
+};
+
 let readyPromise: Promise<void> | undefined;
 
 function toIsoString(value: Date | string | null | undefined) {
@@ -153,6 +160,7 @@ async function readContentSnapshotWithClient(
     fieldRows,
     routingRows,
     submissionRows,
+    localizationRows,
   ] = await Promise.all([
     readPageRows(client),
     client.execute<SectionRow>(`
@@ -219,6 +227,14 @@ async function readContentSnapshotWithClient(
       FROM contact_submissions
       ORDER BY submitted_at DESC
     `),
+    client.execute<LocalizationSettingsRow>(`
+      SELECT
+        default_locale,
+        enabled_locales
+      FROM localization_settings
+      WHERE id = 'default'
+      LIMIT 1
+    `),
   ]);
 
   const sectionsByPage = new Map<string, SectionRow[]>();
@@ -271,6 +287,17 @@ async function readContentSnapshotWithClient(
     };
   }
 
+  const localizationRow = localizationRows[0];
+  const localization: LocalizationSettings = localizationRow
+    ? {
+        defaultLocale: localizationRow.default_locale,
+        enabledLocales: parseJsonValue(
+          localizationRow.enabled_locales,
+          defaultLocalizationSettings.enabledLocales,
+        ),
+      }
+    : defaultLocalizationSettings;
+
   return parseContentSnapshot({
     contactFields,
     contactRouting,
@@ -284,6 +311,7 @@ async function readContentSnapshotWithClient(
       submittedAt: toIsoString(row.submitted_at),
       values: parseJsonValue(row.values, {}),
     })),
+    localization,
     pages: pageRows.map((page) => ({
       description: page.description,
       id: page.id,
@@ -687,6 +715,49 @@ async function replaceContactSubmissions(
   }
 }
 
+async function replaceLocalizationSettings(
+  client: Queryable,
+  snapshot: ContentSnapshot,
+  previousSnapshot: ContentSnapshot,
+  actorId?: string,
+) {
+  const timestamp = new Date().toISOString();
+
+  await client.execute(
+    `
+      INSERT INTO localization_settings (
+        id,
+        default_locale,
+        enabled_locales,
+        updated_at
+      )
+      VALUES ('default', $1, $2::jsonb, $3)
+      ON CONFLICT (id) DO UPDATE SET
+        default_locale = EXCLUDED.default_locale,
+        enabled_locales = EXCLUDED.enabled_locales,
+        updated_at = EXCLUDED.updated_at
+    `,
+    [
+      snapshot.localization.defaultLocale,
+      JSON.stringify(snapshot.localization.enabledLocales),
+      timestamp,
+    ],
+  );
+
+  if (
+    JSON.stringify(previousSnapshot.localization) !==
+    JSON.stringify(snapshot.localization)
+  ) {
+    await writeAuditEvent(client, {
+      action: "localization_settings.updated",
+      actorId,
+      entityId: "default",
+      entityType: "localization_settings",
+      snapshot: snapshot.localization,
+    });
+  }
+}
+
 async function replaceContentSnapshotWithClient(
   client: Queryable,
   snapshot: ContentSnapshot,
@@ -704,6 +775,12 @@ async function replaceContentSnapshotWithClient(
     actorId,
   );
   await replaceContactSubmissions(client, nextSnapshot, previousSnapshot);
+  await replaceLocalizationSettings(
+    client,
+    nextSnapshot,
+    previousSnapshot,
+    actorId,
+  );
 }
 
 async function lockContentTables(client: Queryable) {
@@ -716,7 +793,8 @@ async function lockContentTables(client: Queryable) {
       pricing_plans,
       contact_fields,
       contact_routing,
-      contact_submissions
+      contact_submissions,
+      localization_settings
     IN EXCLUSIVE MODE
   `);
 }
@@ -818,6 +896,7 @@ export async function resetContentDatabase() {
     await transaction.execute("DELETE FROM contact_fields");
     await transaction.execute("DELETE FROM contact_routing");
     await transaction.execute("DELETE FROM pricing_plans");
+    await transaction.execute("DELETE FROM localization_settings");
     await transaction.execute("DELETE FROM page_sections");
     await transaction.execute("DELETE FROM managed_page_versions");
     await transaction.execute("DELETE FROM content_audit_events");

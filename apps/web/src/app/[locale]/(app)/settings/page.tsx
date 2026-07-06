@@ -1,3 +1,4 @@
+import { isLocale, localeLabels } from "@nextjs-saas/localization";
 import {
   Badge,
   Button,
@@ -7,6 +8,7 @@ import {
   CardTitle,
   DataTable,
   Field,
+  SelectInput,
   TextInput,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
@@ -14,6 +16,9 @@ import { getTranslations } from "next-intl/server";
 import { PasskeyRegistrationControl } from "@/components/passkey-controls";
 
 import { getAuthService, requireCurrentSession } from "../../../../lib/auth";
+import { getContentRepository } from "../../../../lib/content-store";
+import { assertLocale } from "../../../../lib/locale";
+import { formatLocaleDateTime } from "../../../../lib/locale-formatters";
 import {
   deleteAccountAction,
   enableMfaAction,
@@ -39,8 +44,16 @@ export default async function SettingsPage({
 }) {
   const t = await getTranslations("SettingsPage");
   const { locale } = await routeParams;
+  const resolvedLocale = assertLocale(locale);
   const params = (await searchParams) ?? {};
   const session = await requireCurrentSession();
+  const repository = await getContentRepository();
+  const availableLocales = repository.listEnabledLocales();
+  const preferredLocale =
+    isLocale(session.user.locale) &&
+    availableLocales.includes(session.user.locale)
+      ? session.user.locale
+      : resolvedLocale;
   const auth = getAuthService();
   const [sessions, mfaFactors, passkeys, mfaSetup] = await Promise.all([
     auth.listSessions(session.user.id),
@@ -68,7 +81,9 @@ export default async function SettingsPage({
                     ? t("status.mfaEnabled")
                     : params.status === "session-revoked"
                       ? t("status.sessionRevoked")
-                      : t("status.generic")}
+                      : params.status === "invalid-locale"
+                        ? t("status.invalidLocale")
+                        : t("status.generic")}
         </p>
       ) : null}
       <Card>
@@ -83,7 +98,7 @@ export default async function SettingsPage({
             action={updateProfileAction}
             className="grid gap-4 md:grid-cols-2"
           >
-            <input name="locale" type="hidden" value={locale} />
+            <input name="locale" type="hidden" value={resolvedLocale} />
             <Field label={t("displayName")}>
               <TextInput
                 autoComplete="name"
@@ -97,6 +112,21 @@ export default async function SettingsPage({
                 name="avatarUrl"
                 type="url"
               />
+            </Field>
+            <Field
+              description={t("preferredLocaleDescription")}
+              label={t("preferredLocale")}
+            >
+              <SelectInput
+                defaultValue={preferredLocale}
+                name="preferredLocale"
+              >
+                {availableLocales.map((availableLocale) => (
+                  <option key={availableLocale} value={availableLocale}>
+                    {localeLabels[availableLocale]}
+                  </option>
+                ))}
+              </SelectInput>
             </Field>
             <div className="md:col-span-2">
               <Button type="submit">{t("saveProfile")}</Button>
@@ -114,7 +144,7 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent className="grid gap-5">
             <form action={requestEmailChangeAction} className="grid gap-4">
-              <input name="locale" type="hidden" value={locale} />
+              <input name="locale" type="hidden" value={resolvedLocale} />
               <Field label={t("email")}>
                 <TextInput
                   autoComplete="email"
@@ -126,7 +156,7 @@ export default async function SettingsPage({
               <Button type="submit">{t("requestEmailChange")}</Button>
             </form>
             <form action={requestAccountPasswordResetAction}>
-              <input name="locale" type="hidden" value={locale} />
+              <input name="locale" type="hidden" value={resolvedLocale} />
               <Button type="submit" variant="outline">
                 {t("sendPasswordReset")}
               </Button>
@@ -166,7 +196,7 @@ export default async function SettingsPage({
                   action={enableMfaAction}
                   className="grid gap-3 rounded-md border p-3"
                 >
-                  <input name="locale" type="hidden" value={locale} />
+                  <input name="locale" type="hidden" value={resolvedLocale} />
                   <input
                     name="factorId"
                     type="hidden"
@@ -185,7 +215,7 @@ export default async function SettingsPage({
                 </form>
               ) : (
                 <form action={startMfaEnrollmentAction}>
-                  <input name="locale" type="hidden" value={locale} />
+                  <input name="locale" type="hidden" value={resolvedLocale} />
                   <Button type="submit" variant="outline">
                     {t("startMfaSetup")}
                   </Button>
@@ -241,7 +271,8 @@ export default async function SettingsPage({
                 key: "device",
               },
               {
-                cell: (item) => new Date(item.lastSeenAt).toUTCString(),
+                cell: (item) =>
+                  formatLocaleDateTime(resolvedLocale, item.lastSeenAt),
                 header: t("table.lastSeen"),
                 key: "lastSeen",
               },
@@ -253,7 +284,7 @@ export default async function SettingsPage({
               {
                 cell: (item) => (
                   <form action={revokeSessionAction}>
-                    <input name="locale" type="hidden" value={locale} />
+                    <input name="locale" type="hidden" value={resolvedLocale} />
                     <input name="sessionId" type="hidden" value={item.id} />
                     <Button
                       disabled={Boolean(item.revokedAt)}
@@ -283,7 +314,7 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <form action={deleteAccountAction} className="grid gap-4 md:max-w-md">
-            <input name="locale" type="hidden" value={locale} />
+            <input name="locale" type="hidden" value={resolvedLocale} />
             <Field
               description={t("confirmPasswordDescription")}
               label={t("confirmPassword")}

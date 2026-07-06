@@ -107,6 +107,31 @@ describe("tenant service", () => {
     );
   }, 15_000);
 
+  it("rejects unsupported organization default locales", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+    await createUser(runtime, {
+      displayName: "Locale Owner",
+      email: "locale-owner@example.test",
+      id: "user_locale_owner",
+    });
+
+    const tenant = createTenantService({ client: runtime });
+
+    await expect(
+      tenant.createOrganization({
+        actorId: "user_locale_owner",
+        defaultLocale: "fr",
+        name: "Locale Labs",
+      }),
+    ).rejects.toMatchObject({
+      code: "unsupported_locale",
+    });
+  }, 15_000);
+
   it("ensures personal organizations idempotently", async () => {
     databaseRuntimeOpened = true;
 

@@ -12,7 +12,7 @@
 
 The boilerplate is a reusable starter, not a finished SaaS product. It should provide secure defaults, composable modules, implementation examples, and documented extension points.
 
-The project is release-tagged but not production-ready yet. A feature can be described as implemented only when the code path, UI where applicable, data model, tests, and documentation are complete enough for downstream users to adopt intentionally.
+The project is release-tagged but not production-ready yet. A feature can be described as implemented only when the code path, UI where applicable, data model, tests, and documentation are fully complete for downstream users to adopt intentionally.
 
 ## Non-Goals
 

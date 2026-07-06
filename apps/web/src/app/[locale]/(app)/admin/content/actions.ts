@@ -11,10 +11,16 @@ import {
   type PublishState,
   publishStates,
   updateContactConfiguration,
+  updateLocalizationSettings,
   updatePricingPlans,
   upsertManagedPage,
 } from "@nextjs-saas/config/content";
-import { isLocale, type Locale } from "@nextjs-saas/localization";
+import {
+  defaultLocale as routingDefaultLocale,
+  isLocale,
+  type Locale,
+  locales,
+} from "@nextjs-saas/localization";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -377,5 +383,66 @@ export async function savePricingPlansAction(formData: FormData) {
     adminLocale,
     saved: "pricing",
     selected: `pricing-${locale}`,
+  });
+}
+
+export async function saveLocalizationSettingsAction(formData: FormData) {
+  const actorId = await requireAdminAuth();
+  const adminLocale = readLocale(formData, "adminLocale");
+  const selected = readText(formData, "selected") || `landing-${adminLocale}`;
+  const selectedDefaultLocale = readLocale(formData, "defaultLocale");
+  const enabledLocales = formData
+    .getAll("enabledLocales")
+    .flatMap((value) =>
+      typeof value === "string" && isLocale(value) ? [value] : [],
+    );
+
+  if (
+    enabledLocales.length === 0 ||
+    !enabledLocales.includes(selectedDefaultLocale)
+  ) {
+    const t = await getTranslations({
+      locale: adminLocale,
+      namespace: "AdminValidation",
+    });
+
+    throw new Error(t("defaultLocaleMustBeEnabled"));
+  }
+
+  if (!enabledLocales.includes(routingDefaultLocale)) {
+    const t = await getTranslations({
+      locale: adminLocale,
+      namespace: "AdminValidation",
+    });
+
+    throw new Error(
+      t("routingDefaultLocaleMustBeEnabled", { locale: routingDefaultLocale }),
+    );
+  }
+
+  await updateContentSnapshot(
+    (currentSnapshot) =>
+      updateLocalizationSettings(currentSnapshot, {
+        defaultLocale: selectedDefaultLocale,
+        enabledLocales,
+      }),
+    { actorId },
+  );
+
+  for (const locale of locales) {
+    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/pricing`);
+    revalidatePath(`/${locale}/contact`);
+    revalidatePath(`/${locale}/admin`);
+    revalidatePath(`/${locale}/admin/content`);
+  }
+
+  revalidatePath("/sitemap.xml");
+  redirectToAdminContent({
+    adminLocale: enabledLocales.includes(adminLocale)
+      ? adminLocale
+      : selectedDefaultLocale,
+    saved: "localization",
+    selected,
   });
 }

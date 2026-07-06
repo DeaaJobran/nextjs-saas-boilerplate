@@ -1,6 +1,7 @@
 "use server";
 
 import { appRoutes } from "@nextjs-saas/config/app";
+import { isLocale } from "@nextjs-saas/localization";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -9,6 +10,7 @@ import {
   getAuthService,
   requireCurrentSession,
 } from "../../../../lib/auth";
+import { getContentRepository } from "../../../../lib/content-store";
 
 const mfaSetupCookieName = "nextjs_saas_mfa_setup";
 
@@ -36,10 +38,20 @@ function redirectWithLocalizedStatus(
 
 export async function updateProfileAction(formData: FormData) {
   const session = await requireCurrentSession();
+  const preferredLocale = formValue(formData, "preferredLocale");
+  const repository = await getContentRepository();
+
+  if (
+    preferredLocale &&
+    (!isLocale(preferredLocale) || !repository.isLocaleEnabled(preferredLocale))
+  ) {
+    redirectWithLocalizedStatus(formData, "status", "invalid-locale");
+  }
 
   await getAuthService().updateProfile({
     avatarUrl: formValue(formData, "avatarUrl") || undefined,
     displayName: formValue(formData, "displayName"),
+    locale: preferredLocale || undefined,
     userId: session.user.id,
   });
 

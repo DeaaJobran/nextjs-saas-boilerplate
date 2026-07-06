@@ -13,6 +13,7 @@ import {
 import { getTranslations } from "next-intl/server";
 
 import { Link } from "../i18n/navigation";
+import { getContentRepository } from "../lib/content-store";
 import { LocaleSwitcher } from "./locale-switcher";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -38,14 +39,21 @@ export async function MarketingShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
-  const t = await getTranslations({ locale, namespace: "Navigation" });
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
+  const [t, shellT, repository] = await Promise.all([
+    getTranslations({ locale, namespace: "Navigation" }),
+    getTranslations({ locale, namespace: "Shell" }),
+    getContentRepository(),
+  ]);
+  const availableLocales = repository.listEnabledLocales();
 
   return (
     <div className="bg-background min-h-dvh">
       <header className="bg-background/90 sticky top-0 z-40 border-b backdrop-blur">
-        <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <Link className="font-semibold" href={appRoutes.marketing}>
+        <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:px-6 lg:px-8">
+          <Link
+            className="max-w-24 min-w-0 truncate font-semibold sm:max-w-none"
+            href={appRoutes.marketing}
+          >
             {appConfig.shortName}
           </Link>
           <nav
@@ -62,10 +70,10 @@ export async function MarketingShell({
               <Link href={appRoutes.contact}>{t("contact")}</Link>
             </Button>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeToggle />
-            <LocaleSwitcher />
-            <Button asChild>
+            <LocaleSwitcher availableLocales={availableLocales} />
+            <Button asChild size="sm">
               <Link href={appRoutes.signIn}>{t("signIn")}</Link>
             </Button>
           </div>
@@ -83,8 +91,10 @@ export async function AuthShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
-  const t = await getTranslations({ locale, namespace: "Navigation" });
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
+  const [t, shellT] = await Promise.all([
+    getTranslations({ locale, namespace: "Navigation" }),
+    getTranslations({ locale, namespace: "Shell" }),
+  ]);
 
   return (
     <main className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)]">
@@ -120,8 +130,12 @@ export async function DashboardShell({
   tenantControls?: React.ReactNode;
   title: string;
 }) {
-  const t = await getTranslations({ locale, namespace: "Navigation" });
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
+  const [t, shellT, repository] = await Promise.all([
+    getTranslations({ locale, namespace: "Navigation" }),
+    getTranslations({ locale, namespace: "Shell" }),
+    getContentRepository(),
+  ]);
+  const availableLocales = repository.listEnabledLocales();
 
   return (
     <div className="bg-muted/30 min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -165,7 +179,7 @@ export async function DashboardShell({
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
             {tenantControls}
             <ThemeToggle />
-            <LocaleSwitcher />
+            <LocaleSwitcher availableLocales={availableLocales} />
           </div>
         </header>
         <main className="mx-auto w-full max-w-7xl p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
@@ -207,11 +221,13 @@ export async function AdminShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
-  const navigationT = await getTranslations({
-    locale,
-    namespace: "Navigation",
-  });
+  const [shellT, navigationT] = await Promise.all([
+    getTranslations({ locale, namespace: "Shell" }),
+    getTranslations({
+      locale,
+      namespace: "Navigation",
+    }),
+  ]);
 
   return (
     <DashboardShell locale={locale} title={navigationT("admin")}>

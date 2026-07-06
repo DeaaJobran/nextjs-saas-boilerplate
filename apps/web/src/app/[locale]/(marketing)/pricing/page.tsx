@@ -29,7 +29,7 @@ export async function generateMetadata({
     notFound();
   }
 
-  return createPageMetadata(page.seo);
+  return createPageMetadata(page.seo, { locale });
 }
 
 export default async function PricingPage({

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@nextjs-saas/db": "workspace:*",
+    "@nextjs-saas/localization": "workspace:*",
     "@simplewebauthn/server": "^13.3.2"
   },
   "devDependencies": {

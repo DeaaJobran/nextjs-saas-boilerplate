@@ -3,6 +3,7 @@
 import {
   type ContactField,
   type ContactRouting,
+  type LocalizationSettings,
   type ManagedPage,
   pageKinds,
   type PageSection,
@@ -18,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
   Field,
+  SelectInput,
   Textarea,
   TextInput,
 } from "@nextjs-saas/ui";
@@ -53,10 +55,6 @@ function createEmptyPricingPlan(): PricingPlan {
     name: "",
     priceLabel: "",
   };
-}
-
-function selectClassName() {
-  return "bg-background focus-visible:ring-ring min-h-11 w-full rounded-md border px-3 py-2 text-base shadow-sm outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
 }
 
 export function ManagedPageEditor({
@@ -97,8 +95,7 @@ export function ManagedPageEditor({
               <TextInput name="slug" required defaultValue={page.slug} />
             </Field>
             <Field label={t("publishState")} required>
-              <select
-                className={selectClassName()}
+              <SelectInput
                 defaultValue={page.publishState}
                 name="publishState"
                 required
@@ -108,7 +105,7 @@ export function ManagedPageEditor({
                     {stateT(state)}
                   </option>
                 ))}
-              </select>
+              </SelectInput>
             </Field>
             <Field label={t("contentVersion")}>
               <TextInput name="version" defaultValue={page.version} />
@@ -280,36 +277,31 @@ export function CreateManagedPageForm({
           <input name="adminLocale" type="hidden" value={adminLocale} />
           <div className="grid gap-4 md:grid-cols-2">
             <Field label={t("locale")} required>
-              <select className={selectClassName()} name="locale" required>
+              <SelectInput name="locale" required>
                 {locales.map((locale) => (
                   <option key={locale} value={locale}>
                     {localeLabels[locale]}
                   </option>
                 ))}
-              </select>
+              </SelectInput>
             </Field>
             <Field label={t("type")} required>
-              <select className={selectClassName()} name="kind" required>
+              <SelectInput name="kind" required>
                 {pageKinds.map((kind) => (
                   <option key={kind} value={kind}>
                     {kindT(kind)}
                   </option>
                 ))}
-              </select>
+              </SelectInput>
             </Field>
             <Field label={t("publishState")} required>
-              <select
-                className={selectClassName()}
-                defaultValue="draft"
-                name="publishState"
-                required
-              >
+              <SelectInput defaultValue="draft" name="publishState" required>
                 {publishStates.map((state) => (
                   <option key={state} value={state}>
                     {stateT(state)}
                   </option>
                 ))}
-              </select>
+              </SelectInput>
             </Field>
             <Field label={t("contentVersion")}>
               <TextInput name="version" />
@@ -337,6 +329,78 @@ export function CreateManagedPageForm({
               {t("createPage")}
             </Button>
           </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function LocalizationSettingsEditor({
+  action,
+  adminLocale,
+  selectedPageId,
+  settings,
+}: {
+  action: FormAction;
+  adminLocale: Locale;
+  selectedPageId: string;
+  settings: LocalizationSettings;
+}) {
+  const t = useTranslations("AdminEditor");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("localizationSettings")}</CardTitle>
+        <CardDescription>{t("localizationDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          action={action}
+          aria-label={t("localizationSettings")}
+          className="grid gap-4"
+        >
+          <input name="adminLocale" type="hidden" value={adminLocale} />
+          <input name="selected" type="hidden" value={selectedPageId} />
+          <Field label={t("defaultLocale")} required>
+            <SelectInput
+              defaultValue={settings.defaultLocale}
+              name="defaultLocale"
+              required
+            >
+              {locales.map((locale) => (
+                <option key={locale} value={locale}>
+                  {localeLabels[locale]}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">
+              {t("enabledLocales")}
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {locales.map((locale) => (
+                <label
+                  className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                  key={locale}
+                >
+                  <input
+                    className="accent-primary size-4"
+                    defaultChecked={settings.enabledLocales.includes(locale)}
+                    name="enabledLocales"
+                    type="checkbox"
+                    value={locale}
+                  />
+                  <span>{localeLabels[locale]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <Button type="submit">
+            <SaveIcon aria-hidden="true" className="size-4" />
+            {t("saveLocalizationSettings")}
+          </Button>
         </form>
       </CardContent>
     </Card>
@@ -431,8 +495,7 @@ export function ContactSettingsEditor({
                     />
                   </Field>
                   <Field label={t("type")} required>
-                    <select
-                      className={selectClassName()}
+                    <SelectInput
                       defaultValue={field.type}
                       name={`field.${index}.type`}
                       required
@@ -440,18 +503,17 @@ export function ContactSettingsEditor({
                       <option value="text">{typeT("text")}</option>
                       <option value="email">{typeT("email")}</option>
                       <option value="textarea">{typeT("textarea")}</option>
-                    </select>
+                    </SelectInput>
                   </Field>
                   <Field label={t("required")} required>
-                    <select
-                      className={selectClassName()}
+                    <SelectInput
                       defaultValue={String(field.required)}
                       name={`field.${index}.required`}
                       required
                     >
                       <option value="true">{t("required")}</option>
                       <option value="false">{t("optional")}</option>
-                    </select>
+                    </SelectInput>
                   </Field>
                   <Field label={t("minimumLength")}>
                     <TextInput
@@ -496,15 +558,14 @@ export function ContactSettingsEditor({
             />
           </Field>
           <Field label={t("spamProtection")} required>
-            <select
-              className={selectClassName()}
+            <SelectInput
               defaultValue={String(routing.spamProtectionEnabled)}
               name="spamProtectionEnabled"
               required
             >
               <option value="true">{t("enabled")}</option>
               <option value="false">{t("disabled")}</option>
-            </select>
+            </SelectInput>
           </Field>
           <Button type="submit">{t("saveContactSettings")}</Button>
         </form>
@@ -612,15 +673,14 @@ export function PricingPlansEditor({
                     />
                   </Field>
                   <Field label={t("highlighted")} required>
-                    <select
-                      className={selectClassName()}
+                    <SelectInput
                       defaultValue={String(Boolean(plan.highlighted))}
                       name={`plan.${index}.highlighted`}
                       required
                     >
                       <option value="true">{t("highlighted")}</option>
                       <option value="false">{t("standard")}</option>
-                    </select>
+                    </SelectInput>
                   </Field>
                   <Field
                     className="md:col-span-2"

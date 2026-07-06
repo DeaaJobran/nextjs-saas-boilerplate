@@ -1,4 +1,4 @@
-import type { Locale } from "@nextjs-saas/localization";
+import { type Locale, localeLabels } from "@nextjs-saas/localization";
 import {
   tenantApiKeyScopeCatalog,
   tenantPermissionCatalog,
@@ -14,6 +14,7 @@ import {
   CardTitle,
   DataTable,
   Field,
+  SelectInput,
   Textarea,
   TextInput,
 } from "@nextjs-saas/ui";
@@ -73,6 +74,7 @@ type OrganizationSettingsContentProps = {
   auditEvents: TenantAuditEvents;
   capabilities: OrganizationSettingsCapabilities;
   context: TenantContext;
+  enabledLocales: Locale[];
   featureFlags: TenantFeatureFlags;
   invitations: TenantInvitations;
   members: TenantMembers;
@@ -89,6 +91,7 @@ export function OrganizationSettingsContent({
   auditEvents,
   capabilities,
   context,
+  enabledLocales,
   featureFlags,
   invitations,
   members,
@@ -124,6 +127,7 @@ export function OrganizationSettingsContent({
       <ProfileAndPermissionsSection
         canUpdateOrganization={canUpdateOrganization}
         context={context}
+        enabledLocales={enabledLocales}
         resolvedLocale={resolvedLocale}
         t={t}
       />
@@ -189,9 +193,9 @@ function RoleSelect({
   name?: string;
 }) {
   return (
-    <select
+    <SelectInput
       aria-label={ariaLabel}
-      className="border-input bg-background ring-offset-background focus-visible:ring-ring h-11 rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+      className="text-sm"
       defaultValue={defaultValue}
       disabled={disabled}
       name={name}
@@ -202,7 +206,7 @@ function RoleSelect({
           {role}
         </option>
       ))}
-    </select>
+    </SelectInput>
   );
 }
 
@@ -213,11 +217,13 @@ function permissionsText(permissions: readonly string[] | null | undefined) {
 function ProfileAndPermissionsSection({
   canUpdateOrganization,
   context,
+  enabledLocales,
   resolvedLocale,
   t,
 }: {
   canUpdateOrganization: boolean;
   context: TenantContext;
+  enabledLocales: Locale[];
   resolvedLocale: Locale;
   t: OrganizationSettingsTranslations;
 }) {
@@ -226,6 +232,7 @@ function ProfileAndPermissionsSection({
       <OrganizationProfileCard
         canUpdateOrganization={canUpdateOrganization}
         context={context}
+        enabledLocales={enabledLocales}
         resolvedLocale={resolvedLocale}
         t={t}
       />
@@ -237,11 +244,13 @@ function ProfileAndPermissionsSection({
 function OrganizationProfileCard({
   canUpdateOrganization,
   context,
+  enabledLocales,
   resolvedLocale,
   t,
 }: {
   canUpdateOrganization: boolean;
   context: TenantContext;
+  enabledLocales: Locale[];
   resolvedLocale: Locale;
   t: OrganizationSettingsTranslations;
 }) {
@@ -290,11 +299,17 @@ function OrganizationProfileCard({
             </Field>
           </div>
           <Field label={t("profile.locale")}>
-            <TextInput
+            <SelectInput
               defaultValue={context.organization.defaultLocale}
               disabled={!canUpdateOrganization}
               name="defaultLocale"
-            />
+            >
+              {enabledLocales.map((availableLocale) => (
+                <option key={availableLocale} value={availableLocale}>
+                  {localeLabels[availableLocale]}
+                </option>
+              ))}
+            </SelectInput>
           </Field>
           <Button disabled={!canUpdateOrganization} type="submit">
             {t("profile.save")}
@@ -678,7 +693,11 @@ function CreateApiKeyForm({
   t: OrganizationSettingsTranslations;
 }) {
   return (
-    <form action={createTenantApiKeyAction} className="grid gap-4">
+    <form
+      action={createTenantApiKeyAction}
+      aria-label={t("apiKeys.create")}
+      className="grid gap-4"
+    >
       <input name="locale" type="hidden" value={resolvedLocale} />
       <Field label={t("apiKeys.name")} required>
         <TextInput disabled={!canManageKeys} name="name" required />

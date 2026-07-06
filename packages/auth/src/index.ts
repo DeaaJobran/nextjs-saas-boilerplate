@@ -5,6 +5,7 @@ import {
   type Queryable,
   runMigrations,
 } from "@nextjs-saas/db";
+import { isLocale } from "@nextjs-saas/localization";
 import {
   type AuthenticationResponseJSON,
   generateAuthenticationOptions,
@@ -333,6 +334,18 @@ function assertValidRole(role: string): asserts role is AuthRole {
   if (!isAuthRole(role)) {
     throw new AuthError("Invalid auth role.", "invalid_role");
   }
+}
+
+function normalizeOptionalLocale(locale: string | undefined) {
+  if (!locale) {
+    return undefined;
+  }
+
+  if (!isLocale(locale)) {
+    throw new AuthError("Unsupported locale.", "unsupported_locale");
+  }
+
+  return locale;
 }
 
 export async function validatePasswordPolicy(
@@ -1577,6 +1590,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       }
 
       const timestamp = now().toISOString();
+      const locale = normalizeOptionalLocale(input.locale);
       const rows = await client.execute<AuthUserRow>(
         `
           INSERT INTO auth_users (
@@ -1599,7 +1613,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           input.email.trim(),
           normalizeEmail(input.email),
           input.displayName.trim(),
-          input.locale,
+          locale,
           role,
           hashPassword(input.password),
           timestamp,
@@ -1900,6 +1914,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           avatar_url: string | null;
           display_name: string;
           email: string;
+          locale: string | null;
           role: AuthRole;
         }
       >(
@@ -1909,6 +1924,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
             u.email,
             u.display_name,
             u.avatar_url,
+            u.locale,
             u.role
           FROM auth_sessions s
           INNER JOIN auth_users u ON u.id = s.user_id
@@ -1939,6 +1955,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           displayName: session.display_name,
           email: session.email,
           id: session.user_id,
+          locale: session.locale ?? undefined,
           role: session.role,
         },
       };
@@ -2300,6 +2317,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     }) {
       const client = await getClient();
       const timestamp = now().toISOString();
+      const locale = normalizeOptionalLocale(input.locale);
       const rows = await client.execute<AuthUserRow>(
         `
           UPDATE auth_users
@@ -2314,7 +2332,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         [
           input.displayName.trim(),
           input.avatarUrl,
-          input.locale,
+          locale,
           timestamp,
           input.userId,
         ],
