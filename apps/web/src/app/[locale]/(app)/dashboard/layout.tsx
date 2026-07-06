@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
 import { DashboardShell } from "../../../../components/shells";
+import { requireCurrentSession } from "../../../../lib/auth";
 import { assertLocale } from "../../../../lib/locale";
 
 export default async function DashboardLayout({
@@ -12,6 +13,7 @@ export default async function DashboardLayout({
 }) {
   const { locale } = await params;
   const resolvedLocale = assertLocale(locale);
+  await requireCurrentSession();
   const t = await getTranslations({
     locale: resolvedLocale,
     namespace: "Navigation",

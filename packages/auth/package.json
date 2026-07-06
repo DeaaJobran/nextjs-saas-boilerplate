@@ -1,0 +1,22 @@
+{
+  "name": "@nextjs-saas/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/auth/src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nextjs-saas/db": "workspace:*",
+    "@simplewebauthn/server": "^13.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

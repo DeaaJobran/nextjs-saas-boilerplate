@@ -99,6 +99,50 @@ describe("database migrations", () => {
     ]);
   }, 15_000);
 
+  it("creates auth identity tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'auth_accounts',
+          'auth_audit_events',
+          'auth_challenges',
+          'auth_invitations',
+          'auth_login_attempts',
+          'auth_mfa_factors',
+          'auth_oauth_states',
+          'auth_passkeys',
+          'auth_recovery_codes',
+          'auth_sessions',
+          'auth_tokens',
+          'auth_users'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "auth_accounts",
+      "auth_audit_events",
+      "auth_challenges",
+      "auth_invitations",
+      "auth_login_attempts",
+      "auth_mfa_factors",
+      "auth_oauth_states",
+      "auth_passkeys",
+      "auth_recovery_codes",
+      "auth_sessions",
+      "auth_tokens",
+      "auth_users",
+    ]);
+  }, 15_000);
+
   it("seeds content and records versions and audit events for admin changes", async () => {
     databaseRuntimeOpened = true;
 

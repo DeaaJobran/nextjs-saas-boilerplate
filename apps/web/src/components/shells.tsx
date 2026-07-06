@@ -7,6 +7,7 @@ import {
   LayoutDashboardIcon,
   SettingsIcon,
   ShieldIcon,
+  UsersIcon,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -211,6 +212,12 @@ export async function AdminShell({
           <Link href={`${appRoutes.admin}/content`}>
             <BarChart3Icon aria-hidden="true" className="size-4" />
             {shellT("contentRegistry")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={appRoutes.adminUsers}>
+            <UsersIcon aria-hidden="true" className="size-4" />
+            {shellT("identityRegistry")}
           </Link>
         </Button>
       </div>

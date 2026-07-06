@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -393,6 +393,411 @@ export const cronSchedules = pgTable(
       table.enabled,
       table.nextRunAt,
       table.deletedAt,
+    ),
+  ],
+);
+
+export const authUsers = pgTable(
+  "auth_users",
+  {
+    avatarUrl: text("avatar_url"),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deletedAt: timestamp("deleted_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    deletionRequestedAt: timestamp("deletion_requested_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    disabledAt: timestamp("disabled_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    displayName: text("display_name").notNull(),
+    email: text("email").notNull(),
+    emailVerifiedAt: timestamp("email_verified_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    locale: text("locale"),
+    mfaRequired: boolean("mfa_required").notNull().default(false),
+    normalizedEmail: text("normalized_email").notNull(),
+    passwordHash: text("password_hash"),
+    passwordUpdatedAt: timestamp("password_updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    role: text("role").notNull().default("user"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_users_normalized_email_active_unique")
+      .on(table.normalizedEmail)
+      .where(sql`deleted_at IS NULL`),
+  ],
+);
+
+export const authAccounts = pgTable(
+  "auth_accounts",
+  {
+    accessTokenHash: text("access_token_hash"),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    providerEmail: text("provider_email"),
+    refreshTokenHash: text("refresh_token_hash"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("auth_accounts_provider_account_unique").on(
+      table.provider,
+      table.providerAccountId,
+    ),
+    index("auth_accounts_user_provider_idx").on(table.userId, table.provider),
+  ],
+);
+
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deviceName: text("device_name").notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    ipAddress: text("ip_address"),
+    lastSeenAt: timestamp("last_seen_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    refreshExpiresAt: timestamp("refresh_expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    refreshTokenHash: text("refresh_token_hash").notNull(),
+    revokedAt: timestamp("revoked_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    tokenHash: text("token_hash").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("auth_sessions_token_hash_unique").on(table.tokenHash),
+    uniqueIndex("auth_sessions_refresh_token_hash_unique").on(
+      table.refreshTokenHash,
+    ),
+    index("auth_sessions_user_active_idx").on(
+      table.userId,
+      table.revokedAt,
+      table.expiresAt,
+    ),
+  ],
+);
+
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    consumedAt: timestamp("consumed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    email: text("email"),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    target: text("target"),
+    tokenHash: text("token_hash").notNull(),
+    userId: text("user_id").references(() => authUsers.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    uniqueIndex("auth_tokens_token_hash_unique").on(table.tokenHash),
+    index("auth_tokens_user_kind_idx").on(
+      table.userId,
+      table.kind,
+      table.consumedAt,
+    ),
+    index("auth_tokens_email_kind_idx").on(
+      table.email,
+      table.kind,
+      table.consumedAt,
+    ),
+  ],
+);
+
+export const authChallenges = pgTable(
+  "auth_challenges",
+  {
+    challenge: text("challenge").notNull(),
+    consumedAt: timestamp("consumed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    userId: text("user_id").references(() => authUsers.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    index("auth_challenges_user_kind_idx").on(
+      table.userId,
+      table.kind,
+      table.consumedAt,
+    ),
+  ],
+);
+
+export const authPasskeys = pgTable(
+  "auth_passkeys",
+  {
+    backedUp: boolean("backed_up").notNull().default(false),
+    counter: integer("counter").notNull().default(0),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    credentialId: text("credential_id").notNull(),
+    deviceType: text("device_type").notNull(),
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    lastUsedAt: timestamp("last_used_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    publicKey: text("public_key").notNull(),
+    transports: jsonb("transports").$type<string[]>().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("auth_passkeys_credential_id_unique").on(table.credentialId),
+    index("auth_passkeys_user_idx").on(table.userId),
+  ],
+);
+
+export const authMfaFactors = pgTable(
+  "auth_mfa_factors",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    enabledAt: timestamp("enabled_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    secretCiphertext: text("secret_ciphertext").notNull(),
+    type: text("type").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("auth_mfa_factors_user_type_idx").on(
+      table.userId,
+      table.type,
+      table.enabledAt,
+    ),
+  ],
+);
+
+export const authRecoveryCodes = pgTable(
+  "auth_recovery_codes",
+  {
+    codeHash: text("code_hash").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    usedAt: timestamp("used_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("auth_recovery_codes_code_hash_unique").on(table.codeHash),
+    index("auth_recovery_codes_user_idx").on(table.userId, table.usedAt),
+  ],
+);
+
+export const authInvitations = pgTable(
+  "auth_invitations",
+  {
+    acceptedAt: timestamp("accepted_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdBy: text("created_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    email: text("email").notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    normalizedEmail: text("normalized_email").notNull(),
+    role: text("role").notNull(),
+    tokenHash: text("token_hash").notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_invitations_token_hash_unique").on(table.tokenHash),
+    index("auth_invitations_email_active_idx").on(
+      table.normalizedEmail,
+      table.acceptedAt,
+      table.expiresAt,
+    ),
+  ],
+);
+
+export const authLoginAttempts = pgTable(
+  "auth_login_attempts",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    ipAddress: text("ip_address"),
+    reason: text("reason").notNull(),
+    success: boolean("success").notNull(),
+  },
+  (table) => [
+    index("auth_login_attempts_identifier_created_idx").on(
+      table.identifier,
+      table.createdAt,
+    ),
+    index("auth_login_attempts_ip_created_idx").on(
+      table.ipAddress,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const authOauthStates = pgTable(
+  "auth_oauth_states",
+  {
+    codeVerifier: text("code_verifier").notNull(),
+    consumedAt: timestamp("consumed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    provider: text("provider").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    stateHash: text("state_hash").notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_oauth_states_state_hash_unique").on(table.stateHash),
+  ],
+);
+
+export const authAuditEvents = pgTable(
+  "auth_audit_events",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    ipAddress: text("ip_address"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    userAgent: text("user_agent"),
+    userId: text("user_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("auth_audit_events_user_created_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    index("auth_audit_events_type_created_idx").on(
+      table.eventType,
+      table.createdAt,
     ),
   ],
 );

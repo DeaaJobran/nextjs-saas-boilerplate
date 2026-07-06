@@ -25,6 +25,9 @@ export default defineConfig({
       "pnpm --filter @nextjs-saas/web exec next start --hostname 127.0.0.1",
     env: {
       ADMIN_SESSION_TOKEN: "playwright-admin",
+      AUTH_ALLOW_ADMIN_BYPASS: "true",
+      AUTH_SECRET: "playwright-auth-secret-with-at-least-32-characters",
+      NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3000",
       ...databaseEnv,
     },
     url: "http://127.0.0.1:3000",
