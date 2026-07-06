@@ -8,6 +8,9 @@ export default defineConfig({
     },
     environment: "node",
     globals: true,
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "apps/**/*.{test,spec}.{ts,tsx}",
+      "packages/**/*.{test,spec}.{ts,tsx}",
+    ],
   },
 });

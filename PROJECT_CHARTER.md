@@ -24,6 +24,8 @@ The boilerplate is a reusable starter, not a finished SaaS product. It should pr
 
 - Node.js: `>=22.12 <27`.
 - pnpm: `>=11.7 <12`.
+- React: `19.2.x`.
+- Next.js: `16.2.x`.
 - PostgreSQL: target 17+.
 - Browsers: latest two stable versions of Chromium, Firefox, and Safari.
 

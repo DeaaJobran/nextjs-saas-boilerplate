@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -13,14 +14,18 @@
 # testing
 /coverage
 /playwright-report/
+/storybook-static/
 /test-results/
 
-# local planning and development notes
+# local implementation notes
 /docs/
+.local/
 
 # next.js
 /.next/
+/apps/*/.next/
 /out/
+/apps/*/out/
 
 # production
 /build

@@ -1,9 +1,12 @@
 .next
+apps/*/.next
 coverage
 docs
 node_modules
 out
+apps/*/out
 playwright-report
 pnpm-lock.yaml
+storybook-static
 test-results
 tsconfig.tsbuildinfo

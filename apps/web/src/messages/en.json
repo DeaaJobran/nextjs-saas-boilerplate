@@ -1,0 +1,18 @@
+{
+  "Navigation": {
+    "home": "Home",
+    "pricing": "Pricing",
+    "contact": "Contact",
+    "legal": "Legal",
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "admin": "Admin",
+    "signIn": "Sign in"
+  },
+  "Actions": {
+    "viewDashboard": "View dashboard",
+    "openSettings": "Open settings",
+    "openAdmin": "Open admin",
+    "submit": "Submit"
+  }
+}

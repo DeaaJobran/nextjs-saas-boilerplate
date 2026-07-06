@@ -7,6 +7,14 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    settings: {
+      next: {
+        rootDir: ["apps/web/", "apps/docs/"],
+      },
+      react: {
+        version: "19.2.7",
+      },
+    },
     plugins: {
       "simple-import-sort": simpleImportSort,
     },
@@ -19,11 +27,14 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "apps/**/.next/**",
     "out/**",
+    "apps/**/out/**",
     "build/**",
     "coverage/**",
     "next-env.d.ts",
     "playwright-report/**",
+    "storybook-static/**",
     "test-results/**",
   ]),
 ]);
