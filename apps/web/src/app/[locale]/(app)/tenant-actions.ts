@@ -19,6 +19,7 @@ import {
   clearImpersonationCookie,
   getActiveTenantContext,
   getTenantService,
+  hasImpersonationSessionCookie,
   setActiveOrganizationCookie,
   setImpersonationCookie,
 } from "../../../lib/tenant";
@@ -48,6 +49,20 @@ function localizedPath(formData: FormData, path: string) {
   const locale = formValue(formData, "locale");
 
   return locale ? `/${locale}${path}` : path;
+}
+
+async function requireTenantActionSession() {
+  const session = await getOptionalCurrentSession();
+
+  if (session) {
+    return session;
+  }
+
+  if (await hasImpersonationSessionCookie()) {
+    return requireAdminSession();
+  }
+
+  return requireCurrentSession();
 }
 
 function redirectWithStatus(
@@ -141,6 +156,7 @@ export async function switchOrganizationAction(formData: FormData) {
 }
 
 export async function updateOrganizationAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("organization.update");
 
   await getTenantService().updateOrganization({
@@ -161,6 +177,7 @@ export async function updateOrganizationAction(formData: FormData) {
 }
 
 export async function inviteMemberAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("members.invite");
 
   await getTenantService().createInvitation({
@@ -179,6 +196,7 @@ export async function inviteMemberAction(formData: FormData) {
 }
 
 export async function cancelInvitationAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("invitations.reject");
 
   await getTenantService().cancelInvitation({
@@ -195,6 +213,7 @@ export async function cancelInvitationAction(formData: FormData) {
 }
 
 export async function updateMemberAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("members.update");
 
   await getTenantService().updateMember({
@@ -213,6 +232,7 @@ export async function updateMemberAction(formData: FormData) {
 }
 
 export async function removeMemberAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("members.remove");
 
   await getTenantService().removeMember({
@@ -254,6 +274,7 @@ export async function rejectOrganizationInvitationAction(formData: FormData) {
 }
 
 export async function createTenantApiKeyAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("api_keys.manage");
   const result = await getTenantService().createTenantApiKey({
     actorId: context.effectiveUser.id,
@@ -287,6 +308,7 @@ export async function createTenantApiKeyAction(formData: FormData) {
 }
 
 export async function revokeTenantApiKeyAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("api_keys.manage");
 
   await getTenantService().revokeTenantApiKey({
@@ -303,6 +325,7 @@ export async function revokeTenantApiKeyAction(formData: FormData) {
 }
 
 export async function updateFeatureFlagAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("feature_flags.manage");
 
   await getTenantService().updateFeatureFlag({
@@ -320,6 +343,7 @@ export async function updateFeatureFlagAction(formData: FormData) {
 }
 
 export async function updateUsageLimitAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("limits.manage");
 
   await getTenantService().updateUsageLimit({
@@ -338,6 +362,7 @@ export async function updateUsageLimitAction(formData: FormData) {
 }
 
 export async function updateQuotaAction(formData: FormData) {
+  await requireTenantActionSession();
   const context = await getActiveTenantContext("limits.manage");
 
   await getTenantService().updateQuota({
@@ -389,6 +414,7 @@ export async function revealTenantApiKeySecretAction(
   void previousState;
   void formData;
 
+  await requireTenantActionSession();
   const cookieStore = await cookies();
   const flash = parseTenantApiKeySecretFlash(
     cookieStore.get(tenantApiKeySecretCookieName)?.value,
