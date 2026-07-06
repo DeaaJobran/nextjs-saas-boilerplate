@@ -11,6 +11,7 @@ import {
   TextInput,
 } from "@nextjs-saas/ui";
 import { SendIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
@@ -28,11 +29,12 @@ type ContactAction = (
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useTranslations("ContactForm");
 
   return (
     <Button disabled={pending} type="submit">
       <SendIcon aria-hidden="true" className="size-4" />
-      {pending ? "Sending..." : "Submit"}
+      {pending ? t("sending") : t("submit")}
     </Button>
   );
 }
@@ -48,6 +50,7 @@ export function ContactForm({
   locale: Locale;
   routing: ContactRouting;
 }) {
+  const t = useTranslations("ContactForm");
   const [state, formAction] = useActionState(action, { status: "idle" });
   const formKey = state.status === "success" ? state.message : "contact-form";
 
@@ -72,14 +75,14 @@ export function ContactForm({
         ) : null}
         <form
           action={formAction}
-          aria-label="Contact request"
+          aria-label={t("ariaLabel")}
           className="grid gap-4"
           key={formKey}
         >
           <input name="locale" type="hidden" value={locale} />
           {routing.spamProtectionEnabled ? (
             <div aria-hidden="true" className="hidden">
-              <label htmlFor="company">Company</label>
+              <label htmlFor="company">{t("company")}</label>
               <input
                 autoComplete="off"
                 id="company"

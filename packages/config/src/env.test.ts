@@ -17,4 +17,18 @@ describe("createEnv", () => {
       }),
     ).toThrow("Invalid environment variables");
   });
+
+  it("accepts database runtime configuration", () => {
+    expect(
+      createEnv({
+        DATABASE_URL:
+          "postgres://nextjs_saas:nextjs_saas@127.0.0.1:5432/nextjs_saas",
+        PGLITE_DATA_DIR: ".local/pglite",
+      }),
+    ).toMatchObject({
+      DATABASE_URL:
+        "postgres://nextjs_saas:nextjs_saas@127.0.0.1:5432/nextjs_saas",
+      PGLITE_DATA_DIR: ".local/pglite",
+    });
+  });
 });

@@ -22,6 +22,7 @@ import {
   TextInput,
 } from "@nextjs-saas/ui";
 import { PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 
 type FormAction = (formData: FormData) => void | Promise<void>;
@@ -67,6 +68,8 @@ export function ManagedPageEditor({
   adminLocale: Locale;
   page: ManagedPage;
 }) {
+  const t = useTranslations("AdminEditor");
+  const stateT = useTranslations("PublicationState");
   const [sections, setSections] = React.useState<PageSection[]>(
     page.sections.length > 0 ? page.sections : [createEmptySection()],
   );
@@ -74,29 +77,26 @@ export function ManagedPageEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Edit managed page</CardTitle>
-        <CardDescription>
-          Updates are written to the active content store and immediately
-          revalidated for the public route.
-        </CardDescription>
+        <CardTitle>{t("editManagedPage")}</CardTitle>
+        <CardDescription>{t("editDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
           action={action}
-          aria-label="Edit managed page"
+          aria-label={t("editManagedPage")}
           className="grid gap-6"
         >
           <input name="adminLocale" type="hidden" value={adminLocale} />
           <input name="id" type="hidden" value={page.id} />
           <input name="sectionCount" type="hidden" value={sections.length} />
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Title" required>
+            <Field label={t("title")} required>
               <TextInput name="title" required defaultValue={page.title} />
             </Field>
-            <Field label="Slug" required>
+            <Field label={t("slug")} required>
               <TextInput name="slug" required defaultValue={page.slug} />
             </Field>
-            <Field label="Publish state" required>
+            <Field label={t("publishState")} required>
               <select
                 className={selectClassName()}
                 defaultValue={page.publishState}
@@ -105,15 +105,15 @@ export function ManagedPageEditor({
               >
                 {publishStates.map((state) => (
                   <option key={state} value={state}>
-                    {state}
+                    {stateT(state)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Content version">
+            <Field label={t("contentVersion")}>
               <TextInput name="version" defaultValue={page.version} />
             </Field>
-            <Field label="Description" required>
+            <Field label={t("description")} required>
               <TextInput
                 name="description"
                 required
@@ -122,17 +122,21 @@ export function ManagedPageEditor({
             </Field>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="SEO title" required>
+            <Field label={t("seoTitle")} required>
               <TextInput
                 name="seoTitle"
                 required
                 defaultValue={page.seo.title}
               />
             </Field>
-            <Field label="Open Graph image">
+            <Field label={t("openGraphImage")}>
               <TextInput name="ogImage" defaultValue={page.seo.ogImage} />
             </Field>
-            <Field className="md:col-span-2" label="SEO description" required>
+            <Field
+              className="md:col-span-2"
+              label={t("seoDescription")}
+              required
+            >
               <Textarea
                 name="seoDescription"
                 required
@@ -143,10 +147,9 @@ export function ManagedPageEditor({
           <div className="grid gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold">Sections</h3>
+                <h3 className="text-base font-semibold">{t("sections")}</h3>
                 <p className="text-muted-foreground text-sm">
-                  Add, remove, and reorder content blocks through structured
-                  fields.
+                  {t("sectionsDescription")}
                 </p>
               </div>
               <Button
@@ -157,7 +160,7 @@ export function ManagedPageEditor({
                 }
               >
                 <PlusIcon aria-hidden="true" className="size-4" />
-                Add section
+                {t("addSection")}
               </Button>
             </div>
             {sections.map((section, index) => (
@@ -171,7 +174,9 @@ export function ManagedPageEditor({
                   value={section.id}
                 />
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h4 className="font-medium">Section {index + 1}</h4>
+                  <h4 className="font-medium">
+                    {t("section", { number: index + 1 })}
+                  </h4>
                   <Button
                     disabled={sections.length === 1}
                     type="button"
@@ -183,17 +188,17 @@ export function ManagedPageEditor({
                     }
                   >
                     <Trash2Icon aria-hidden="true" className="size-4" />
-                    Remove
+                    {t("remove")}
                   </Button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Eyebrow">
+                  <Field label={t("eyebrow")}>
                     <TextInput
                       name={`section.${index}.eyebrow`}
                       defaultValue={section.eyebrow}
                     />
                   </Field>
-                  <Field label="Section title" required>
+                  <Field label={t("sectionTitle")} required>
                     <TextInput
                       name={`section.${index}.title`}
                       required
@@ -202,7 +207,7 @@ export function ManagedPageEditor({
                   </Field>
                   <Field
                     className="md:col-span-2"
-                    label="Section body"
+                    label={t("sectionBody")}
                     required
                   >
                     <Textarea
@@ -211,13 +216,13 @@ export function ManagedPageEditor({
                       defaultValue={section.body}
                     />
                   </Field>
-                  <Field label="CTA label">
+                  <Field label={t("ctaLabel")}>
                     <TextInput
                       name={`section.${index}.ctaLabel`}
                       defaultValue={section.cta?.label}
                     />
                   </Field>
-                  <Field label="CTA href">
+                  <Field label={t("ctaHref")}>
                     <TextInput
                       name={`section.${index}.ctaHref`}
                       defaultValue={section.cta?.href}
@@ -225,8 +230,8 @@ export function ManagedPageEditor({
                   </Field>
                   <Field
                     className="md:col-span-2"
-                    label="Items"
-                    description="One item per line."
+                    label={t("items")}
+                    description={t("oneItemPerLine")}
                   >
                     <Textarea
                       name={`section.${index}.items`}
@@ -240,7 +245,7 @@ export function ManagedPageEditor({
           <div className="flex justify-end">
             <Button type="submit">
               <SaveIcon aria-hidden="true" className="size-4" />
-              Save page
+              {t("savePage")}
             </Button>
           </div>
         </form>
@@ -256,24 +261,25 @@ export function CreateManagedPageForm({
   action: FormAction;
   adminLocale: Locale;
 }) {
+  const t = useTranslations("AdminEditor");
+  const kindT = useTranslations("PageKind");
+  const stateT = useTranslations("PublicationState");
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create managed page</CardTitle>
-        <CardDescription>
-          Adds a new localized page record to the same content system used by
-          the public routes.
-        </CardDescription>
+        <CardTitle>{t("createManagedPage")}</CardTitle>
+        <CardDescription>{t("createDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
           action={action}
-          aria-label="Create managed page"
+          aria-label={t("createManagedPage")}
           className="grid gap-4"
         >
           <input name="adminLocale" type="hidden" value={adminLocale} />
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Locale" required>
+            <Field label={t("locale")} required>
               <select className={selectClassName()} name="locale" required>
                 {locales.map((locale) => (
                   <option key={locale} value={locale}>
@@ -282,16 +288,16 @@ export function CreateManagedPageForm({
                 ))}
               </select>
             </Field>
-            <Field label="Type" required>
+            <Field label={t("type")} required>
               <select className={selectClassName()} name="kind" required>
                 {pageKinds.map((kind) => (
                   <option key={kind} value={kind}>
-                    {kind}
+                    {kindT(kind)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Publish state" required>
+            <Field label={t("publishState")} required>
               <select
                 className={selectClassName()}
                 defaultValue="draft"
@@ -300,26 +306,26 @@ export function CreateManagedPageForm({
               >
                 {publishStates.map((state) => (
                   <option key={state} value={state}>
-                    {state}
+                    {stateT(state)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Content version">
+            <Field label={t("contentVersion")}>
               <TextInput name="version" />
             </Field>
-            <Field label="Slug" required>
+            <Field label={t("slug")} required>
               <TextInput name="slug" required />
             </Field>
-            <Field label="Title" required>
+            <Field label={t("title")} required>
               <TextInput name="title" required />
             </Field>
-            <Field label="Description" required>
+            <Field label={t("description")} required>
               <TextInput name="description" required />
             </Field>
             <Field
               className="md:col-span-2"
-              label="First section body"
+              label={t("firstSectionBody")}
               required
             >
               <Textarea name="body" required />
@@ -328,7 +334,7 @@ export function CreateManagedPageForm({
           <div className="flex justify-end">
             <Button type="submit">
               <PlusIcon aria-hidden="true" className="size-4" />
-              Create page
+              {t("createPage")}
             </Button>
           </div>
         </form>
@@ -350,6 +356,8 @@ export function ContactSettingsEditor({
   locale: Locale;
   routing: ContactRouting;
 }) {
+  const t = useTranslations("AdminEditor");
+  const typeT = useTranslations("ContactFieldType");
   const [contactFields, setContactFields] = React.useState<ContactField[]>(
     fields.length > 0 ? fields : [createEmptyContactField()],
   );
@@ -357,27 +365,24 @@ export function ContactSettingsEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Contact settings</CardTitle>
-        <CardDescription>
-          Configure field labels, validation limits, recipient routing, and spam
-          protection for the selected locale.
-        </CardDescription>
+        <CardTitle>{t("contactSettings")}</CardTitle>
+        <CardDescription>{t("contactDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
           action={action}
-          aria-label="Contact settings"
+          aria-label={t("contactSettings")}
           className="grid gap-4"
         >
           <input name="adminLocale" type="hidden" value={adminLocale} />
           <input name="locale" type="hidden" value={locale} />
           <input name="fieldCount" type="hidden" value={contactFields.length} />
           <div className="bg-muted/40 rounded-md border px-3 py-2 text-sm">
-            Editing contact settings for {localeLabels[locale]}.
+            {t("contactEditing", { locale: localeLabels[locale] })}
           </div>
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-base font-semibold">Fields</h3>
+              <h3 className="text-base font-semibold">{t("fields")}</h3>
               <Button
                 type="button"
                 variant="outline"
@@ -389,7 +394,7 @@ export function ContactSettingsEditor({
                 }
               >
                 <PlusIcon aria-hidden="true" className="size-4" />
-                Add field
+                {t("addField")}
               </Button>
             </div>
             {contactFields.map((field, index) => (
@@ -400,7 +405,9 @@ export function ContactSettingsEditor({
                   value={field.id}
                 />
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h4 className="font-medium">Field {index + 1}</h4>
+                  <h4 className="font-medium">
+                    {t("field", { number: index + 1 })}
+                  </h4>
                   <Button
                     disabled={contactFields.length === 1}
                     type="button"
@@ -412,41 +419,41 @@ export function ContactSettingsEditor({
                     }
                   >
                     <Trash2Icon aria-hidden="true" className="size-4" />
-                    Remove
+                    {t("remove")}
                   </Button>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Field label="Label" required>
+                  <Field label={t("label")} required>
                     <TextInput
                       name={`field.${index}.label`}
                       required
                       defaultValue={field.label}
                     />
                   </Field>
-                  <Field label="Type" required>
+                  <Field label={t("type")} required>
                     <select
                       className={selectClassName()}
                       defaultValue={field.type}
                       name={`field.${index}.type`}
                       required
                     >
-                      <option value="text">text</option>
-                      <option value="email">email</option>
-                      <option value="textarea">textarea</option>
+                      <option value="text">{typeT("text")}</option>
+                      <option value="email">{typeT("email")}</option>
+                      <option value="textarea">{typeT("textarea")}</option>
                     </select>
                   </Field>
-                  <Field label="Required" required>
+                  <Field label={t("required")} required>
                     <select
                       className={selectClassName()}
                       defaultValue={String(field.required)}
                       name={`field.${index}.required`}
                       required
                     >
-                      <option value="true">Required</option>
-                      <option value="false">Optional</option>
+                      <option value="true">{t("required")}</option>
+                      <option value="false">{t("optional")}</option>
                     </select>
                   </Field>
-                  <Field label="Minimum length">
+                  <Field label={t("minimumLength")}>
                     <TextInput
                       min={0}
                       name={`field.${index}.minLength`}
@@ -454,7 +461,7 @@ export function ContactSettingsEditor({
                       defaultValue={field.minLength}
                     />
                   </Field>
-                  <Field label="Maximum length">
+                  <Field label={t("maximumLength")}>
                     <TextInput
                       min={1}
                       name={`field.${index}.maxLength`}
@@ -466,7 +473,7 @@ export function ContactSettingsEditor({
               </div>
             ))}
           </div>
-          <Field label="Recipient email" required>
+          <Field label={t("recipientEmail")} required>
             <TextInput
               name="recipientEmail"
               required
@@ -474,32 +481,32 @@ export function ContactSettingsEditor({
               defaultValue={routing.recipientEmail}
             />
           </Field>
-          <Field label="Subject prefix" required>
+          <Field label={t("subjectPrefix")} required>
             <TextInput
               name="subjectPrefix"
               required
               defaultValue={routing.subjectPrefix}
             />
           </Field>
-          <Field label="Success message" required>
+          <Field label={t("successMessage")} required>
             <TextInput
               name="successMessage"
               required
               defaultValue={routing.successMessage}
             />
           </Field>
-          <Field label="Spam protection" required>
+          <Field label={t("spamProtection")} required>
             <select
               className={selectClassName()}
               defaultValue={String(routing.spamProtectionEnabled)}
               name="spamProtectionEnabled"
               required
             >
-              <option value="true">Enabled</option>
-              <option value="false">Disabled</option>
+              <option value="true">{t("enabled")}</option>
+              <option value="false">{t("disabled")}</option>
             </select>
           </Field>
-          <Button type="submit">Save contact settings</Button>
+          <Button type="submit">{t("saveContactSettings")}</Button>
         </form>
       </CardContent>
     </Card>
@@ -517,6 +524,7 @@ export function PricingPlansEditor({
   locale: Locale;
   plans: PricingPlan[];
 }) {
+  const t = useTranslations("AdminEditor");
   const [pricingPlans, setPricingPlans] = React.useState<PricingPlan[]>(
     plans.length > 0 ? plans : [createEmptyPricingPlan()],
   );
@@ -524,23 +532,24 @@ export function PricingPlansEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pricing plans</CardTitle>
-        <CardDescription>
-          Manage localized plan presentation while billing adapters own payment
-          provider behavior.
-        </CardDescription>
+        <CardTitle>{t("pricingPlans")}</CardTitle>
+        <CardDescription>{t("pricingDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={action} aria-label="Pricing plans" className="grid gap-4">
+        <form
+          action={action}
+          aria-label={t("pricingPlans")}
+          className="grid gap-4"
+        >
           <input name="adminLocale" type="hidden" value={adminLocale} />
           <input name="locale" type="hidden" value={locale} />
           <input name="planCount" type="hidden" value={pricingPlans.length} />
           <div className="bg-muted/40 rounded-md border px-3 py-2 text-sm">
-            Editing pricing plans for {localeLabels[locale]}.
+            {t("pricingEditing", { locale: localeLabels[locale] })}
           </div>
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-base font-semibold">Plans</h3>
+              <h3 className="text-base font-semibold">{t("plans")}</h3>
               <Button
                 type="button"
                 variant="outline"
@@ -552,7 +561,7 @@ export function PricingPlansEditor({
                 }
               >
                 <PlusIcon aria-hidden="true" className="size-4" />
-                Add plan
+                {t("addPlan")}
               </Button>
             </div>
             {pricingPlans.map((plan, index) => (
@@ -563,7 +572,9 @@ export function PricingPlansEditor({
                   value={plan.id}
                 />
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h4 className="font-medium">Plan {index + 1}</h4>
+                  <h4 className="font-medium">
+                    {t("plan", { number: index + 1 })}
+                  </h4>
                   <Button
                     disabled={pricingPlans.length === 1}
                     type="button"
@@ -575,43 +586,47 @@ export function PricingPlansEditor({
                     }
                   >
                     <Trash2Icon aria-hidden="true" className="size-4" />
-                    Remove
+                    {t("remove")}
                   </Button>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Field label="Plan name" required>
+                  <Field label={t("planName")} required>
                     <TextInput
                       name={`plan.${index}.name`}
                       required
                       defaultValue={plan.name}
                     />
                   </Field>
-                  <Field label="Price label" required>
+                  <Field label={t("priceLabel")} required>
                     <TextInput
                       name={`plan.${index}.priceLabel`}
                       required
                       defaultValue={plan.priceLabel}
                     />
                   </Field>
-                  <Field label="CTA label" required>
+                  <Field label={t("ctaLabel")} required>
                     <TextInput
                       name={`plan.${index}.ctaLabel`}
                       required
                       defaultValue={plan.ctaLabel}
                     />
                   </Field>
-                  <Field label="Highlighted" required>
+                  <Field label={t("highlighted")} required>
                     <select
                       className={selectClassName()}
                       defaultValue={String(Boolean(plan.highlighted))}
                       name={`plan.${index}.highlighted`}
                       required
                     >
-                      <option value="true">Highlighted</option>
-                      <option value="false">Standard</option>
+                      <option value="true">{t("highlighted")}</option>
+                      <option value="false">{t("standard")}</option>
                     </select>
                   </Field>
-                  <Field className="md:col-span-2" label="Description" required>
+                  <Field
+                    className="md:col-span-2"
+                    label={t("description")}
+                    required
+                  >
                     <Textarea
                       name={`plan.${index}.description`}
                       required
@@ -620,8 +635,8 @@ export function PricingPlansEditor({
                   </Field>
                   <Field
                     className="md:col-span-2"
-                    label="Features"
-                    description="One feature per line."
+                    label={t("features")}
+                    description={t("oneFeaturePerLine")}
                     required
                   >
                     <Textarea
@@ -634,7 +649,7 @@ export function PricingPlansEditor({
               </div>
             ))}
           </div>
-          <Button type="submit">Save pricing plans</Button>
+          <Button type="submit">{t("savePricingPlans")}</Button>
         </form>
       </CardContent>
     </Card>

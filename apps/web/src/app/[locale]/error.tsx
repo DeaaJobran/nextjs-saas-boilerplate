@@ -1,6 +1,7 @@
 "use client";
 
 import { ErrorState } from "@nextjs-saas/ui";
+import { useTranslations } from "next-intl";
 
 export default function Error({
   error,
@@ -9,12 +10,14 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("Errors");
+
   return (
     <main className="flex min-h-dvh items-center justify-center p-6">
       <ErrorState
-        action={{ label: "Try again", onClick: reset }}
+        action={{ label: t("tryAgain"), onClick: reset }}
         description={error.message}
-        title="This route failed to render."
+        title={t("routeTitle")}
       />
     </main>
   );

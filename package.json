@@ -27,6 +27,9 @@
     "validate": "git diff --check && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:storybook && pnpm playwright:install && pnpm test:e2e && pnpm test:a11y",
     "ci:checks": "pnpm validate",
     "commit": "cz",
+    "db:migrate": "pnpm --filter @nextjs-saas/db migrate",
+    "db:reset": "pnpm --filter @nextjs-saas/db reset",
+    "db:seed": "pnpm --filter @nextjs-saas/db seed",
     "prepare": "husky"
   },
   "dependencies": {},

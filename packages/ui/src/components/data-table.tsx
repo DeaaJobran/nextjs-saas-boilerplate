@@ -13,13 +13,23 @@ export function DataTable<TData>({
   columns,
   data,
   empty,
+  emptyLabel,
 }: {
   columns: DataTableColumn<TData>[];
   data: TData[];
   empty?: React.ReactNode;
+  emptyLabel?: string;
 }) {
   if (data.length === 0) {
-    return <>{empty ?? null}</>;
+    if (empty) {
+      return <>{empty}</>;
+    }
+
+    return emptyLabel ? (
+      <p className="text-muted-foreground rounded-md border p-4 text-sm">
+        {emptyLabel}
+      </p>
+    ) : null;
   }
 
   return (

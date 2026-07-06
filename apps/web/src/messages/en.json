@@ -1,18 +1,245 @@
 {
+  "Actions": {
+    "openAdmin": "Open admin",
+    "openSettings": "Open settings",
+    "submit": "Submit",
+    "viewDashboard": "View dashboard"
+  },
+  "AdminContent": {
+    "action": "Action",
+    "adminBadge": "Admin",
+    "contentChangesSaved": "Content changes saved and public routes revalidated.",
+    "description": "Landing, pricing, contact, and legal pages are managed from database content records.",
+    "edit": "Edit",
+    "email": "Email",
+    "emptySubmissions": "No contact submissions yet.",
+    "locale": "Locale",
+    "name": "Name",
+    "recentSubmissionsDescription": "Messages submitted through the public contact form are stored in the database for admin review.",
+    "recentSubmissionsTitle": "Recent contact submissions",
+    "status": "Status",
+    "submitted": "Submitted",
+    "title": "Managed content registry",
+    "type": "Type",
+    "pageTitle": "Title",
+    "publishState": "Publish state"
+  },
+  "AdminEditor": {
+    "addField": "Add field",
+    "addPlan": "Add plan",
+    "addSection": "Add section",
+    "contactDescription": "Configure field labels, validation limits, recipient routing, and spam protection for the selected locale.",
+    "contactEditing": "Editing contact settings for {locale}.",
+    "contactSettings": "Contact settings",
+    "contentVersion": "Content version",
+    "createDescription": "Adds a new localized page record to the same database content system used by the public routes.",
+    "createManagedPage": "Create managed page",
+    "createPage": "Create page",
+    "ctaHref": "CTA href",
+    "ctaLabel": "CTA label",
+    "description": "Description",
+    "editDescription": "Updates are written to the database content repository and immediately revalidated for the public route.",
+    "editManagedPage": "Edit managed page",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "eyebrow": "Eyebrow",
+    "features": "Features",
+    "field": "Field {number}",
+    "fields": "Fields",
+    "firstSectionBody": "First section body",
+    "highlighted": "Highlighted",
+    "items": "Items",
+    "label": "Label",
+    "locale": "Locale",
+    "maximumLength": "Maximum length",
+    "minimumLength": "Minimum length",
+    "oneFeaturePerLine": "One feature per line.",
+    "oneItemPerLine": "One item per line.",
+    "openGraphImage": "Open Graph image",
+    "optional": "Optional",
+    "plan": "Plan {number}",
+    "planName": "Plan name",
+    "plans": "Plans",
+    "pricingDescription": "Manage localized plan presentation while billing adapters own payment provider behavior.",
+    "pricingEditing": "Editing pricing plans for {locale}.",
+    "pricingPlans": "Pricing plans",
+    "priceLabel": "Price label",
+    "publishState": "Publish state",
+    "recipientEmail": "Recipient email",
+    "remove": "Remove",
+    "required": "Required",
+    "saveContactSettings": "Save contact settings",
+    "savePage": "Save page",
+    "savePricingPlans": "Save pricing plans",
+    "section": "Section {number}",
+    "sectionBody": "Section body",
+    "sectionTitle": "Section title",
+    "sections": "Sections",
+    "sectionsDescription": "Add, remove, and reorder content blocks through structured fields.",
+    "seoDescription": "SEO description",
+    "seoTitle": "SEO title",
+    "spamProtection": "Spam protection",
+    "standard": "Standard",
+    "subjectPrefix": "Subject prefix",
+    "successMessage": "Success message",
+    "slug": "Slug",
+    "title": "Title",
+    "type": "Type"
+  },
+  "AdminOverview": {
+    "adminBadge": "Admin",
+    "contactDescription": "saved through the managed contact form",
+    "contactMessages": "Contact messages",
+    "localeDescription": "English and Arabic configured",
+    "locales": "Locales",
+    "managedPages": "Managed pages",
+    "managedPagesDescription": "editable content records"
+  },
+  "AdminValidation": {
+    "contactFieldsRequired": "At least one contact field is required.",
+    "pageSectionsRequired": "At least one page section is required.",
+    "pricingPlansRequired": "At least one pricing plan is required."
+  },
+  "ContactForm": {
+    "ariaLabel": "Contact request",
+    "company": "Company",
+    "sending": "Sending...",
+    "submit": "Submit"
+  },
+  "ContactPage": {
+    "eyebrow": "Managed contact"
+  },
+  "ContactFieldType": {
+    "email": "email",
+    "text": "text",
+    "textarea": "textarea"
+  },
+  "ContactSubmissionStatus": {
+    "new": "new",
+    "reviewed": "reviewed"
+  },
+  "ContactValidation": {
+    "email": "{field} must be a valid email address.",
+    "locale": "The selected locale is not supported.",
+    "maxLength": "{field} must be {max} characters or less.",
+    "minLength": "{field} must be at least {min} characters.",
+    "required": "{field} is required."
+  },
+  "DashboardPage": {
+    "chartDescription": "Demo activity rendered through the reusable chart primitive.",
+    "chartTitle": "Demo activity",
+    "cards": {
+      "layouts": {
+        "label": "Layouts",
+        "value": "5 shell contracts"
+      },
+      "locales": {
+        "label": "Locales",
+        "value": "English and Arabic"
+      },
+      "uiPrimitives": {
+        "label": "UI primitives",
+        "value": "Forms, tables, charts"
+      }
+    },
+    "days": {
+      "fri": "Fri",
+      "mon": "Mon",
+      "thu": "Thu",
+      "tue": "Tue",
+      "wed": "Wed"
+    },
+    "modules": {
+      "applicationShell": "Application shell",
+      "billingBoundary": "Billing provider boundary",
+      "core": "Core",
+      "localization": "Localization",
+      "localizationFoundation": "Localization foundation",
+      "billing": "Billing",
+      "queued": "queued",
+      "ready": "ready"
+    },
+    "table": {
+      "module": "Module",
+      "owner": "Owner",
+      "status": "Status"
+    }
+  },
+  "Errors": {
+    "globalTitle": "The application shell failed to render.",
+    "loadingDescription": "Preparing the requested application surface.",
+    "loadingTitle": "Loading",
+    "notFoundDescription": "The requested page is not available for this locale.",
+    "notFoundTitle": "Page not found",
+    "routeTitle": "This route failed to render.",
+    "returnHome": "Return home",
+    "tryAgain": "Try again"
+  },
+  "LocaleSwitcher": {
+    "switch": "Switch language to {locale}"
+  },
+  "MarketingPage": {
+    "reviewPricing": "Review pricing"
+  },
   "Navigation": {
-    "home": "Home",
-    "pricing": "Pricing",
-    "contact": "Contact",
-    "legal": "Legal",
-    "dashboard": "Dashboard",
-    "settings": "Settings",
     "admin": "Admin",
+    "contact": "Contact",
+    "dashboard": "Dashboard",
+    "home": "Home",
+    "legal": "Legal",
+    "pricing": "Pricing",
+    "settings": "Settings",
     "signIn": "Sign in"
   },
-  "Actions": {
-    "viewDashboard": "View dashboard",
-    "openSettings": "Open settings",
-    "openAdmin": "Open admin",
-    "submit": "Submit"
+  "PageKind": {
+    "contact": "contact",
+    "landing": "landing",
+    "legal": "legal",
+    "pricing": "pricing"
+  },
+  "PricingPage": {
+    "configured": "Configured",
+    "eyebrow": "Managed pricing"
+  },
+  "PublicationState": {
+    "archived": "archived",
+    "draft": "draft",
+    "published": "published",
+    "scheduled": "scheduled"
+  },
+  "SettingsPage": {
+    "accountDescription": "Settings pages use the same responsive shell as product modules.",
+    "accountTitle": "Application settings",
+    "email": "Email",
+    "displayName": "Display name",
+    "defaultDisplayName": "Demo User",
+    "defaultEmail": "demo@example.com",
+    "layoutNote": "Theme, locale, notifications, and organization settings will reuse this layout.",
+    "profileDescription": "Form primitives reserve the contract for the identity module.",
+    "profileTitle": "Profile settings",
+    "saveProfile": "Save profile",
+    "securityNote": "Security-sensitive controls are separated before destructive actions are added."
+  },
+  "Shell": {
+    "adminEyebrow": "Admin surface",
+    "adminTitle": "Content and operational controls",
+    "applicationNavigation": "Application navigation",
+    "authDescription": "This layout gives future sign-in, passkey, MFA, and recovery flows a stable responsive contract.",
+    "authTitle": "A reusable auth surface ready for the identity module.",
+    "contentRegistry": "Content registry",
+    "mainNavigation": "Main navigation",
+    "mobileApplicationNavigation": "Mobile application navigation"
+  },
+  "SignInPage": {
+    "description": "The identity module will attach providers to this stable auth layout.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "title": "Sign in to {appName}"
+  },
+  "Theme": {
+    "dark": "dark",
+    "light": "light",
+    "switch": "Switch to {theme} mode"
   }
 }

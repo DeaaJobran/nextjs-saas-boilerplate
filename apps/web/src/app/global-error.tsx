@@ -8,6 +8,8 @@ import {
 } from "@nextjs-saas/localization";
 import { ErrorState } from "@nextjs-saas/ui";
 
+import { errorFallbackMessages } from "../messages/error-fallbacks";
+
 function getErrorLocale(): Locale {
   if (typeof window === "undefined") {
     return defaultLocale;
@@ -26,7 +28,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const locale = getErrorLocale();
-  const isArabic = locale === "ar";
+  const messages = errorFallbackMessages[locale];
 
   return (
     <html dir={getTextDirection(locale)} lang={locale}>
@@ -34,15 +36,11 @@ export default function GlobalError({
         <main className="flex min-h-dvh items-center justify-center p-6">
           <ErrorState
             action={{
-              label: isArabic ? "حاول مرة أخرى" : "Try again",
+              label: messages.tryAgain,
               onClick: reset,
             }}
             description={error.message}
-            title={
-              isArabic
-                ? "تعذر عرض هيكل التطبيق."
-                : "The application shell failed to render."
-            }
+            title={messages.globalTitle}
           />
         </main>
       </body>

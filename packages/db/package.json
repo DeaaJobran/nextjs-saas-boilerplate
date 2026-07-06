@@ -1,0 +1,30 @@
+{
+  "name": "@nextjs-saas/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./content": "./src/content-repository.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "scripts": {
+    "migrate": "tsx src/scripts/migrate.ts",
+    "reset": "tsx src/scripts/reset.ts",
+    "seed": "tsx src/scripts/seed.ts",
+    "test": "vitest run --root ../.. packages/db/src/migrations.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@nextjs-saas/config": "workspace:*",
+    "@nextjs-saas/localization": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

@@ -23,6 +23,8 @@
       "@/*": ["./apps/web/src/*"],
       "@nextjs-saas/config": ["./packages/config/src/index.ts"],
       "@nextjs-saas/config/*": ["./packages/config/src/*"],
+      "@nextjs-saas/db": ["./packages/db/src/index.ts"],
+      "@nextjs-saas/db/*": ["./packages/db/src/*"],
       "@nextjs-saas/localization": ["./packages/localization/src/index.ts"],
       "@nextjs-saas/localization/*": ["./packages/localization/src/*"],
       "@nextjs-saas/ui": ["./packages/ui/src/index.ts"],

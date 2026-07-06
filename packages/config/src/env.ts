@@ -1,10 +1,12 @@
 import { z } from "zod";
 
 const envSchema = z.object({
+  DATABASE_URL: z.url().optional(),
   NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  PGLITE_DATA_DIR: z.string().trim().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

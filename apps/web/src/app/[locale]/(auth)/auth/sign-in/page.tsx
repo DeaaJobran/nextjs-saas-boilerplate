@@ -8,19 +8,20 @@ import {
   Field,
   TextInput,
 } from "@nextjs-saas/ui";
+import { getTranslations } from "next-intl/server";
 
-export default function SignInPage() {
+export default async function SignInPage() {
+  const t = await getTranslations("SignInPage");
+
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>Sign in to {appConfig.shortName}</CardTitle>
-        <p className="text-muted-foreground text-sm">
-          The identity module will attach providers to this stable auth layout.
-        </p>
+        <CardTitle>{t("title", { appName: appConfig.shortName })}</CardTitle>
+        <p className="text-muted-foreground text-sm">{t("description")}</p>
       </CardHeader>
       <CardContent>
         <form className="grid gap-4">
-          <Field label="Email" required>
+          <Field label={t("email")} required>
             <TextInput
               autoComplete="email"
               name="email"
@@ -28,7 +29,7 @@ export default function SignInPage() {
               type="email"
             />
           </Field>
-          <Field label="Password" required>
+          <Field label={t("password")} required>
             <TextInput
               autoComplete="current-password"
               name="password"
@@ -36,7 +37,7 @@ export default function SignInPage() {
               type="password"
             />
           </Field>
-          <Button type="submit">Sign in</Button>
+          <Button type="submit">{t("submit")}</Button>
         </form>
       </CardContent>
     </Card>

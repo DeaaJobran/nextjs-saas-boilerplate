@@ -17,6 +17,7 @@ import {
 import { isLocale, type Locale } from "@nextjs-saas/localization";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { requireAdminAuth } from "../../../../../lib/admin-auth";
 import {
@@ -92,11 +93,14 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-function readSections(formData: FormData): ManagedPage["sections"] {
+function readSections(
+  formData: FormData,
+  t: (key: "pageSectionsRequired") => string,
+): ManagedPage["sections"] {
   const sectionCount = Number(readText(formData, "sectionCount"));
 
   if (!Number.isInteger(sectionCount) || sectionCount < 1) {
-    throw new Error("At least one page section is required.");
+    throw new Error(t("pageSectionsRequired"));
   }
 
   return Array.from({ length: sectionCount }, (_, index) => {
@@ -168,9 +172,13 @@ function redirectToAdminContent({
 }
 
 export async function saveManagedPageAction(formData: FormData) {
-  await requireAdminAuth();
+  const actorId = await requireAdminAuth();
 
   const adminLocale = readLocale(formData, "adminLocale");
+  const t = await getTranslations({
+    locale: adminLocale,
+    namespace: "AdminValidation",
+  });
   const id = readText(formData, "id");
   const snapshot = await readContentSnapshot();
   const repository = createContentRepository(snapshot);
@@ -190,7 +198,7 @@ export async function saveManagedPageAction(formData: FormData) {
         ? (existingPage.publishedAt ?? now)
         : existingPage.publishedAt,
     publishState,
-    sections: readSections(formData),
+    sections: readSections(formData, t),
     seo: {
       description: readText(formData, "seoDescription"),
       ogImage: readOptionalText(formData, "ogImage"),
@@ -202,8 +210,9 @@ export async function saveManagedPageAction(formData: FormData) {
     version: readOptionalText(formData, "version"),
   };
 
-  await updateContentSnapshot((currentSnapshot) =>
-    upsertManagedPage(currentSnapshot, nextPage),
+  await updateContentSnapshot(
+    (currentSnapshot) => upsertManagedPage(currentSnapshot, nextPage),
+    { actorId },
   );
 
   revalidateManagedPage(nextPage, adminLocale);
@@ -215,7 +224,7 @@ export async function saveManagedPageAction(formData: FormData) {
 }
 
 export async function createManagedPageAction(formData: FormData) {
-  await requireAdminAuth();
+  const actorId = await requireAdminAuth();
 
   const adminLocale = readLocale(formData, "adminLocale");
   const locale = readLocale(formData, "locale");
@@ -249,8 +258,9 @@ export async function createManagedPageAction(formData: FormData) {
     version: readOptionalText(formData, "version"),
   };
 
-  await updateContentSnapshot((currentSnapshot) =>
-    upsertManagedPage(currentSnapshot, page),
+  await updateContentSnapshot(
+    (currentSnapshot) => upsertManagedPage(currentSnapshot, page),
+    { actorId },
   );
 
   revalidateManagedPage(page, adminLocale);
@@ -262,14 +272,18 @@ export async function createManagedPageAction(formData: FormData) {
 }
 
 export async function saveContactSettingsAction(formData: FormData) {
-  await requireAdminAuth();
+  const actorId = await requireAdminAuth();
 
   const adminLocale = readLocale(formData, "adminLocale");
+  const t = await getTranslations({
+    locale: adminLocale,
+    namespace: "AdminValidation",
+  });
   const locale = readLocale(formData, "locale");
   const fieldCount = Number(readText(formData, "fieldCount"));
 
   if (!Number.isInteger(fieldCount) || fieldCount < 1) {
-    throw new Error("At least one contact field is required.");
+    throw new Error(t("contactFieldsRequired"));
   }
 
   const fields: ContactField[] = Array.from(
@@ -301,8 +315,10 @@ export async function saveContactSettingsAction(formData: FormData) {
     successMessage: readText(formData, "successMessage"),
   };
 
-  await updateContentSnapshot((currentSnapshot) =>
-    updateContactConfiguration(currentSnapshot, locale, fields, routing),
+  await updateContentSnapshot(
+    (currentSnapshot) =>
+      updateContactConfiguration(currentSnapshot, locale, fields, routing),
+    { actorId },
   );
 
   revalidatePath(`/${locale}/contact`);
@@ -315,14 +331,18 @@ export async function saveContactSettingsAction(formData: FormData) {
 }
 
 export async function savePricingPlansAction(formData: FormData) {
-  await requireAdminAuth();
+  const actorId = await requireAdminAuth();
 
   const adminLocale = readLocale(formData, "adminLocale");
+  const t = await getTranslations({
+    locale: adminLocale,
+    namespace: "AdminValidation",
+  });
   const locale = readLocale(formData, "locale");
   const planCount = Number(readText(formData, "planCount"));
 
   if (!Number.isInteger(planCount) || planCount < 1) {
-    throw new Error("At least one pricing plan is required.");
+    throw new Error(t("pricingPlansRequired"));
   }
 
   const plans: PricingPlan[] = Array.from({ length: planCount }, (_, index) => {
@@ -346,8 +366,9 @@ export async function savePricingPlansAction(formData: FormData) {
     };
   });
 
-  await updateContentSnapshot((currentSnapshot) =>
-    updatePricingPlans(currentSnapshot, locale, plans),
+  await updateContentSnapshot(
+    (currentSnapshot) => updatePricingPlans(currentSnapshot, locale, plans),
+    { actorId },
   );
 
   revalidatePath(`/${locale}/pricing`);

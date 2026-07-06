@@ -99,7 +99,7 @@ test("admin-managed content can create, update, and render a legal page", async 
     .fill("Managed legal page created from the admin dashboard.");
   await createForm
     .getByLabel("First section body")
-    .fill("This legal content is persisted through the content store.");
+    .fill("This legal content is persisted through the database.");
   await createForm.getByRole("button", { name: "Create page" }).click();
 
   await expect(page).toHaveURL(/saved=page/);
@@ -167,7 +167,7 @@ test("admin-managed contact fields render on the contact page", async ({
   await page.goto("/ar/contact");
   await expect(
     page
-      .getByRole("form", { name: "Contact request" })
+      .getByRole("form", { name: "طلب تواصل" })
       .getByLabel(fieldLabel)
       .first(),
   ).toBeVisible();

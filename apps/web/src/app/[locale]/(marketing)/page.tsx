@@ -6,6 +6,7 @@ import {
 import { Button } from "@nextjs-saas/ui";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { ManagedPageSections } from "../../../components/managed-page";
 import { Link } from "../../../i18n/navigation";
@@ -36,6 +37,7 @@ export default async function HomePage({
 }) {
   const { locale: value } = await params;
   const locale = assertLocale(value);
+  const t = await getTranslations({ locale, namespace: "MarketingPage" });
   const repository = await getContentRepository();
   const page = repository.getPage({ kind: "landing", locale });
 
@@ -61,7 +63,7 @@ export default async function HomePage({
               <Link href="/dashboard">{page.sections[0]?.cta?.label}</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/pricing">Review pricing</Link>
+              <Link href="/pricing">{t("reviewPricing")}</Link>
             </Button>
           </div>
         </div>

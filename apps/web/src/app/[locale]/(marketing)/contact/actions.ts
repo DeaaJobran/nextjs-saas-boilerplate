@@ -5,8 +5,9 @@ import {
   createContentRepository,
   recordContactSubmission,
 } from "@nextjs-saas/config/content";
-import { isLocale, locales } from "@nextjs-saas/localization";
+import { defaultLocale, isLocale, locales } from "@nextjs-saas/localization";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 
 import {
   readContentSnapshot,
@@ -38,15 +39,23 @@ export async function submitContactMessageAction(
   await requirePublicFormAuth();
 
   const localeValue = readText(formData, "locale");
+  const fallbackT = await getTranslations({
+    locale: defaultLocale,
+    namespace: "ContactValidation",
+  });
 
   if (!isLocale(localeValue)) {
     return {
       fieldErrors: {},
-      message: "The selected locale is not supported.",
+      message: fallbackT("locale"),
       status: "error",
     };
   }
 
+  const t = await getTranslations({
+    locale: localeValue,
+    namespace: "ContactValidation",
+  });
   const snapshot = await readContentSnapshot();
   const repository = createContentRepository(snapshot);
   const fields = repository.listContactFields(localeValue);
@@ -68,24 +77,28 @@ export async function submitContactMessageAction(
     const value = values[field.id] ?? "";
 
     if (field.required && !value) {
-      fieldErrors[field.id] = `${field.label} is required.`;
+      fieldErrors[field.id] = t("required", { field: field.label });
       continue;
     }
 
     if (field.type === "email" && value && !isValidEmail(value)) {
-      fieldErrors[field.id] = `${field.label} must be a valid email address.`;
+      fieldErrors[field.id] = t("email", { field: field.label });
       continue;
     }
 
     if (field.minLength && value.length < field.minLength) {
-      fieldErrors[field.id] =
-        `${field.label} must be at least ${field.minLength} characters.`;
+      fieldErrors[field.id] = t("minLength", {
+        field: field.label,
+        min: field.minLength,
+      });
       continue;
     }
 
     if (field.maxLength && value.length > field.maxLength) {
-      fieldErrors[field.id] =
-        `${field.label} must be ${field.maxLength} characters or less.`;
+      fieldErrors[field.id] = t("maxLength", {
+        field: field.label,
+        max: field.maxLength,
+      });
     }
   }
 
