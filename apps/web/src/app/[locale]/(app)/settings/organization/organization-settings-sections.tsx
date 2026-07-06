@@ -693,7 +693,11 @@ function CreateApiKeyForm({
   t: OrganizationSettingsTranslations;
 }) {
   return (
-    <form action={createTenantApiKeyAction} className="grid gap-4">
+    <form
+      action={createTenantApiKeyAction}
+      aria-label={t("apiKeys.create")}
+      className="grid gap-4"
+    >
       <input name="locale" type="hidden" value={resolvedLocale} />
       <Field label={t("apiKeys.name")} required>
         <TextInput disabled={!canManageKeys} name="name" required />

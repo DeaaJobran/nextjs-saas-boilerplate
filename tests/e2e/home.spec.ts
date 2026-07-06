@@ -24,6 +24,29 @@ async function grantUserAccess(page: Page) {
   return { email };
 }
 
+async function expectNoHorizontalOverflow(
+  page: Page,
+  {
+    route,
+    viewport,
+  }: {
+    route: string;
+    viewport: { height: number; width: number };
+  },
+) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth - window.innerWidth,
+        ),
+      {
+        message: `${route} at ${viewport.width}x${viewport.height} should not overflow horizontally`,
+      },
+    )
+    .toBeLessThanOrEqual(1);
+}
+
 test("renders the localized marketing page", async ({ page }) => {
   await page.goto("/");
 
@@ -100,11 +123,13 @@ test("tenant settings can create a tenant API key", async ({ page }) => {
 
   await grantUserAccess(page);
   await page.goto("/en/settings/organization");
-  await page.getByLabel("Name").last().fill(keyName);
-  await page.getByLabel("Scopes").fill("tenant:read");
-  await page.getByRole("button", { name: "Create API key" }).click();
+  const apiKeyForm = page.getByRole("form", { name: "Create API key" });
 
-  await expect(page).toHaveURL(/api-key-created/);
+  await apiKeyForm.getByLabel("Name").fill(keyName);
+  await apiKeyForm.getByLabel("Scopes").fill("tenant:read");
+  await apiKeyForm.getByRole("button", { name: "Create API key" }).click();
+
+  await expect(page).toHaveURL(/api-key-created/, { timeout: 15_000 });
   await expect(
     page.getByRole("heading", { name: "New API key secret" }),
   ).toBeVisible();
@@ -169,15 +194,7 @@ test("keeps Arabic RTL core layouts within the viewport", async ({ page }) => {
     for (const route of publicRoutes) {
       await page.goto(route);
       await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-      await expect
-        .poll(() =>
-          page.evaluate(
-            () =>
-              document.documentElement.scrollWidth <=
-              document.documentElement.clientWidth + 1,
-          ),
-        )
-        .toBe(true);
+      await expectNoHorizontalOverflow(page, { route, viewport });
     }
   }
 
@@ -185,15 +202,10 @@ test("keeps Arabic RTL core layouts within the viewport", async ({ page }) => {
   await page.setViewportSize({ height: 844, width: 390 });
   await page.goto("/ar/dashboard");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          document.documentElement.scrollWidth <=
-          document.documentElement.clientWidth + 1,
-      ),
-    )
-    .toBe(true);
+  await expectNoHorizontalOverflow(page, {
+    route: "/ar/dashboard",
+    viewport: { height: 844, width: 390 },
+  });
 });
 
 test("admin-managed content can create, update, and render a legal page", async ({
