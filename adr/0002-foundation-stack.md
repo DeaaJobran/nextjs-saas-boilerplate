@@ -29,7 +29,7 @@ Use the following baseline:
 
 - The app can support self-hosted deployment without requiring a proprietary platform.
 - Advanced modules must expose provider boundaries rather than hard-coding vendors.
-- The first implementation phases should avoid billing, tax, AI, and mobile API work until the core foundation is stable.
+- Early implementation work should avoid billing, tax, AI, and mobile API work until the core foundation is stable.
 
 ## References
 

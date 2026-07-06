@@ -79,7 +79,7 @@ pnpm doctor:react
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
-Local planning notes under `/docs` are intentionally ignored by Git. Public documentation will live under `apps/docs` when that app is introduced.
+Local implementation notes under `/docs` are intentionally ignored by Git. Public documentation will live under `apps/docs` when that app is introduced.
 
 ## License
 
