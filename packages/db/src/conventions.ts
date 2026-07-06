@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 export const tenantColumnName = "tenant_id";
 
@@ -90,5 +90,43 @@ export function createApiKeySecret(prefix = "nsk") {
 }
 
 export function hashApiKey(secret: string) {
-  return createHash("sha256").update(secret).digest("hex");
+  const salt = randomBytes(16).toString("base64url");
+  const derivedKey = scryptSync(secret, salt, 64, {
+    N: 16_384,
+    maxmem: 64 * 1024 * 1024,
+    p: 1,
+    r: 8,
+  }).toString("base64url");
+
+  return `scrypt$N=16384,r=8,p=1$${salt}$${derivedKey}`;
+}
+
+export function verifyApiKeySecret(secret: string, hash: string) {
+  const [algorithm, params, salt, encodedKey] = hash.split("$");
+
+  if (
+    algorithm !== "scrypt" ||
+    params !== "N=16384,r=8,p=1" ||
+    !salt ||
+    !encodedKey
+  ) {
+    return false;
+  }
+
+  try {
+    const expectedKey = Buffer.from(encodedKey, "base64url");
+    const actualKey = scryptSync(secret, salt, expectedKey.length, {
+      N: 16_384,
+      maxmem: 64 * 1024 * 1024,
+      p: 1,
+      r: 8,
+    });
+
+    return (
+      actualKey.length === expectedKey.length &&
+      timingSafeEqual(actualKey, expectedKey)
+    );
+  } catch {
+    return false;
+  }
 }

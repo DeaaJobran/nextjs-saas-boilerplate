@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createApiKeySecret, hashApiKey } from "./conventions";
+import {
+  createApiKeySecret,
+  hashApiKey,
+  verifyApiKeySecret,
+} from "./conventions";
 import {
   combineWhereFragments,
   createEqualityFilterFragment,
@@ -50,11 +54,16 @@ describe("database helper conventions", () => {
     });
   });
 
-  it("hashes API keys without storing the secret", () => {
+  it("hashes API keys with a salted verifier without storing the secret", () => {
     const { hash, secret } = createApiKeySecret("test");
+    const secondHash = hashApiKey(secret);
 
     expect(secret).toMatch(/^test_/);
-    expect(hash).toBe(hashApiKey(secret));
+    expect(hash).toMatch(/^scrypt\$N=16384,r=8,p=1\$/);
     expect(hash).not.toContain(secret);
+    expect(secondHash).not.toBe(hash);
+    expect(verifyApiKeySecret(secret, hash)).toBe(true);
+    expect(verifyApiKeySecret(`${secret}-wrong`, hash)).toBe(false);
+    expect(verifyApiKeySecret(secret, "sha256$bad")).toBe(false);
   });
 });
