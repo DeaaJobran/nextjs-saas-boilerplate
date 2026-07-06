@@ -62,6 +62,7 @@ export type ApiServiceOptions = {
   corsOrigins?: string[];
   deepLinkSecret?: string;
   idempotencyTtlSeconds?: number;
+  lookupHashSecret?: string;
   mobileUploadTtlSeconds?: number;
   now?: () => Date;
   oauthAdapters?: OAuthProviderAdapter[];
@@ -247,8 +248,8 @@ function addSeconds(date: Date, seconds: number) {
   return new Date(date.getTime() + seconds * 1000);
 }
 
-function hashValue(value: string) {
-  return createHash("sha256").update(value).digest("base64url");
+function hashLookupValue(value: string, secret: string) {
+  return createHmac("sha256", secret).update(value).digest("base64url");
 }
 
 function stableJson(value: unknown): string {
@@ -661,6 +662,32 @@ export function createApiService(options: ApiServiceOptions = {}) {
     }
 
     return "development-mobile-deep-link-secret-change-before-production";
+  }
+
+  function getLookupHashSecret() {
+    const secret =
+      options.lookupHashSecret ??
+      process.env.API_LOOKUP_HASH_SECRET ??
+      options.authSecret ??
+      process.env.AUTH_SECRET;
+
+    if (secret) {
+      return secret;
+    }
+
+    if (process.env.NODE_ENV === "production") {
+      throw new ApiError(
+        "API_LOOKUP_HASH_SECRET or AUTH_SECRET is required in production.",
+        "lookup_hash_secret_missing",
+        500,
+      );
+    }
+
+    return "development-api-lookup-hash-secret-change-before-production";
+  }
+
+  function hashValue(value: string) {
+    return hashLookupValue(value, getLookupHashSecret());
   }
 
   async function getActiveOrganization(
