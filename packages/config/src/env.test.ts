@@ -5,6 +5,7 @@ import { createEnv } from "./env";
 describe("createEnv", () => {
   it("uses safe defaults for local development", () => {
     expect(createEnv({})).toEqual({
+      AUTH_ALLOW_ADMIN_BYPASS: false,
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
       NODE_ENV: "development",
       S3_FORCE_PATH_STYLE: false,
@@ -15,6 +16,14 @@ describe("createEnv", () => {
     expect(() =>
       createEnv({
         NEXT_PUBLIC_APP_URL: "not-a-url",
+      }),
+    ).toThrow("Invalid environment variables");
+  });
+
+  it("rejects short auth secrets", () => {
+    expect(() =>
+      createEnv({
+        AUTH_SECRET: "short-secret",
       }),
     ).toThrow("Invalid environment variables");
   });
@@ -42,6 +51,8 @@ describe("createEnv", () => {
     expect(
       createEnv({
         REDIS_URL: "redis://127.0.0.1:6379",
+        AUTH_ALLOW_ADMIN_BYPASS: "true",
+        AUTH_SECRET: "local-auth-secret-with-at-least-32-characters",
         REDIS_PORT: "6379",
         S3_ACCESS_KEY_ID: "minioadmin",
         S3_BUCKET: "nextjs-saas",
@@ -57,6 +68,8 @@ describe("createEnv", () => {
         SMTP_WEB_PORT: "8025",
       }),
     ).toMatchObject({
+      AUTH_ALLOW_ADMIN_BYPASS: true,
+      AUTH_SECRET: "local-auth-secret-with-at-least-32-characters",
       REDIS_URL: "redis://127.0.0.1:6379",
       REDIS_PORT: 6379,
       S3_BUCKET: "nextjs-saas",

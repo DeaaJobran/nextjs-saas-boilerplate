@@ -9,10 +9,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nextjs-saas/auth": "workspace:*",
     "@nextjs-saas/config": "workspace:*",
     "@nextjs-saas/db": "workspace:*",
     "@nextjs-saas/localization": "workspace:*",
     "@nextjs-saas/ui": "workspace:*",
+    "@simplewebauthn/browser": "^13.3.0",
     "lucide-react": "^1.23.0",
     "next": "16.2.10",
     "next-intl": "^4.13.1",

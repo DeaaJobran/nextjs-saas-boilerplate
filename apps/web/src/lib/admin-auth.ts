@@ -1,24 +1,13 @@
-import { cookies } from "next/headers";
+import { authRoleConfig } from "@nextjs-saas/auth";
 
-const adminSessionCookieName = "nextjs_saas_admin_session";
+import { requireCurrentRole } from "./auth";
+
+export async function requireAdminSession() {
+  return requireCurrentRole([...authRoleConfig.privilegedRoles]);
+}
 
 export async function requireAdminAuth() {
-  const expectedToken = process.env.ADMIN_SESSION_TOKEN;
+  const session = await requireAdminSession();
 
-  if (!expectedToken) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("ADMIN_SESSION_TOKEN is required for admin mutations.");
-    }
-
-    return "development-admin";
-  }
-
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(adminSessionCookieName)?.value;
-
-  if (sessionToken !== expectedToken) {
-    throw new Error("Admin authentication is required.");
-  }
-
-  return "admin-session";
+  return session.user.id;
 }

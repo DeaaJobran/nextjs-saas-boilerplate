@@ -10,6 +10,17 @@ async function grantAdminAccess(page: Page) {
   ]);
 }
 
+async function grantUserAccess(page: Page) {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  await page.goto("/en/auth/sign-up");
+  await page.getByLabel("Display name").fill("Playwright User");
+  await page.getByLabel("Email").fill(`user-${suffix}@example.test`);
+  await page.getByLabel("Password").fill("StrongPass123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page).toHaveURL(/\/en\/dashboard/);
+}
+
 test("renders the localized marketing page", async ({ page }) => {
   await page.goto("/");
 
@@ -25,6 +36,8 @@ test("renders the localized marketing page", async ({ page }) => {
 });
 
 test("renders dashboard, settings, and admin shells", async ({ page }) => {
+  await grantUserAccess(page);
+
   await page.goto("/en/dashboard");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(
@@ -39,6 +52,7 @@ test("renders dashboard, settings, and admin shells", async ({ page }) => {
     page.getByRole("heading", { name: "Profile settings" }),
   ).toBeVisible();
 
+  await grantAdminAccess(page);
   await page.goto("/en/admin/content");
   await expect(
     page.getByRole("heading", { level: 1, name: "Admin" }),
@@ -50,6 +64,7 @@ test("renders dashboard, settings, and admin shells", async ({ page }) => {
 
 test("renders mobile application navigation", async ({ page }) => {
   await page.setViewportSize({ height: 844, width: 390 });
+  await grantUserAccess(page);
   await page.goto("/en/dashboard");
 
   const mobileNav = page.getByRole("navigation", {
@@ -129,6 +144,7 @@ test("contact submissions are validated, saved, and visible in admin", async ({
 
   await expect(page.getByRole("status")).toContainText("saved for review");
 
+  await grantAdminAccess(page);
   await page.goto("/en/admin/content");
   await expect(page.getByRole("cell", { name: email })).toBeVisible();
 });

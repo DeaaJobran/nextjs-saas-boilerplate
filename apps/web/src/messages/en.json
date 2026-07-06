@@ -95,6 +95,34 @@
     "managedPages": "Managed pages",
     "managedPagesDescription": "editable content records"
   },
+  "AdminUsers": {
+    "createUser": "Create user",
+    "createUserDescription": "Create an identity record and issue a password reset link through the auth notification outbox.",
+    "createUserTitle": "Admin-created user",
+    "displayName": "Display name",
+    "email": "Email",
+    "emptyUsers": "No users have been created yet.",
+    "inviteDescription": "Create an invitation token that can be accepted by the recipient.",
+    "inviteTitle": "Invite member",
+    "role": "Role",
+    "sendInvitation": "Send invitation",
+    "status": {
+      "generic": "The user management action completed.",
+      "invalidRole": "Choose one of the configured roles.",
+      "invitationCreated": "Invitation created.",
+      "userCreated": "User created."
+    },
+    "table": {
+      "email": "Email",
+      "emailStatus": "Email status",
+      "name": "Name",
+      "role": "Role"
+    },
+    "unverified": "unverified",
+    "usersDescription": "Database-backed identities, provider accounts, and roles.",
+    "usersTitle": "Users",
+    "verified": "verified"
+  },
   "AdminValidation": {
     "contactFieldsRequired": "At least one contact field is required.",
     "pageSectionsRequired": "At least one page section is required.",
@@ -208,17 +236,62 @@
     "scheduled": "scheduled"
   },
   "SettingsPage": {
-    "accountDescription": "Settings pages use the same responsive shell as product modules.",
-    "accountTitle": "Application settings",
+    "accountDescription": "Manage sign-in email and password recovery without editing static configuration.",
+    "accountTitle": "Account settings",
+    "active": "active",
+    "avatarUrl": "Avatar URL",
+    "confirmPassword": "Confirm password",
+    "confirmPasswordDescription": "Required for password accounts; passkey, magic-link, and social-only accounts can leave it blank.",
+    "deleteAccount": "Delete account",
+    "deleteDescription": "Deletion revokes active sessions and marks the identity as deleted.",
+    "deleteTitle": "Account deletion",
     "email": "Email",
+    "emailChangeDescription": "A verification token is issued before the email address changes.",
     "displayName": "Display name",
-    "defaultDisplayName": "Demo User",
-    "defaultEmail": "demo@example.com",
-    "layoutNote": "Theme, locale, notifications, and organization settings will reuse this layout.",
-    "profileDescription": "Form primitives reserve the contract for the identity module.",
+    "emptyPasskeys": "No passkeys have been registered.",
+    "emptySessions": "No sessions are available.",
+    "enableMfa": "Enable MFA",
+    "enabled": "enabled",
+    "mfaCode": "Authenticator code",
+    "mfaDescription": "Use a time-based authenticator app and recovery codes for additional sign-in protection.",
+    "mfaSetupDescription": "Add this secret to an authenticator app, then enter the generated code.",
+    "mfaTitle": "Multi-factor authentication",
+    "notEnabled": "not enabled",
+    "passkeyLabel": "Passkey label",
+    "passkeyRegisterError": "Passkey registration failed. Try again with a supported authenticator.",
+    "passkeyRegistered": "Passkey registered.",
+    "passkeysDescription": "Register passkeys for phishing-resistant sign-in.",
+    "passkeysTitle": "Passkeys",
+    "profileDescription": "Profile fields are stored on the identity record.",
     "profileTitle": "Profile settings",
+    "registerPasskey": "Register passkey",
+    "requestEmailChange": "Request email change",
+    "revoke": "Revoke",
+    "revoked": "revoked",
     "saveProfile": "Save profile",
-    "securityNote": "Security-sensitive controls are separated before destructive actions are added."
+    "securityDescription": "Manage MFA, passkeys, and destructive account controls.",
+    "securityTitle": "Security controls",
+    "sendPasswordReset": "Send password reset",
+    "sessionsDescription": "Review active and revoked device sessions.",
+    "sessionsTitle": "Device sessions",
+    "startMfaSetup": "Start MFA setup",
+    "status": {
+      "emailChangeVerified": "Email address updated.",
+      "emailChangeSent": "Email change verification has been issued.",
+      "generic": "Settings updated.",
+      "mfaEnabled": "Multi-factor authentication enabled.",
+      "passwordResetSent": "Password reset link issued.",
+      "profileUpdated": "Profile updated.",
+      "sessionRevoked": "Session revoked."
+    },
+    "table": {
+      "action": "Action",
+      "device": "Device",
+      "deviceType": "Device type",
+      "label": "Label",
+      "lastSeen": "Last seen",
+      "status": "Status"
+    }
   },
   "Shell": {
     "adminEyebrow": "Admin surface",
@@ -227,15 +300,97 @@
     "authDescription": "This layout gives future sign-in, passkey, MFA, and recovery flows a stable responsive contract.",
     "authTitle": "A reusable auth surface ready for the identity module.",
     "contentRegistry": "Content registry",
+    "identityRegistry": "Identity registry",
     "mainNavigation": "Main navigation",
     "mobileApplicationNavigation": "Mobile application navigation"
   },
   "SignInPage": {
-    "description": "The identity module will attach providers to this stable auth layout.",
+    "createAccount": "Create account",
+    "description": "Sign in with password, magic link, or passkey.",
     "email": "Email",
+    "errors": {
+      "generic": "Sign-in failed. Check the details and try again.",
+      "invalidCredentials": "The email or password is incorrect.",
+      "loginLocked": "Too many failed attempts. Try again later."
+    },
+    "forgotPassword": "Forgot password?",
+    "magicEmail": "Magic-link email",
+    "mfaCode": "MFA or recovery code",
     "password": "Password",
+    "passkeyEmail": "Passkey email",
+    "passkeyError": "Passkey sign-in failed. Try again or use your password.",
+    "passkeySubmit": "Sign in with passkey",
+    "sendMagicLink": "Send magic link",
+    "status": {
+      "magicLinkSent": "If an account exists, a magic link has been issued.",
+      "mfaRequired": "Enter your authenticator or recovery code to continue.",
+      "passwordReset": "Password updated. Sign in with the new password."
+    },
     "submit": "Sign in",
     "title": "Sign in to {appName}"
+  },
+  "SignUpPage": {
+    "description": "Create the first identity record for local development or a new workspace.",
+    "displayName": "Display name",
+    "email": "Email",
+    "errors": {
+      "emailTaken": "An account with this email already exists.",
+      "generic": "Account creation failed.",
+      "weakPassword": "Use a stronger password that satisfies the password policy."
+    },
+    "hasAccount": "Already have an account?",
+    "password": "Password",
+    "passwordDescription": "Use at least 12 characters with uppercase, lowercase, and a number.",
+    "signIn": "Sign in",
+    "submit": "Create account",
+    "title": "Create {appName} account"
+  },
+  "ForgotPasswordPage": {
+    "backToSignIn": "Back to sign in",
+    "description": "Enter the account email to issue a reset token through the auth notification outbox.",
+    "email": "Email",
+    "sent": "If an account exists, a reset link has been issued.",
+    "submit": "Send reset link",
+    "title": "Reset password"
+  },
+  "ResetPasswordPage": {
+    "description": "Choose a new password for this account.",
+    "errors": {
+      "generic": "The reset link is invalid or expired.",
+      "weakPassword": "Use a stronger password that satisfies the password policy."
+    },
+    "password": "New password",
+    "passwordDescription": "Use at least 12 characters with uppercase, lowercase, and a number.",
+    "submit": "Update password",
+    "title": "Choose a new password"
+  },
+  "AcceptInvitationPage": {
+    "description": "Create your identity from the invitation token.",
+    "displayName": "Display name",
+    "errors": {
+      "emailTaken": "An account with this email already exists.",
+      "generic": "The invitation is invalid or expired.",
+      "weakPassword": "Use a stronger password that satisfies the password policy."
+    },
+    "password": "Password",
+    "passwordDescription": "Use at least 12 characters with uppercase, lowercase, and a number.",
+    "submit": "Accept invitation",
+    "title": "Accept invitation"
+  },
+  "MagicLinkPage": {
+    "description": "Confirm this browser should create a session from the magic link token.",
+    "submit": "Continue with magic link",
+    "title": "Magic link sign-in"
+  },
+  "VerifyEmailPage": {
+    "description": "Confirm this email verification token and update the account status.",
+    "submit": "Verify email",
+    "title": "Verify email"
+  },
+  "VerifyEmailChangePage": {
+    "description": "Confirm this token to update the account email address.",
+    "submit": "Verify email change",
+    "title": "Verify email change"
   },
   "Theme": {
     "dark": "dark",

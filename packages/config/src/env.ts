@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 const envSchema = z.object({
+  AUTH_ALLOW_ADMIN_BYPASS: z.stringbool().default(false),
+  AUTH_SECRET: z.string().trim().min(32).optional(),
   DATABASE_URL: z.url().optional(),
   NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
   NODE_ENV: z

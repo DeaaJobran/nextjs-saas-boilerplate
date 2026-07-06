@@ -22,9 +22,15 @@ export const appRoutes = {
   contact: "/contact",
   legal: "/legal/privacy",
   signIn: "/auth/sign-in",
+  signUp: "/auth/sign-up",
+  forgotPassword: "/auth/forgot-password",
+  resetPassword: "/auth/reset-password",
+  acceptInvitation: "/auth/invitations/accept",
+  verifyEmailChange: "/auth/verify-email-change",
   dashboard: "/dashboard",
   settings: "/settings",
   admin: "/admin",
+  adminUsers: "/admin/users",
 } as const;
 
 export type AppRouteKey = keyof typeof appRoutes;
