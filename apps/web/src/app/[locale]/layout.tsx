@@ -5,7 +5,6 @@ import { env } from "@nextjs-saas/config/env";
 import {
   getLocaleTypographyClassName,
   getTextDirection,
-  type Locale,
   locales,
 } from "@nextjs-saas/localization";
 import type { Metadata } from "next";
@@ -52,8 +51,10 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: value } = await params;
-  const locale: Locale = await assertActiveLocale(value);
-  const messages = await getMessages();
+  const [locale, messages] = await Promise.all([
+    assertActiveLocale(value),
+    getMessages(),
+  ]);
   const typographyClassName = getLocaleTypographyClassName(locale);
 
   return (

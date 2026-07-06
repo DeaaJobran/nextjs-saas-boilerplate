@@ -39,9 +39,11 @@ export async function MarketingShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
-  const t = await getTranslations({ locale, namespace: "Navigation" });
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
-  const repository = await getContentRepository();
+  const [t, shellT, repository] = await Promise.all([
+    getTranslations({ locale, namespace: "Navigation" }),
+    getTranslations({ locale, namespace: "Shell" }),
+    getContentRepository(),
+  ]);
   const availableLocales = repository.listEnabledLocales();
 
   return (
@@ -86,8 +88,10 @@ export async function AuthShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
-  const t = await getTranslations({ locale, namespace: "Navigation" });
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
+  const [t, shellT] = await Promise.all([
+    getTranslations({ locale, namespace: "Navigation" }),
+    getTranslations({ locale, namespace: "Shell" }),
+  ]);
 
   return (
     <main className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)]">
@@ -123,9 +127,11 @@ export async function DashboardShell({
   tenantControls?: React.ReactNode;
   title: string;
 }) {
-  const t = await getTranslations({ locale, namespace: "Navigation" });
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
-  const repository = await getContentRepository();
+  const [t, shellT, repository] = await Promise.all([
+    getTranslations({ locale, namespace: "Navigation" }),
+    getTranslations({ locale, namespace: "Shell" }),
+    getContentRepository(),
+  ]);
   const availableLocales = repository.listEnabledLocales();
 
   return (
@@ -212,11 +218,13 @@ export async function AdminShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
-  const shellT = await getTranslations({ locale, namespace: "Shell" });
-  const navigationT = await getTranslations({
-    locale,
-    namespace: "Navigation",
-  });
+  const [shellT, navigationT] = await Promise.all([
+    getTranslations({ locale, namespace: "Shell" }),
+    getTranslations({
+      locale,
+      namespace: "Navigation",
+    }),
+  ]);
 
   return (
     <DashboardShell locale={locale} title={navigationT("admin")}>
