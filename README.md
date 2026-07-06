@@ -1,5 +1,8 @@
 # Next.js SaaS Boilerplate
 
+[![CI](https://github.com/DeaaJobran/nextjs-saas-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/DeaaJobran/nextjs-saas-boilerplate/actions/workflows/ci.yml)
+[![React Doctor](https://github.com/DeaaJobran/nextjs-saas-boilerplate/actions/workflows/react-doctor.yml/badge.svg)](https://github.com/DeaaJobran/nextjs-saas-boilerplate/actions/workflows/react-doctor.yml)
+
 An open-source, production-minded Next.js SaaS boilerplate for developers who want to launch serious products faster without inheriting hidden architectural debt.
 
 ## Status
@@ -24,7 +27,7 @@ This repository is in the foundation stage. The current focus is repository gove
 - Radix UI primitives
 - Drizzle ORM
 - PostgreSQL-first persistence
-- Better Auth as the planned self-hosted authentication foundation
+- Internal `@nextjs-saas/auth` package for self-hosted authentication
 - next-intl for localization and RTL/LTR support
 - Docker Compose for local and VPS infrastructure
 - Caddy for reverse proxy and automatic HTTPS
