@@ -8,8 +8,7 @@ import {
 } from "@nextjs-saas/localization";
 import { ErrorState } from "@nextjs-saas/ui";
 
-import arMessages from "../messages/ar.json";
-import enMessages from "../messages/en.json";
+import { errorFallbackMessages } from "../messages/error-fallbacks";
 
 function getErrorLocale(): Locale {
   if (typeof window === "undefined") {
@@ -21,11 +20,6 @@ function getErrorLocale(): Locale {
   return isLocale(locale) ? locale : defaultLocale;
 }
 
-const errorMessages = {
-  ar: arMessages.Errors,
-  en: enMessages.Errors,
-} satisfies Record<Locale, typeof enMessages.Errors>;
-
 export default function GlobalError({
   error,
   reset,
@@ -34,7 +28,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const locale = getErrorLocale();
-  const messages = errorMessages[locale];
+  const messages = errorFallbackMessages[locale];
 
   return (
     <html dir={getTextDirection(locale)} lang={locale}>

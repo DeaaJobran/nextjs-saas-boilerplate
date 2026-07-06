@@ -35,33 +35,34 @@ function hasTransaction(client: Queryable): client is DatabaseRuntime {
   );
 }
 
-export async function runMigrations(client?: Queryable) {
-  const runtime = client ?? (await getDatabaseRuntime());
-  const appliedMigrations = await readAppliedMigrations(runtime);
+async function applyPendingMigrations(client: Queryable) {
+  const appliedMigrations = await readAppliedMigrations(client);
   const pendingMigrations = migrationManifest.filter(
     (migration) => !appliedMigrations.has(migration.id),
   );
 
-  if (!hasTransaction(runtime)) {
-    for (const migration of pendingMigrations) {
-      await runtime.execute(migration.sql);
-      await runtime.execute("INSERT INTO schema_migrations (id) VALUES ($1)", [
-        migration.id,
-      ]);
-    }
-
-    return pendingMigrations.map((migration) => migration.id);
+  for (const migration of pendingMigrations) {
+    await client.execute(migration.sql);
+    await client.execute(
+      "INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
+      [migration.id],
+    );
   }
 
-  await runtime.transaction(async (transaction) => {
-    for (const migration of pendingMigrations) {
-      await transaction.execute(migration.sql);
-      await transaction.execute(
-        "INSERT INTO schema_migrations (id) VALUES ($1)",
-        [migration.id],
-      );
-    }
-  });
-
   return pendingMigrations.map((migration) => migration.id);
+}
+
+export async function runMigrations(client?: Queryable) {
+  const runtime = client ?? (await getDatabaseRuntime());
+
+  if (!hasTransaction(runtime)) {
+    return applyPendingMigrations(runtime);
+  }
+
+  return runtime.transaction(async (transaction) => {
+    await ensureMigrationTable(transaction);
+    await transaction.execute("LOCK TABLE schema_migrations IN EXCLUSIVE MODE");
+
+    return applyPendingMigrations(transaction);
+  });
 }

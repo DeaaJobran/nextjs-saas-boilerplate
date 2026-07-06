@@ -1,7 +1,11 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { PGlite } from "@electric-sql/pglite";
+import {
+  PGlite,
+  type PGliteInterface,
+  type Transaction,
+} from "@electric-sql/pglite";
 import postgres from "postgres";
 
 type QueryResult<T> = {
@@ -23,18 +27,29 @@ export type DatabaseRuntime = Queryable & {
 
 let databaseRuntime: Promise<DatabaseRuntime> | undefined;
 
+type PgliteExecutor = Pick<PGliteInterface, "exec" | "query"> | Transaction;
+
+function normalizeParams(params: unknown[] = []) {
+  return params.map((param) => (param === undefined ? null : param));
+}
+
 async function executePgliteQuery<T>(
-  client: PGlite,
+  client: PgliteExecutor,
   query: string,
   params: unknown[] = [],
 ) {
-  if (params.length === 0) {
+  const normalizedParams = normalizeParams(params);
+
+  if (normalizedParams.length === 0) {
     const results = (await client.exec(query)) as unknown as QueryResult<T>[];
 
     return results.at(-1)?.rows ?? [];
   }
 
-  const result = (await client.query(query, params)) as QueryResult<T>;
+  const result = (await client.query(
+    query,
+    normalizedParams,
+  )) as QueryResult<T>;
 
   return result.rows;
 }
@@ -61,7 +76,9 @@ function createPostgresRuntime(databaseUrl: string): DatabaseRuntime {
       await sql.end({ timeout: 5 });
     },
     async execute<T = Record<string, unknown>>(query: string, params = []) {
-      return sql.unsafe(query, params as never[]) as Promise<T[]>;
+      return sql.unsafe(query, normalizeParams(params) as never[]) as Promise<
+        T[]
+      >;
     },
     async transaction<T>(callback: (client: Queryable) => Promise<T>) {
       const result = await sql.begin(async (transaction) =>
@@ -70,9 +87,10 @@ function createPostgresRuntime(databaseUrl: string): DatabaseRuntime {
             query: string,
             params = [],
           ) {
-            return transaction.unsafe(query, params as never[]) as Promise<
-              TData[]
-            >;
+            return transaction.unsafe(
+              query,
+              normalizeParams(params) as never[],
+            ) as Promise<TData[]>;
           },
         }),
       );
@@ -85,7 +103,9 @@ function createPostgresRuntime(databaseUrl: string): DatabaseRuntime {
 async function createPgliteRuntime(): Promise<DatabaseRuntime> {
   const dataDir = getPgliteDataDir();
 
-  await mkdir(dataDir, { recursive: true });
+  if (!dataDir.includes("://")) {
+    await mkdir(dataDir, { recursive: true });
+  }
 
   const client = new PGlite(dataDir);
 
@@ -98,25 +118,16 @@ async function createPgliteRuntime(): Promise<DatabaseRuntime> {
       return executePgliteQuery<T>(client, query, params);
     },
     async transaction<T>(callback: (client: Queryable) => Promise<T>) {
-      await client.query("begin");
-
-      try {
-        const result = await callback({
+      return client.transaction((transaction) =>
+        callback({
           async execute<TData = Record<string, unknown>>(
             query: string,
             params = [],
           ) {
-            return executePgliteQuery<TData>(client, query, params);
+            return executePgliteQuery<TData>(transaction, query, params);
           },
-        });
-
-        await client.query("commit");
-
-        return result;
-      } catch (error) {
-        await client.query("rollback");
-        throw error;
-      }
+        }),
+      );
     },
   };
 }

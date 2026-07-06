@@ -55,23 +55,25 @@ export default async function AdminContentPage({
     searchParams,
   ]);
   const adminLocale = assertLocale(localeValue);
-  const t = await getTranslations({
-    locale: adminLocale,
-    namespace: "AdminContent",
-  });
-  const kindT = await getTranslations({
-    locale: adminLocale,
-    namespace: "PageKind",
-  });
-  const stateT = await getTranslations({
-    locale: adminLocale,
-    namespace: "PublicationState",
-  });
-  const submissionStatusT = await getTranslations({
-    locale: adminLocale,
-    namespace: "ContactSubmissionStatus",
-  });
-  const repository = await getContentRepository();
+  const [t, kindT, stateT, submissionStatusT, repository] = await Promise.all([
+    getTranslations({
+      locale: adminLocale,
+      namespace: "AdminContent",
+    }),
+    getTranslations({
+      locale: adminLocale,
+      namespace: "PageKind",
+    }),
+    getTranslations({
+      locale: adminLocale,
+      namespace: "PublicationState",
+    }),
+    getTranslations({
+      locale: adminLocale,
+      namespace: "ContactSubmissionStatus",
+    }),
+    getContentRepository(),
+  ]);
   const pages = repository.listAllPages();
   const selectedPage =
     repository.getPageById(query.selected ?? "") ??
@@ -175,11 +177,7 @@ export default async function AdminContentPage({
         </CardHeader>
         <CardContent>
           <DataTable
-            empty={
-              <p className="text-muted-foreground rounded-md border p-4 text-sm">
-                {t("emptySubmissions")}
-              </p>
-            }
+            emptyLabel={t("emptySubmissions")}
             columns={[
               { key: "name", header: t("name"), cell: (row) => row.name },
               { key: "email", header: t("email"), cell: (row) => row.email },
