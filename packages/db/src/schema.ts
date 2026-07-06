@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -138,6 +139,263 @@ export const contactSubmissions = pgTable("contact_submissions", {
   }).notNull(),
   values: jsonb("values").$type<Record<string, string>>().notNull(),
 });
+
+export const eventLog = pgTable(
+  "event_log",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    occurredAt: timestamp("occurred_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    source: text("source").notNull(),
+    subjectId: text("subject_id"),
+    subjectType: text("subject_type"),
+    tenantId: text("tenant_id"),
+  },
+  (table) => [
+    index("event_log_tenant_occurred_idx").on(table.tenantId, table.occurredAt),
+    index("event_log_type_occurred_idx").on(table.eventType, table.occurredAt),
+  ],
+);
+
+export const outboxEvents = pgTable(
+  "outbox_events",
+  {
+    attempts: integer("attempts").notNull().default(0),
+    availableAt: timestamp("available_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    dispatchedAt: timestamp("dispatched_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    idempotencyKey: text("idempotency_key"),
+    lastError: text("last_error"),
+    lockedAt: timestamp("locked_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    lockedBy: text("locked_by"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("outbox_events_idempotency_unique").on(table.idempotencyKey),
+    index("outbox_events_status_available_idx").on(
+      table.status,
+      table.availableAt,
+    ),
+  ],
+);
+
+export const idempotencyKeys = pgTable(
+  "idempotency_keys",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    key: text("key").primaryKey(),
+    lockedUntil: timestamp("locked_until", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    requestHash: text("request_hash").notNull(),
+    responseBody: jsonb("response_body").$type<Record<string, unknown>>(),
+    responseStatus: integer("response_status"),
+    scope: text("scope").notNull(),
+    tenantId: text("tenant_id"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    index("idempotency_keys_tenant_scope_idx").on(table.tenantId, table.scope),
+    index("idempotency_keys_expires_idx").on(table.expiresAt),
+  ],
+);
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdBy: text("created_by"),
+    deletedAt: timestamp("deleted_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    deletedBy: text("deleted_by"),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    keyHash: text("key_hash").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    lastUsedAt: timestamp("last_used_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    name: text("name").notNull(),
+    revokedAt: timestamp("revoked_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    tenantId: text("tenant_id"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by"),
+  },
+  (table) => [
+    uniqueIndex("api_keys_hash_unique").on(table.keyHash),
+    index("api_keys_tenant_active_idx").on(table.tenantId, table.deletedAt),
+  ],
+);
+
+export const rateLimitBuckets = pgTable(
+  "rate_limit_buckets",
+  {
+    count: integer("count").notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    scope: text("scope").notNull(),
+    tenantId: text("tenant_id"),
+    windowSeconds: integer("window_seconds").notNull(),
+    windowStart: timestamp("window_start", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("rate_limit_buckets_window_unique").on(
+      table.tenantId,
+      table.identifier,
+      table.scope,
+      table.windowStart,
+    ),
+    index("rate_limit_buckets_expires_idx").on(table.expiresAt),
+  ],
+);
+
+export const backgroundJobs = pgTable(
+  "background_jobs",
+  {
+    attempts: integer("attempts").notNull().default(0),
+    availableAt: timestamp("available_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    completedAt: timestamp("completed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    lastError: text("last_error"),
+    lockedAt: timestamp("locked_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    lockedBy: text("locked_by"),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    priority: integer("priority").notNull().default(0),
+    queue: text("queue").notNull().default("default"),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id"),
+    type: text("type").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    index("background_jobs_claim_idx").on(
+      table.queue,
+      table.status,
+      table.availableAt,
+      table.priority,
+    ),
+    index("background_jobs_tenant_status_idx").on(table.tenantId, table.status),
+  ],
+);
+
+export const cronSchedules = pgTable(
+  "cron_schedules",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deletedAt: timestamp("deleted_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    enabled: boolean("enabled").notNull().default(true),
+    id: text("id").primaryKey(),
+    intervalSeconds: integer("interval_seconds").notNull(),
+    jobType: text("job_type").notNull(),
+    lastRunAt: timestamp("last_run_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    name: text("name").notNull(),
+    nextRunAt: timestamp("next_run_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    tenantId: text("tenant_id"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    index("cron_schedules_due_idx").on(
+      table.enabled,
+      table.nextRunAt,
+      table.deletedAt,
+    ),
+  ],
+);
 
 export const managedPagesRelations = relations(managedPages, ({ many }) => ({
   sections: many(pageSections),

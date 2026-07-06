@@ -1,0 +1,22 @@
+{
+  "name": "@nextjs-saas/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/jobs/src",
+    "typecheck": "tsc --noEmit",
+    "worker": "tsx src/worker.ts"
+  },
+  "dependencies": {
+    "@nextjs-saas/db": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}
