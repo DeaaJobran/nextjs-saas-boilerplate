@@ -141,6 +141,115 @@ describe("jobs", () => {
   );
 
   it(
+    "preserves an existing cron next run when re-registering without an explicit next run",
+    async () => {
+      const firstRunAt = new Date("2026-07-06T10:10:00.000Z");
+
+      await registerCronSchedule({
+        id: "metrics-rollup",
+        intervalSeconds: 60,
+        jobType: "rollup-metrics",
+        name: "Tenant metrics",
+        nextRunAt: firstRunAt,
+        payload: { version: 1 },
+      });
+
+      await registerCronSchedule({
+        id: "metrics-rollup",
+        intervalSeconds: 120,
+        jobType: "rollup-metrics",
+        name: "Tenant metrics",
+        payload: { version: 2 },
+      });
+
+      await expect(
+        materializeDueCronJobs(new Date("2026-07-06T10:00:00.000Z")),
+      ).resolves.toEqual([]);
+
+      const jobIds = await materializeDueCronJobs(firstRunAt);
+
+      expect(jobIds).toHaveLength(1);
+    },
+    databaseTestTimeoutMs,
+  );
+
+  it(
+    "reclaims stale running jobs after a worker crash",
+    async () => {
+      const startedAt = new Date("2026-07-06T10:00:00.000Z");
+      const reclaimAt = new Date("2026-07-06T10:02:00.000Z");
+      const jobId = await enqueueJob({
+        maxAttempts: 3,
+        type: "sync-report",
+      });
+
+      await expect(
+        claimNextJob({
+          now: startedAt,
+          workerId: "crashed-worker",
+        }),
+      ).resolves.toMatchObject({
+        attempts: 1,
+        id: jobId,
+        lockedBy: "crashed-worker",
+      });
+
+      await expect(
+        claimNextJob({
+          now: reclaimAt,
+          staleAfterSeconds: 60,
+          workerId: "replacement-worker",
+        }),
+      ).resolves.toMatchObject({
+        attempts: 2,
+        id: jobId,
+        lockedBy: "replacement-worker",
+        status: "running",
+      });
+    },
+    databaseTestTimeoutMs,
+  );
+
+  it(
+    "fails stale running jobs when no retry attempts remain",
+    async () => {
+      const startedAt = new Date("2026-07-06T10:00:00.000Z");
+      const reclaimAt = new Date("2026-07-06T10:02:00.000Z");
+      const jobId = await enqueueJob({
+        maxAttempts: 1,
+        type: "sync-report",
+      });
+
+      await claimNextJob({
+        now: startedAt,
+        workerId: "crashed-worker",
+      });
+
+      await expect(
+        claimNextJob({
+          now: reclaimAt,
+          staleAfterSeconds: 60,
+          workerId: "replacement-worker",
+        }),
+      ).resolves.toBeUndefined();
+
+      const runtime = await getDatabaseRuntime();
+      const [row] = await runtime.execute<{
+        locked_by: string | null;
+        status: string;
+      }>("SELECT status, locked_by FROM background_jobs WHERE id = $1", [
+        jobId,
+      ]);
+
+      expect(row).toEqual({
+        locked_by: null,
+        status: "failed",
+      });
+    },
+    databaseTestTimeoutMs,
+  );
+
+  it(
     "runs a registered handler once",
     async () => {
       const handled: string[] = [];

@@ -48,6 +48,7 @@ export type WorkerOptions = {
   intervalMs?: number;
   queue?: string;
   signal?: AbortSignal;
+  staleAfterSeconds?: number;
   workerId?: string;
 };
 
@@ -105,6 +106,12 @@ function mapJob(row: BackgroundJobRow): BackgroundJob {
     type: row.type,
     updatedAt: toIsoString(row.updated_at)!,
   };
+}
+
+function assertPositiveInteger(value: number, fieldName: string) {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${fieldName} must be a positive integer.`);
+  }
 }
 
 async function ensureJobDatabase(client?: Queryable) {
@@ -181,9 +188,7 @@ export async function registerCronSchedule(input: {
   payload?: Record<string, unknown>;
   tenantId?: string;
 }) {
-  if (!Number.isInteger(input.intervalSeconds) || input.intervalSeconds < 1) {
-    throw new Error("Cron schedule interval must be a positive integer.");
-  }
+  assertPositiveInteger(input.intervalSeconds, "Cron schedule interval");
 
   const runtime = await getDatabaseRuntime();
 
@@ -191,6 +196,7 @@ export async function registerCronSchedule(input: {
 
   const now = new Date().toISOString();
   const id = input.id ?? randomUUID();
+  const hasExplicitNextRunAt = input.nextRunAt !== undefined;
 
   await runtime.execute(
     `
@@ -214,7 +220,10 @@ export async function registerCronSchedule(input: {
         payload = EXCLUDED.payload,
         interval_seconds = EXCLUDED.interval_seconds,
         enabled = EXCLUDED.enabled,
-        next_run_at = EXCLUDED.next_run_at,
+        next_run_at = CASE
+          WHEN $10 THEN EXCLUDED.next_run_at
+          ELSE cron_schedules.next_run_at
+        END,
         updated_at = EXCLUDED.updated_at
     `,
     [
@@ -227,10 +236,67 @@ export async function registerCronSchedule(input: {
       input.enabled ?? true,
       input.nextRunAt?.toISOString() ?? now,
       now,
+      hasExplicitNextRunAt,
     ],
   );
 
   return id;
+}
+
+async function reclaimStaleJobs({
+  client,
+  now,
+  queue,
+  staleAfterSeconds,
+}: {
+  client: Queryable;
+  now: Date;
+  queue: string;
+  staleAfterSeconds: number;
+}) {
+  assertPositiveInteger(staleAfterSeconds, "Stale lock timeout");
+
+  const nowIso = now.toISOString();
+  const staleBefore = new Date(
+    now.getTime() - staleAfterSeconds * 1000,
+  ).toISOString();
+
+  await client.execute(
+    `
+      UPDATE background_jobs
+      SET status = 'queued',
+          available_at = $1,
+          locked_at = NULL,
+          locked_by = NULL,
+          last_error = COALESCE(last_error, 'Requeued after stale worker lock.'),
+          updated_at = $1
+      WHERE queue = $2
+        AND status = 'running'
+        AND locked_at <= $3
+        AND attempts < max_attempts
+    `,
+    [nowIso, queue, staleBefore],
+  );
+
+  await client.execute(
+    `
+      UPDATE background_jobs
+      SET status = 'failed',
+          available_at = $1,
+          locked_at = NULL,
+          locked_by = NULL,
+          last_error = COALESCE(
+            last_error,
+            'Failed after stale worker lock exhausted attempts.'
+          ),
+          updated_at = $1
+      WHERE queue = $2
+        AND status = 'running'
+        AND locked_at <= $3
+        AND attempts >= max_attempts
+    `,
+    [nowIso, queue, staleBefore],
+  );
 }
 
 export async function materializeDueCronJobs(now = new Date()) {
@@ -315,9 +381,11 @@ export async function claimNextJob({
   queue = "default",
   workerId = `worker-${process.pid}`,
   now = new Date(),
+  staleAfterSeconds = 300,
 }: {
   now?: Date;
   queue?: string;
+  staleAfterSeconds?: number;
   workerId?: string;
 } = {}) {
   const runtime = await getDatabaseRuntime();
@@ -326,6 +394,12 @@ export async function claimNextJob({
 
   return runtime.transaction(async (transaction) => {
     await lockJobTables(transaction);
+    await reclaimStaleJobs({
+      client: transaction,
+      now,
+      queue,
+      staleAfterSeconds,
+    });
 
     const [job] = await transaction.execute<BackgroundJobRow>(
       `
@@ -447,11 +521,12 @@ export async function failJob(
 export async function runWorkerOnce({
   handlers,
   queue,
+  staleAfterSeconds,
   workerId,
 }: Omit<WorkerOptions, "intervalMs" | "signal">) {
   await materializeDueCronJobs();
 
-  const job = await claimNextJob({ queue, workerId });
+  const job = await claimNextJob({ queue, staleAfterSeconds, workerId });
 
   if (!job) {
     return undefined;
@@ -483,10 +558,11 @@ export async function runWorker({
   intervalMs = 1000,
   queue,
   signal,
+  staleAfterSeconds,
   workerId,
 }: WorkerOptions) {
   while (!signal?.aborted) {
-    await runWorkerOnce({ handlers, queue, workerId });
+    await runWorkerOnce({ handlers, queue, staleAfterSeconds, workerId });
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }
