@@ -4,17 +4,22 @@ This project treats quality tooling as part of the product surface. A fresh clon
 
 ## Local Commands
 
+Install dependencies first:
+
 ```bash
 pnpm install
+```
+
+Common checks:
+
+```bash
 git diff --check
 pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm playwright:install
-pnpm test:e2e
-pnpm test:a11y
+pnpm build:storybook
 pnpm doctor:react
 ```
 
@@ -24,9 +29,11 @@ The combined validation command is:
 pnpm validate
 ```
 
-`pnpm validate` builds the app, installs Chromium if needed, and runs Playwright against `pnpm start` so browser checks exercise the production build.
+`pnpm validate` runs whitespace checks, formatting, linting, type checking, tests, production build, Storybook build, Chromium installation, E2E tests, and accessibility tests.
 
-To install the browser separately:
+## Browser Checks
+
+To install Chromium separately:
 
 ```bash
 pnpm playwright:install
@@ -40,6 +47,20 @@ pnpm test:e2e
 pnpm test:a11y
 ```
 
+## Storybook
+
+Run Storybook locally:
+
+```bash
+pnpm storybook
+```
+
+Build Storybook for CI parity:
+
+```bash
+pnpm build:storybook
+```
+
 ## Commit Policy
 
 Commits use Conventional Commits. Use `pnpm commit` for an interactive prompt, or write messages manually in the same format.
@@ -51,16 +72,34 @@ Git hooks run:
 
 ## React Doctor Policy
 
-React Doctor is installed for local audits with `pnpm doctor:react`.
+React Doctor is installed for local audits with:
 
-The GitHub workflow uses the official `millionco/react-doctor@v2` action. It scans changed files in pull requests and records scores on pushes to `main`. React Doctor should become a required branch protection check after the baseline is stable and the team is comfortable with its signal.
+```bash
+pnpm doctor:react
+```
+
+The GitHub workflow uses the official `millionco/react-doctor@v2` action. The current baseline is `100/100` with `0` errors and `0` warnings. PRs should keep that score at 100 unless maintainers explicitly accept and document a temporary regression.
+
+## Documentation Policy
+
+Documentation updates are required when a change affects:
+
+- Public setup or runtime commands.
+- Environment variables.
+- Package/module boundaries.
+- User-facing behavior or admin workflows.
+- Database migrations, seeds, rollback, or reset behavior.
+- Security, auth, sessions, tenant isolation, API keys, webhooks, file upload, impersonation, or secrets.
+- Release tags, versioning, or upgrade expectations.
+
+Local implementation notes under `/docs` stay untracked. Public docs should be kept in tracked root Markdown files, ADRs, package docs, and `apps/docs`.
 
 ## Deferred Conditional Checks
 
-Some quality checks are intentionally represented as placeholder policy until the underlying artifacts exist:
+Some quality checks are intentionally represented as policy until the underlying artifacts exist:
 
-- Translation validation starts when localization files are introduced.
-- Database migration validation starts when Drizzle migrations are introduced.
+- Translation validation expands when full localization message files are introduced.
 - OpenAPI validation starts when generated API specs are introduced.
+- Visual regression validation starts when visual snapshot tooling is introduced.
 
 These checks should be added to CI in the same PR that introduces the corresponding artifact type.
