@@ -1,6 +1,6 @@
 # Feature Priorities
 
-This backlog groups the requested feature set into implementation areas with ownership and acceptance criteria. Detailed implementation tasks are maintained locally during planning; tracked project files keep the public scope, priorities, and quality bar clear.
+This backlog groups the requested feature set into implementation areas with ownership and acceptance criteria. Detailed implementation tasks are maintained locally in ignored notes; tracked project files keep the public scope, priorities, and quality bar clear.
 
 | Area                          | Priority | Owner                       | Acceptance Criteria                                                                                                                                                 |
 | ----------------------------- | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

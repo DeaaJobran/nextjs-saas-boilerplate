@@ -24,20 +24,22 @@ The boilerplate is a reusable starter, not a finished SaaS product. It should pr
 
 - Node.js: `>=22.12 <27`.
 - pnpm: `>=11.7 <12`.
+- React: `19.2.x`.
+- Next.js: `16.2.x`.
 - PostgreSQL: target 17+.
 - Browsers: latest two stable versions of Chromium, Firefox, and Safari.
 
 ## Architecture Decisions
 
 - Use a monorepo architecture as the target structure.
-- Keep the current app simple until the package boundaries are introduced in the application architecture phase.
+- Keep the current app simple until package boundaries are introduced during application architecture work.
 - Use Next.js App Router and React.
 - Use TypeScript strict mode.
 - Use Drizzle ORM with PostgreSQL as the primary database.
 - Support SQLite or PGlite only as optional development/test paths.
 - Use Better Auth as the planned self-hosted auth foundation, with provider adapters behind module boundaries.
 - Use provider abstractions for billing, storage, email, AI, tax, and currency.
-- Billing starts with a local/mock adapter for tests and examples, plus a Stripe adapter as the first external payment provider once the billing phase begins.
+- Billing starts with a local/mock adapter for tests and examples, plus a Stripe adapter as the first external payment provider when billing implementation begins.
 - Tax starts with manual rules and provider abstraction; do not claim tax compliance without a production tax provider integration.
 - Email starts with React Email templates, local preview, and an SMTP adapter; Resend/Postmark/Mailgun-style adapters are optional provider implementations.
 - Use Docker Compose for local and single-VPS operations.
@@ -108,9 +110,9 @@ A feature can be called production-ready only when it has:
 - Migration and rollback guidance where data is affected.
 - Security review for auth, billing, storage, API keys, webhooks, impersonation, and file uploads.
 
-## First Public Milestone
+## First Public Release Target
 
-The first public milestone proves the foundation:
+The first public release target proves the foundation:
 
 - Repository governance and branch protection.
 - Clean quality gates.
@@ -123,7 +125,7 @@ The first public milestone proves the foundation:
 - English and Arabic RTL/LTR foundations.
 - Demo deployment path.
 
-## First Demo Milestone
+## First Demo Target
 
 The first demo should include:
 

@@ -1,0 +1,27 @@
+{
+  "name": "@nextjs-saas/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts",
+    "./content": "./src/content.ts",
+    "./env": "./src/env.ts",
+    "./seo": "./src/seo.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nextjs-saas/localization": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "next": "16.2.10"
+  },
+  "devDependencies": {
+    "next": "16.2.10",
+    "typescript": "^5"
+  }
+}

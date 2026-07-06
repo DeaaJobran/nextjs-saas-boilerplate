@@ -1,9 +1,8 @@
 import "./globals.css";
 
+import { appConfig } from "@nextjs-saas/config/app";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-
-import { env } from "@/env";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,23 +15,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
-  title: "Next.js SaaS Boilerplate",
-  description:
-    "Open-source Next.js SaaS boilerplate for launching production-minded products faster.",
+  title: `${appConfig.name} Docs`,
+  description: "Public documentation shell for the SaaS boilerplate.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full flex-col">{children}</body>
+    <html className={`${geistSans.variable} ${geistMono.variable}`} lang="en">
+      <body className="min-h-dvh bg-background font-sans text-foreground">
+        {children}
+      </body>
     </html>
   );
 }

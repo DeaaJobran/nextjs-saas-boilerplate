@@ -1,0 +1,9 @@
+@import "@nextjs-saas/ui/styles.css";
+
+@source "../**/*.{ts,tsx}";
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+
+[dir="rtl"] body {
+  font-family:
+    var(--font-arabic), var(--font-geist-sans), system-ui, sans-serif;
+}

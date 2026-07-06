@@ -1,0 +1,18 @@
+{
+  "Navigation": {
+    "home": "الرئيسية",
+    "pricing": "الأسعار",
+    "contact": "تواصل",
+    "legal": "القانونية",
+    "dashboard": "لوحة التحكم",
+    "settings": "الإعدادات",
+    "admin": "الإدارة",
+    "signIn": "تسجيل الدخول"
+  },
+  "Actions": {
+    "viewDashboard": "عرض لوحة التحكم",
+    "openSettings": "فتح الإعدادات",
+    "openAdmin": "فتح الإدارة",
+    "submit": "إرسال"
+  }
+}
