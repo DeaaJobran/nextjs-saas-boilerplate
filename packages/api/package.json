@@ -1,0 +1,26 @@
+{
+  "name": "@nextjs-saas/api",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts",
+    "./service": "./src/service.ts"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/api/src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nextjs-saas/auth": "workspace:*",
+    "@nextjs-saas/db": "workspace:*",
+    "@nextjs-saas/tenant": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

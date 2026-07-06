@@ -21,6 +21,8 @@
     ],
     "paths": {
       "@/*": ["./apps/web/src/*"],
+      "@nextjs-saas/api": ["./packages/api/src/index.ts"],
+      "@nextjs-saas/api/*": ["./packages/api/src/*"],
       "@nextjs-saas/auth": ["./packages/auth/src/index.ts"],
       "@nextjs-saas/auth/*": ["./packages/auth/src/*"],
       "@nextjs-saas/billing": ["./packages/billing/src/index.ts"],

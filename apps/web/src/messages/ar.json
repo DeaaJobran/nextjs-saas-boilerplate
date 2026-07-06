@@ -476,6 +476,7 @@
   },
   "Navigation": {
     "admin": "الإدارة",
+    "api": "API",
     "billing": "الفوترة",
     "contact": "تواصل",
     "dashboard": "لوحة التحكم",
@@ -485,6 +486,26 @@
     "pricing": "الأسعار",
     "settings": "الإعدادات",
     "signIn": "تسجيل الدخول"
+  },
+  "ApiDocsPage": {
+    "authDescription": "استخدم مصادقة Bearer مع مفاتيح API الخاصة بالمستأجر، أو رموز الوصول الشخصية، أو رموز جلسات الجوال المسجلة.",
+    "authTitle": "المصادقة",
+    "copyOpenApi": "ملف OpenAPI",
+    "copySdk": "حزمة TypeScript",
+    "description": "عقود REST بإصدارات، ومخرجات OpenAPI مولدة، وجلسات جوال آمنة، وويب هوكس، ومفاتيح عدم التكرار، وCORS، وسجلات تدقيق، وبث أحداث فوري.",
+    "endpointCount": "{count} نقاط نهاية",
+    "eyebrow": "API عام",
+    "generatedDescription": "تعرض هذه الصفحة البيانات من سجل مسارات API نفسه المستخدم لتوليد مستند OpenAPI وحزمة TypeScript.",
+    "generatedTitle": "عقود مولدة",
+    "method": "الطريقة",
+    "path": "المسار",
+    "publicAccess": "عام",
+    "scope": "النطاق",
+    "scopesDescription": "يتم فحص النطاقات قبل فحص صلاحيات المستأجر. يمكن لمفاتيح API الخاصة بالمستأجر استخدام نطاقات مستأجر مكافئة عند تهيئتها.",
+    "scopesTitle": "النطاقات",
+    "title": "API المطورين",
+    "versionLabel": "الإصدار",
+    "version": "الإصدار {version}"
   },
   "PageKind": {
     "contact": "تواصل",

@@ -1118,6 +1118,337 @@ export const tenantAuditEvents = pgTable(
   ],
 );
 
+export const apiAuditEvents = pgTable(
+  "api_audit_events",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    apiKeyId: text("api_key_id").references(() => apiKeys.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    durationMs: integer("duration_ms").notNull().default(0),
+    errorCode: text("error_code"),
+    id: text("id").primaryKey(),
+    idempotencyKey: text("idempotency_key"),
+    ipAddress: text("ip_address"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    method: text("method").notNull(),
+    path: text("path").notNull(),
+    requestId: text("request_id").notNull(),
+    statusCode: integer("status_code").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    userAgent: text("user_agent"),
+  },
+  (table) => [
+    index("api_audit_events_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+    index("api_audit_events_request_idx").on(table.requestId),
+  ],
+);
+
+export const apiUsageRecords = pgTable(
+  "api_usage_records",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    apiKeyId: text("api_key_id").references(() => apiKeys.id, {
+      onDelete: "set null",
+    }),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    method: text("method").notNull(),
+    occurredAt: timestamp("occurred_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    path: text("path").notNull(),
+    requestUnits: integer("request_units").notNull().default(1),
+    routeId: text("route_id").notNull(),
+    statusCode: integer("status_code").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    index("api_usage_records_tenant_occurred_idx").on(
+      table.tenantId,
+      table.occurredAt,
+    ),
+  ],
+);
+
+export const apiWebhookEndpoints = pgTable(
+  "api_webhook_endpoints",
+  {
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdBy: text("created_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    description: text("description"),
+    eventTypes: jsonb("event_types").$type<string[]>().notNull(),
+    id: text("id").primaryKey(),
+    secretPrefix: text("secret_prefix").notNull(),
+    signingSecretHash: text("signing_secret_hash").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    url: text("url").notNull(),
+  },
+  (table) => [
+    index("api_webhook_endpoints_tenant_active_idx").on(
+      table.tenantId,
+      table.active,
+    ),
+  ],
+);
+
+export const apiWebhookDeliveries = pgTable(
+  "api_webhook_deliveries",
+  {
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    endpointId: text("endpoint_id")
+      .notNull()
+      .references(() => apiWebhookEndpoints.id, { onDelete: "cascade" }),
+    eventId: text("event_id"),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    lastAttemptAt: timestamp("last_attempt_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    lastError: text("last_error"),
+    lastStatusCode: integer("last_status_code"),
+    nextAttemptAt: timestamp("next_attempt_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    index("api_webhook_deliveries_endpoint_status_idx").on(
+      table.endpointId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const mobileDevices = pgTable(
+  "mobile_devices",
+  {
+    appVersion: text("app_version"),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deviceFingerprintHash: text("device_fingerprint_hash"),
+    deviceName: text("device_name").notNull(),
+    id: text("id").primaryKey(),
+    lastSeenAt: timestamp("last_seen_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    platform: text("platform").notNull(),
+    pushTokenHash: text("push_token_hash"),
+    revokedAt: timestamp("revoked_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("mobile_devices_user_seen_idx").on(table.userId, table.lastSeenAt),
+  ],
+);
+
+export const mobileSessions = pgTable(
+  "mobile_sessions",
+  {
+    authSessionId: text("auth_session_id")
+      .notNull()
+      .references(() => authSessions.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deviceId: text("device_id")
+      .notNull()
+      .references(() => mobileDevices.id, { onDelete: "cascade" }),
+    id: text("id").primaryKey(),
+    refreshTokenFamily: text("refresh_token_family").notNull(),
+    revokedAt: timestamp("revoked_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    rotatedAt: timestamp("rotated_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("mobile_sessions_auth_session_unique").on(table.authSessionId),
+    index("mobile_sessions_device_active_idx").on(
+      table.deviceId,
+      table.revokedAt,
+    ),
+  ],
+);
+
+export const mobilePushSubscriptions = pgTable(
+  "mobile_push_subscriptions",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deviceId: text("device_id")
+      .notNull()
+      .references(() => mobileDevices.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(true),
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    topics: jsonb("topics").$type<string[]>().notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("mobile_push_subscriptions_token_unique").on(
+      table.provider,
+      table.tokenHash,
+    ),
+  ],
+);
+
+export const mobileDeepLinks = pgTable(
+  "mobile_deep_links",
+  {
+    consumedAt: timestamp("consumed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    params: jsonb("params").$type<Record<string, unknown>>().notNull(),
+    route: text("route").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    url: text("url").notNull(),
+    userId: text("user_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("mobile_deep_links_user_created_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const mobileUploadIntents = pgTable(
+  "mobile_upload_intents",
+  {
+    byteSize: bigint("byte_size", { mode: "number" }).notNull(),
+    checksumSha256: text("checksum_sha256"),
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    fileName: text("file_name").notNull(),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    uploadedAt: timestamp("uploaded_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("mobile_upload_intents_token_unique").on(table.tokenHash),
+    index("mobile_upload_intents_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const billingPaymentProviders = pgTable(
   "billing_payment_providers",
   {
