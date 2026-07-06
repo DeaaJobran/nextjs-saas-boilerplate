@@ -1,6 +1,7 @@
 "use server";
 
 import { appRoutes } from "@nextjs-saas/config/app";
+import { isLocale } from "@nextjs-saas/localization";
 import {
   isTenantPermission,
   isTenantRole,
@@ -15,6 +16,7 @@ import {
   getOptionalCurrentSession,
   requireCurrentSession,
 } from "../../../lib/auth";
+import { getContentRepository } from "../../../lib/content-store";
 import {
   clearImpersonationCookie,
   getActiveTenantContext,
@@ -158,10 +160,23 @@ export async function switchOrganizationAction(formData: FormData) {
 export async function updateOrganizationAction(formData: FormData) {
   await requireTenantActionSession();
   const context = await getActiveTenantContext("organization.update");
+  const defaultLocale = formValue(formData, "defaultLocale");
+  const repository = await getContentRepository();
+
+  if (
+    defaultLocale &&
+    (!isLocale(defaultLocale) || !repository.isLocaleEnabled(defaultLocale))
+  ) {
+    redirectWithStatus(
+      formData,
+      appRoutes.organizationSettings,
+      "invalid-locale",
+    );
+  }
 
   await getTenantService().updateOrganization({
     actorId: context.effectiveUser.id,
-    defaultLocale: formValue(formData, "defaultLocale") || undefined,
+    defaultLocale: defaultLocale || undefined,
     description: formValue(formData, "description") || undefined,
     logoUrl: formValue(formData, "logoUrl") || undefined,
     name: formValue(formData, "name"),

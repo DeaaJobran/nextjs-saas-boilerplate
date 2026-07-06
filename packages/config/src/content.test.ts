@@ -5,6 +5,7 @@ import {
   defaultContentSnapshot,
   recordContactSubmission,
   updateContactConfiguration,
+  updateLocalizationSettings,
   updatePricingPlans,
   upsertManagedPage,
 } from "./content";
@@ -26,6 +27,21 @@ describe("content repository", () => {
 
     expect(repository.listPricingPlans("en")).toHaveLength(2);
     expect(repository.listPricingPlans("ar")[0]?.ctaLabel).toBe("ابدأ البناء");
+  });
+
+  it("stores admin-controlled localization settings", () => {
+    const nextSnapshot = updateLocalizationSettings(defaultContentSnapshot, {
+      defaultLocale: "ar",
+      enabledLocales: ["ar", "en", "ar"],
+    });
+    const repository = createContentRepository(nextSnapshot);
+
+    expect(repository.getLocalizationSettings()).toEqual({
+      defaultLocale: "ar",
+      enabledLocales: ["en", "ar"],
+    });
+    expect(repository.isLocaleEnabled("ar")).toBe(true);
+    expect(repository.listEnabledLocales()).toEqual(["en", "ar"]);
   });
 
   it("updates managed pages without mutating the default snapshot", () => {

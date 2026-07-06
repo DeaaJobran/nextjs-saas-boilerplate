@@ -21,7 +21,7 @@ The project has a working foundation for the web app, database, self-hosted iden
 ## Implemented Foundation
 
 - Next.js App Router with React `19.2.x`, TypeScript strict mode, Tailwind CSS, and locale-aware routing.
-- English and Arabic locale support with RTL/LTR layout switching through `next-intl` and `@nextjs-saas/localization`.
+- English and Arabic locale support with RTL/LTR layout switching, DB-controlled active locales, translation validation, locale-aware formatters, and preferred locale storage.
 - Shared shadcn-style UI package with Radix-backed primitives, forms, cards, dialogs, toasts, tables, charts, and state components.
 - Database package with PostgreSQL runtime, PGlite local fallback, Drizzle schema, migrations, seeds, reset scripts, transactions, query helpers, and migration tests.
 - Database-managed landing, pricing, contact, and legal content with admin editing surfaces and seeded content.
@@ -103,6 +103,7 @@ Common local checks:
 ```bash
 pnpm format:check
 pnpm lint
+pnpm i18n:check
 pnpm typecheck
 pnpm test
 pnpm build

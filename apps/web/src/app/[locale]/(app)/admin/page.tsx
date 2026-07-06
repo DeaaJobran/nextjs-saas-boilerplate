@@ -1,3 +1,4 @@
+import { formatNumber, localeLabels } from "@nextjs-saas/localization";
 import {
   Badge,
   Card,
@@ -9,16 +10,24 @@ import { getTranslations } from "next-intl/server";
 
 import { requireAdminSession } from "../../../../lib/admin-auth";
 import { getContentRepository } from "../../../../lib/content-store";
+import { assertLocale } from "../../../../lib/locale";
 import { getTenantService } from "../../../../lib/tenant";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale: value } = await params;
+  const locale = assertLocale(value);
   const [t, session, repository] = await Promise.all([
-    getTranslations("AdminOverview"),
+    getTranslations({ locale, namespace: "AdminOverview" }),
     requireAdminSession(),
     getContentRepository(),
   ]);
   const pages = repository.listAllPages();
   const submissions = repository.listContactSubmissions();
+  const localization = repository.getLocalizationSettings();
   const tenantSummary = await getTenantService().getSuperAdminSummary({
     actorGlobalRole: session.user.role,
     actorId: session.user.id,
@@ -28,7 +37,13 @@ export default async function AdminPage() {
     <div className="grid gap-4 md:grid-cols-3">
       {[
         [t("managedPages"), String(pages.length), t("managedPagesDescription")],
-        [t("locales"), "2", t("localeDescription")],
+        [
+          t("locales"),
+          formatNumber(locale, localization.enabledLocales.length),
+          t("localeDescription", {
+            defaultLocale: localeLabels[localization.defaultLocale],
+          }),
+        ],
         [
           t("contactMessages"),
           String(submissions.length),

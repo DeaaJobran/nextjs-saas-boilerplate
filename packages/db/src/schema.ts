@@ -141,6 +141,16 @@ export const contactSubmissions = pgTable("contact_submissions", {
   values: jsonb("values").$type<Record<string, string>>().notNull(),
 });
 
+export const localizationSettings = pgTable("localization_settings", {
+  defaultLocale: text("default_locale").notNull(),
+  enabledLocales: jsonb("enabled_locales").$type<string[]>().notNull(),
+  id: text("id").primaryKey(),
+  updatedAt: timestamp("updated_at", {
+    mode: "string",
+    withTimezone: true,
+  }).notNull(),
+});
+
 export const eventLog = pgTable(
   "event_log",
   {

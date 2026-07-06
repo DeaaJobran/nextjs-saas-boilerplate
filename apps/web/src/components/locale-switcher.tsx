@@ -1,18 +1,27 @@
 "use client";
 
-import { type Locale, localeLabels, locales } from "@nextjs-saas/localization";
+import { type Locale, localeLabels } from "@nextjs-saas/localization";
 import { Button } from "@nextjs-saas/ui";
 import { LanguagesIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Link, usePathname } from "../i18n/navigation";
 
-export function LocaleSwitcher() {
+export function LocaleSwitcher({
+  availableLocales,
+}: {
+  availableLocales: Locale[];
+}) {
   const currentLocale = useLocale() as Locale;
   const t = useTranslations("LocaleSwitcher");
   const pathname = usePathname();
   const nextLocale =
-    locales.find((locale) => locale !== currentLocale) ?? currentLocale;
+    availableLocales.find((locale) => locale !== currentLocale) ??
+    currentLocale;
+
+  if (availableLocales.length < 2) {
+    return null;
+  }
 
   return (
     <Button

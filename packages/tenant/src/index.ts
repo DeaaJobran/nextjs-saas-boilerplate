@@ -7,6 +7,7 @@ import {
   type Queryable,
   runMigrations,
 } from "@nextjs-saas/db";
+import { defaultLocale, isLocale } from "@nextjs-saas/localization";
 
 export const tenantRoleConfig = {
   assignableRoles: ["owner", "admin", "member"],
@@ -427,6 +428,18 @@ function normalizePermissions(permissions: unknown = []) {
     (permission): permission is TenantPermission =>
       permission.length > 0 && isTenantPermission(permission),
   );
+}
+
+function normalizeOptionalLocale(locale: string | undefined) {
+  if (!locale) {
+    return defaultLocale;
+  }
+
+  if (!isLocale(locale)) {
+    throw new TenantError("Unsupported locale.", "unsupported_locale");
+  }
+
+  return locale;
 }
 
 function normalizeApiKeyScopes(scopes: unknown = []) {
@@ -1285,6 +1298,7 @@ export function createTenantService(options: TenantServiceOptions = {}) {
       const baseSlug = slugify(input.slug ?? input.name) || "organization";
       const slug = `${baseSlug}-${randomBytes(3).toString("hex")}`;
       const organizationId = randomUUID();
+      const organizationLocale = normalizeOptionalLocale(input.defaultLocale);
 
       return withTransaction(client, async (transaction) => {
         const rows = await transaction.execute<OrganizationRow>(
@@ -1313,7 +1327,7 @@ export function createTenantService(options: TenantServiceOptions = {}) {
             input.description?.trim() || null,
             input.websiteUrl?.trim() || null,
             input.logoUrl?.trim() || null,
-            input.defaultLocale ?? "en",
+            organizationLocale,
             input.actorId,
             timestamp,
           ],
@@ -2302,6 +2316,7 @@ export function createTenantService(options: TenantServiceOptions = {}) {
       });
 
       const timestamp = now().toISOString();
+      const organizationLocale = normalizeOptionalLocale(input.defaultLocale);
       const rows = await client.execute<OrganizationRow>(
         `
           UPDATE organizations
@@ -2321,7 +2336,7 @@ export function createTenantService(options: TenantServiceOptions = {}) {
           input.description?.trim() || null,
           input.websiteUrl?.trim() || null,
           input.logoUrl?.trim() || null,
-          input.defaultLocale ?? "en",
+          organizationLocale,
           timestamp,
           input.actorId,
           input.organizationId,

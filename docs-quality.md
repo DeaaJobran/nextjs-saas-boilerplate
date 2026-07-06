@@ -16,6 +16,7 @@ Common checks:
 git diff --check
 pnpm format:check
 pnpm lint
+pnpm i18n:check
 pnpm typecheck
 pnpm test
 pnpm build
@@ -29,7 +30,7 @@ The combined validation command is:
 pnpm validate
 ```
 
-`pnpm validate` runs whitespace checks, formatting, linting, type checking, tests, production build, Storybook build, Chromium installation, E2E tests, and accessibility tests.
+`pnpm validate` runs whitespace checks, formatting, linting, translation validation, type checking, tests, production build, Storybook build, Chromium installation, E2E tests, and accessibility tests.
 
 ## Browser Checks
 
@@ -98,8 +99,7 @@ Local implementation notes under `/docs` stay untracked. Public docs should be k
 
 Some quality checks are intentionally represented as policy until the underlying artifacts exist:
 
-- Translation validation expands when full localization message files are introduced.
 - OpenAPI validation starts when generated API specs are introduced.
-- Visual regression validation starts when visual snapshot tooling is introduced.
+- Snapshot visual regression validation starts when visual snapshot tooling is introduced. Current RTL layout regression checks run through Playwright E2E overflow assertions.
 
 These checks should be added to CI in the same PR that introduces the corresponding artifact type.

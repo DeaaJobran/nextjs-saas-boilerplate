@@ -13,6 +13,7 @@ import {
 import { getTranslations } from "next-intl/server";
 
 import { Link } from "../i18n/navigation";
+import { getContentRepository } from "../lib/content-store";
 import { LocaleSwitcher } from "./locale-switcher";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -40,6 +41,8 @@ export async function MarketingShell({
 }) {
   const t = await getTranslations({ locale, namespace: "Navigation" });
   const shellT = await getTranslations({ locale, namespace: "Shell" });
+  const repository = await getContentRepository();
+  const availableLocales = repository.listEnabledLocales();
 
   return (
     <div className="bg-background min-h-dvh">
@@ -64,7 +67,7 @@ export async function MarketingShell({
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <LocaleSwitcher />
+            <LocaleSwitcher availableLocales={availableLocales} />
             <Button asChild>
               <Link href={appRoutes.signIn}>{t("signIn")}</Link>
             </Button>
@@ -122,6 +125,8 @@ export async function DashboardShell({
 }) {
   const t = await getTranslations({ locale, namespace: "Navigation" });
   const shellT = await getTranslations({ locale, namespace: "Shell" });
+  const repository = await getContentRepository();
+  const availableLocales = repository.listEnabledLocales();
 
   return (
     <div className="bg-muted/30 min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -165,7 +170,7 @@ export async function DashboardShell({
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
             {tenantControls}
             <ThemeToggle />
-            <LocaleSwitcher />
+            <LocaleSwitcher availableLocales={availableLocales} />
           </div>
         </header>
         <main className="mx-auto w-full max-w-7xl p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">

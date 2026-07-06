@@ -1,5 +1,11 @@
 import type { Locale } from "./locales";
 
+export type PluralizedMessages = Partial<
+  Record<Intl.LDMLPluralRule, string>
+> & {
+  other: string;
+};
+
 export function formatDate(
   locale: Locale,
   value: Date | string | number,
@@ -37,4 +43,26 @@ export function formatCurrency(
     currency,
     ...options,
   }).format(value);
+}
+
+export function selectPluralMessage(
+  locale: Locale,
+  value: number,
+  messages: PluralizedMessages,
+) {
+  const category = new Intl.PluralRules(locale).select(value);
+
+  return messages[category] ?? messages.other;
+}
+
+export function formatPlural(
+  locale: Locale,
+  value: number,
+  messages: PluralizedMessages,
+  options?: Intl.NumberFormatOptions,
+) {
+  const message = selectPluralMessage(locale, value, messages);
+  const formattedValue = formatNumber(locale, value, options);
+
+  return message.replaceAll("{count}", formattedValue);
 }

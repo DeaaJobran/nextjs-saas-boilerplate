@@ -1,10 +1,21 @@
+import type { Locale } from "@nextjs-saas/localization";
 import type { Metadata } from "next";
 
 import { appConfig } from "./app";
 import type { PageSeo } from "./content";
 import { env } from "./env";
 
-export function createPageMetadata(seo: PageSeo): Metadata {
+const openGraphLocales = {
+  ar: "ar",
+  en: "en_US",
+} satisfies Record<Locale, string>;
+
+export function createPageMetadata(
+  seo: PageSeo,
+  options: {
+    locale?: Locale;
+  } = {},
+): Metadata {
   const title = seo.title.includes(appConfig.name)
     ? seo.title
     : `${seo.title} | ${appConfig.name}`;
@@ -18,6 +29,7 @@ export function createPageMetadata(seo: PageSeo): Metadata {
     openGraph: {
       title,
       description: seo.description,
+      locale: options.locale ? openGraphLocales[options.locale] : undefined,
       siteName: appConfig.name,
       images: seo.ogImage ? [seo.ogImage] : undefined,
       type: "website",

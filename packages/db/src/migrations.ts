@@ -5,6 +5,8 @@ import {
 } from "./client";
 import { migrationManifest } from "./migration-manifest";
 
+let migrationQueue = Promise.resolve();
+
 export async function listMigrationFiles() {
   return migrationManifest.map((migration) => migration.id);
 }
@@ -54,15 +56,25 @@ async function applyPendingMigrations(client: Queryable) {
 
 export async function runMigrations(client?: Queryable) {
   const runtime = client ?? (await getDatabaseRuntime());
+  const run = migrationQueue.then(async () => {
+    if (!hasTransaction(runtime)) {
+      return applyPendingMigrations(runtime);
+    }
 
-  if (!hasTransaction(runtime)) {
-    return applyPendingMigrations(runtime);
-  }
+    return runtime.transaction(async (transaction) => {
+      await ensureMigrationTable(transaction);
+      await transaction.execute(
+        "LOCK TABLE schema_migrations IN EXCLUSIVE MODE",
+      );
 
-  return runtime.transaction(async (transaction) => {
-    await ensureMigrationTable(transaction);
-    await transaction.execute("LOCK TABLE schema_migrations IN EXCLUSIVE MODE");
-
-    return applyPendingMigrations(transaction);
+      return applyPendingMigrations(transaction);
+    });
   });
+
+  migrationQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  return run;
 }

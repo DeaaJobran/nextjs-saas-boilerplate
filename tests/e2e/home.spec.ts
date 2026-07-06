@@ -152,6 +152,50 @@ test("supports Arabic RTL routes", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("keeps Arabic RTL core layouts within the viewport", async ({ page }) => {
+  const publicRoutes = [
+    "/ar",
+    "/ar/pricing",
+    "/ar/contact",
+    "/ar/auth/sign-in",
+  ];
+
+  for (const viewport of [
+    { height: 844, width: 390 },
+    { height: 900, width: 1280 },
+  ]) {
+    await page.setViewportSize(viewport);
+
+    for (const route of publicRoutes) {
+      await page.goto(route);
+      await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              document.documentElement.scrollWidth <=
+              document.documentElement.clientWidth + 1,
+          ),
+        )
+        .toBe(true);
+    }
+  }
+
+  await grantUserAccess(page);
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.goto("/ar/dashboard");
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth + 1,
+      ),
+    )
+    .toBe(true);
+});
+
 test("admin-managed content can create, update, and render a legal page", async ({
   page,
 }) => {

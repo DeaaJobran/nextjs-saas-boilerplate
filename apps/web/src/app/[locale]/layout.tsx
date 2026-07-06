@@ -3,17 +3,17 @@ import "../globals.css";
 import { appConfig } from "@nextjs-saas/config/app";
 import { env } from "@nextjs-saas/config/env";
 import {
+  getLocaleTypographyClassName,
   getTextDirection,
-  isLocale,
   type Locale,
   locales,
 } from "@nextjs-saas/localization";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Arabic } from "next/font/google";
-import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 
+import { assertActiveLocale } from "../../lib/locale";
 import { Providers } from "../providers";
 
 const geistSans = Geist({
@@ -52,13 +52,9 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: value } = await params;
-
-  if (!isLocale(value)) {
-    notFound();
-  }
-
-  const locale: Locale = value;
+  const locale: Locale = await assertActiveLocale(value);
   const messages = await getMessages();
+  const typographyClassName = getLocaleTypographyClassName(locale);
 
   return (
     <html
@@ -67,7 +63,9 @@ export default async function LocaleLayout({
       lang={locale}
       suppressHydrationWarning
     >
-      <body className="bg-background text-foreground min-h-full font-sans">
+      <body
+        className={`bg-background text-foreground min-h-full ${typographyClassName}`}
+      >
         <NextIntlClientProvider messages={messages}>
           <Providers>{children}</Providers>
         </NextIntlClientProvider>
