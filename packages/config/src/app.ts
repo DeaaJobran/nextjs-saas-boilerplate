@@ -29,9 +29,11 @@ export const appRoutes = {
   verifyEmailChange: "/auth/verify-email-change",
   dashboard: "/dashboard",
   settings: "/settings",
+  billingSettings: "/settings/billing",
   organizationSettings: "/settings/organization",
   organizationInvitation: "/organizations/invitations/accept",
   admin: "/admin",
+  adminBilling: "/admin/billing",
   adminSuper: "/admin/super",
   adminUsers: "/admin/users",
 } as const;

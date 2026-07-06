@@ -8,7 +8,7 @@ An open-source, production-minded Next.js SaaS boilerplate for developers who wa
 
 Current release: `v0.3.0`.
 
-The project has a working foundation for the web app, database, self-hosted identity, tenant administration, managed marketing content, local services, and quality gates. It is still not a finished production SaaS starter. Billing, storage provider adapters, email delivery, public API/mobile support, deployment guides, and observability are still roadmap items.
+The project has a working foundation for the web app, database, self-hosted identity, tenant administration, managed marketing content, billing/payment abstractions, local services, and quality gates. It is still not a finished production SaaS starter. Storage provider adapters, email delivery, public API/mobile support, deployment guides, and observability are still roadmap items.
 
 ## Principles
 
@@ -27,6 +27,7 @@ The project has a working foundation for the web app, database, self-hosted iden
 - Database-managed landing, pricing, contact, and legal content with admin editing surfaces and seeded content.
 - Self-hosted `@nextjs-saas/auth` package with email/password, magic links, email verification, password reset, refresh sessions, passkeys, TOTP MFA primitives, authorization helpers, audit events, and auth tests.
 - Tenant package with organizations, memberships, invitations, roles, permissions, tenant API keys, quotas, usage limits, feature flags, audit logs, support impersonation, and tenant tests.
+- Billing package with database-backed plans, localized plan copy, multi-currency prices, tenant billing settings, tax settings/rates, usage meters, subscriptions, invoices, payment methods, refunds, entitlements, signed idempotent webhooks, a mock provider adapter, and a Stripe-compatible adapter.
 - Admin and super-admin surfaces for content, users, tenant controls, and impersonation workflows.
 - Jobs package with background job and cron schedule primitives.
 - Local Docker Compose services for PostgreSQL, Redis, MinIO, and Mailpit.
@@ -35,7 +36,6 @@ The project has a working foundation for the web app, database, self-hosted iden
 
 ## Roadmap Highlights
 
-- Billing, payments, currency, tax, invoices, usage metering, and webhook handling.
 - Storage/file module with provider adapters, signed URLs, validation, ownership policies, previews, cleanup, and malware scanning hooks.
 - Email and notification provider adapters with React Email templates and delivery logs.
 - Public API, OpenAPI generation, mobile session support, OAuth/OIDC support, SDK path, and API usage tracking.
@@ -136,6 +136,7 @@ pnpm build:storybook
 - `apps/web`: primary Next.js SaaS application.
 - `apps/docs`: public documentation app shell.
 - `packages/auth`: self-hosted identity and session domain.
+- `packages/billing`: billing, payment adapter, currency, tax, usage, entitlement, invoice, refund, and webhook domain.
 - `packages/config`: app configuration, environment validation, SEO, and managed content contracts.
 - `packages/db`: database runtime, schema, migrations, content repository, query helpers, and scripts.
 - `packages/jobs`: background job and cron primitives.

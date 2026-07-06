@@ -201,6 +201,80 @@ describe("database migrations", () => {
     ]);
   }, 15_000);
 
+  it("creates billing, payment, currency, and tax tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'billing_audit_events',
+          'billing_checkout_sessions',
+          'billing_coupons',
+          'billing_customers',
+          'billing_discounts',
+          'billing_entitlements',
+          'billing_exchange_rates',
+          'billing_invoice_items',
+          'billing_invoices',
+          'billing_payment_methods',
+          'billing_payment_providers',
+          'billing_plan_translations',
+          'billing_plans',
+          'billing_prices',
+          'billing_refunds',
+          'billing_subscriptions',
+          'billing_tax_rates',
+          'billing_tax_settings',
+          'billing_tenant_settings',
+          'billing_usage_meters',
+          'billing_usage_records',
+          'billing_webhook_events'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "billing_audit_events",
+      "billing_checkout_sessions",
+      "billing_coupons",
+      "billing_customers",
+      "billing_discounts",
+      "billing_entitlements",
+      "billing_exchange_rates",
+      "billing_invoice_items",
+      "billing_invoices",
+      "billing_payment_methods",
+      "billing_payment_providers",
+      "billing_plan_translations",
+      "billing_plans",
+      "billing_prices",
+      "billing_refunds",
+      "billing_subscriptions",
+      "billing_tax_rates",
+      "billing_tax_settings",
+      "billing_tenant_settings",
+      "billing_usage_meters",
+      "billing_usage_records",
+      "billing_webhook_events",
+    ]);
+
+    const providerRows = await runtime.execute<{ count: string }>(
+      "SELECT count(*)::text AS count FROM billing_payment_providers WHERE provider IN ('mock', 'stripe')",
+    );
+    const priceRows = await runtime.execute<{ count: string }>(
+      "SELECT count(*)::text AS count FROM billing_prices WHERE provider = 'mock'",
+    );
+
+    expect(Number(providerRows[0]?.count)).toBe(2);
+    expect(Number(priceRows[0]?.count)).toBeGreaterThan(0);
+  }, 15_000);
+
   it("seeds content and records versions and audit events for admin changes", async () => {
     databaseRuntimeOpened = true;
 

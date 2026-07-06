@@ -23,6 +23,8 @@
       "@/*": ["./apps/web/src/*"],
       "@nextjs-saas/auth": ["./packages/auth/src/index.ts"],
       "@nextjs-saas/auth/*": ["./packages/auth/src/*"],
+      "@nextjs-saas/billing": ["./packages/billing/src/index.ts"],
+      "@nextjs-saas/billing/*": ["./packages/billing/src/*"],
       "@nextjs-saas/config": ["./packages/config/src/index.ts"],
       "@nextjs-saas/config/*": ["./packages/config/src/*"],
       "@nextjs-saas/db": ["./packages/db/src/index.ts"],

@@ -37,6 +37,8 @@ Security-sensitive changes require explicit review notes in the pull request:
 - Data deletion and privacy workflows.
 - Release, migration, and upgrade behavior when security-sensitive data changes.
 
+Billing integrations must verify webhook signatures against the raw request body before processing events. Provider API keys and webhook secrets must stay in environment variables or external secret storage; database provider records store only secret references, capabilities, and non-secret configuration.
+
 ## Disclosure Policy
 
 Maintainers will acknowledge valid reports, investigate privately, prepare a fix, and publish a security advisory when appropriate. Public disclosure should wait until a fix or mitigation is available.
