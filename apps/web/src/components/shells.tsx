@@ -4,6 +4,7 @@ import { Button } from "@nextjs-saas/ui";
 import {
   BarChart3Icon,
   Building2Icon,
+  CreditCardIcon,
   GaugeIcon,
   LayoutDashboardIcon,
   SettingsIcon,
@@ -27,6 +28,11 @@ const appNav = [
     href: appRoutes.organizationSettings,
     icon: Building2Icon,
     labelKey: "organization",
+  },
+  {
+    href: appRoutes.billingSettings,
+    icon: CreditCardIcon,
+    labelKey: "billing",
   },
   { href: appRoutes.settings, icon: SettingsIcon, labelKey: "settings" },
   { href: appRoutes.admin, icon: ShieldIcon, labelKey: "admin" },
@@ -190,7 +196,7 @@ export async function DashboardShell({
         aria-label={shellT("mobileApplicationNavigation")}
         className="bg-background/95 fixed inset-x-0 bottom-0 z-40 border-t p-2 backdrop-blur lg:hidden"
       >
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {appNav.map((item) => {
             const Icon = item.icon;
 
@@ -244,6 +250,12 @@ export async function AdminShell({
           <Link href={`${appRoutes.admin}/content`}>
             <BarChart3Icon aria-hidden="true" className="size-4" />
             {shellT("contentRegistry")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={appRoutes.adminBilling}>
+            <CreditCardIcon aria-hidden="true" className="size-4" />
+            {shellT("billingRegistry")}
           </Link>
         </Button>
         <Button asChild variant="outline">

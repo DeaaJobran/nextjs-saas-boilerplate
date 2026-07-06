@@ -2,6 +2,16 @@
 
 All notable public changes are tracked here. This project uses semantic version tags.
 
+## Unreleased
+
+### Added
+
+- Billing, payments, currency, and tax module through `@nextjs-saas/billing`.
+- Database tables and Drizzle schema for billing providers, tenant billing settings, plans, plan translations, prices, customers, checkout sessions, subscriptions, invoices, invoice items, payment methods, coupons, discounts, refunds, usage meters, usage records, entitlements, exchange rates, tax settings, tax rates, webhook events, and billing audit events.
+- Local mock payment provider adapter and Stripe-compatible adapter with signed raw-body webhook verification.
+- Tenant billing settings UI, admin billing registry UI, public pricing backed by billing plans/prices, and `/api/billing/webhooks/[provider]`.
+- Billing tests covering checkout, signed/idempotent webhooks, subscription-derived entitlements, usage idempotency, invoices, refunds, currency conversion, and tax calculation.
+
 ## v0.3.0 - 2026-07-06
 
 ### Added

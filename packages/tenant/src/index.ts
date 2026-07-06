@@ -30,6 +30,10 @@ export const tenantPermissionCatalog = [
   "settings.manage",
   "feature_flags.manage",
   "limits.manage",
+  "billing.read",
+  "billing.manage",
+  "billing.usage.manage",
+  "billing.refund",
   "api_keys.manage",
   "impersonation.start",
   "audit.read",
@@ -51,6 +55,8 @@ export const tenantApiKeyScopeCatalog = [
   "feature_flags:write",
   "limits:read",
   "limits:write",
+  "billing:read",
+  "billing:write",
   "audit:read",
 ] as const;
 
@@ -68,12 +74,21 @@ export const tenantRolePermissions: Record<TenantRole, TenantPermission[]> = {
     "settings.manage",
     "feature_flags.manage",
     "limits.manage",
+    "billing.read",
+    "billing.manage",
+    "billing.usage.manage",
+    "billing.refund",
     "api_keys.manage",
     "impersonation.start",
     "audit.read",
     "dashboard.read",
   ],
-  member: ["organization.read", "members.read", "dashboard.read"],
+  member: [
+    "organization.read",
+    "members.read",
+    "billing.read",
+    "dashboard.read",
+  ],
   owner: [...tenantPermissionCatalog],
 };
 

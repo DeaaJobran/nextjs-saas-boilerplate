@@ -7,6 +7,7 @@ The repository is a pnpm workspace:
 - `apps/web`: primary Next.js App Router SaaS application.
 - `apps/docs`: public documentation application shell.
 - `packages/auth`: self-hosted authentication, sessions, passkeys, MFA primitives, authorization helpers, and auth audit events.
+- `packages/billing`: billing, payment adapters, currency utilities, tax abstraction, subscriptions, invoices, refunds, usage metering, entitlements, and webhook processing.
 - `packages/config`: product configuration, environment validation, SEO helpers, route constants, and managed content contracts.
 - `packages/db`: database runtime, schema, migrations, content repository, query helpers, transactions, reset, and seed scripts.
 - `packages/jobs`: background job and cron schedule primitives.
@@ -39,7 +40,7 @@ React upgrades must:
 
 ### Public And Marketing
 
-The marketing routes include landing, pricing, contact, and legal pages. These pages read from the managed content repository and must remain admin-manageable. New user-facing copy should be added through content data, database records, configuration, or localization files instead of being hardcoded in page components.
+The marketing routes include landing, pricing, contact, and legal pages. Landing, contact, and legal content read from the managed content repository and must remain admin-manageable. Pricing reads display copy and prices from the billing catalog so checkout targets, currencies, and intervals are provider-aware. New user-facing copy should be added through content data, database records, configuration, or localization files instead of being hardcoded in page components.
 
 ### Authentication
 
@@ -49,9 +50,15 @@ The web app consumes `@nextjs-saas/auth` through server actions, route handlers,
 
 The web app consumes `@nextjs-saas/tenant` through tenant context helpers and server actions. Tenant access is scoped through organization membership and permissions. Tenant-sensitive reads and writes must pass through tenant-aware service methods and must record audit events where operationally relevant.
 
+### Billing
+
+The web app consumes `@nextjs-saas/billing` through tenant/admin server actions and a raw-body webhook route. Billing owns plans, localized plan translations, prices, provider configuration, tenant billing settings, tax settings, tax rates, subscriptions, invoices, invoice items, payment methods, refunds, usage meters, usage records, entitlements, billing audit events, and idempotent webhook event logs.
+
+Billing state must be derived from signed provider events, not client redirects. Checkout and portal redirects are user-flow helpers only. Provider adapters must verify raw webhook payloads, expose explicit capabilities, and keep secret values in environment variables or external secret storage by reference. The first adapters are local mock payments and a Stripe-compatible REST adapter. Currency and tax code is an abstraction layer and must not be described as legal, accounting, or tax compliance advice.
+
 ### Admin
 
-Admin surfaces cover content, users, tenant controls, and super-admin impersonation. Impersonation must remain explicit, time-bound, auditable, and guarded by privileged auth checks.
+Admin surfaces cover content, billing, users, tenant controls, and super-admin impersonation. Impersonation must remain explicit, time-bound, auditable, and guarded by privileged auth checks.
 
 ### Localization
 
@@ -64,6 +71,7 @@ UI code must use logical direction utilities and logical Tailwind classes (`star
 Implemented packages:
 
 - `auth`
+- `billing`
 - `config`
 - `db`
 - `jobs`
@@ -74,17 +82,13 @@ Implemented packages:
 Reserved future packages or module boundaries:
 
 - `api`
-- `billing`
-- `currency`
 - `emails`
 - `files`
 - `mobile`
 - `notifications`
 - `observability`
-- `payments`
 - `security`
 - `storage`
-- `tax`
 - `testing`
 - `webhooks`
 - `ai`

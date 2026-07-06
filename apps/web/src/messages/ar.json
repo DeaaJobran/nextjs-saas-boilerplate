@@ -134,6 +134,144 @@
     "usersTitle": "المستخدمون",
     "verified": "مؤكد"
   },
+  "AdminBilling": {
+    "disabled": "معطل",
+    "enabled": "مفعل",
+    "coupons": {
+      "active": "نشط",
+      "amount": "مبلغ ثابت",
+      "amountOff": "المبلغ المخصوم بالوحدات الصغرى",
+      "anyProvider": "أي مزود",
+      "code": "الرمز",
+      "currency": "العملة",
+      "description": "تنشئ القسائم خصومات مرتبطة بالمزود يمكن تطبيقها أثناء الدفع أو على اشتراك قائم.",
+      "discountType": "نوع الخصم",
+      "duration": "المدة",
+      "durationMonths": "المدة بالأشهر",
+      "empty": "لم يتم إعداد قسائم.",
+      "forever": "دائم",
+      "maxRedemptions": "الحد الأقصى للاستخدام",
+      "name": "الاسم",
+      "once": "مرة واحدة",
+      "percent": "نسبة مئوية",
+      "percentOff": "النسبة المخصومة بنقاط الأساس",
+      "provider": "المزود",
+      "providerCouponId": "معرف القسيمة لدى المزود",
+      "redeemBy": "استخدام قبل",
+      "repeating": "متكرر",
+      "status": "الحالة",
+      "title": "القسائم",
+      "value": "القيمة"
+    },
+    "exchange": {
+      "base": "عملة الأساس",
+      "provider": "مزود السعر",
+      "quote": "عملة التحويل",
+      "rate": "السعر بوحدات ميكرو",
+      "save": "حفظ سعر الصرف",
+      "title": "تجاوز يدوي لسعر الصرف"
+    },
+    "interval": {
+      "month": "شهري",
+      "one_time": "مرة واحدة",
+      "usage": "استخدام",
+      "year": "سنوي"
+    },
+    "newPlan": {
+      "create": "إنشاء خطة",
+      "title": "إنشاء خطة فوترة"
+    },
+    "newPrice": {
+      "create": "إنشاء سعر",
+      "title": "إنشاء سعر"
+    },
+    "newCoupon": {
+      "create": "إنشاء قسيمة",
+      "title": "إنشاء قسيمة"
+    },
+    "plans": {
+      "active": "نشطة",
+      "archived": "مؤرشفة",
+      "ctaLabel": "نص الزر",
+      "description": "الوصف",
+      "draft": "مسودة",
+      "entitlementFeatures": "ميزات الصلاحيات",
+      "entitlementLimits": "حدود الصلاحيات",
+      "features": "ميزات التسويق",
+      "highlighted": "مميزة",
+      "name": "الاسم",
+      "private": "خاصة",
+      "public": "عامة",
+      "publicVisible": "ظاهرة للعامة",
+      "save": "حفظ الخطة",
+      "seatBased": "حسب المقاعد",
+      "slug": "المعرف",
+      "sortOrder": "ترتيب العرض",
+      "status": "الحالة",
+      "trialDays": "أيام التجربة",
+      "usageBased": "حسب الاستخدام"
+    },
+    "prices": {
+      "active": "نشط",
+      "amount": "المبلغ",
+      "amountMinor": "المبلغ بالوحدات الصغرى",
+      "currency": "العملة",
+      "empty": "لا توجد أسعار نشطة مرتبطة بهذه الخطة.",
+      "interval": "الفترة",
+      "plan": "الخطة",
+      "provider": "المزود",
+      "providerPriceId": "معرف السعر لدى المزود",
+      "taxBehavior": "سلوك الضريبة",
+      "usage": "الاستخدام"
+    },
+    "providers": {
+      "apiBaseUrl": "رابط API الأساسي",
+      "apiVersion": "إصدار API",
+      "checkout": "الدفع",
+      "currencies": "العملات المدعومة",
+      "description": "إعدادات المزود تحفظ المراجع والقدرات؛ القيم السرية تبقى في متغيرات البيئة أو مخزن الأسرار.",
+      "displayName": "اسم العرض",
+      "enabled": "مفعل",
+      "live": "فعلي",
+      "mode": "الوضع",
+      "portal": "البوابة",
+      "refunds": "الاستردادات",
+      "save": "حفظ المزود",
+      "secretRef": "مرجع السر",
+      "subscriptions": "الاشتراكات",
+      "test": "اختبار",
+      "webhookSecretRef": "مرجع سر webhook"
+    },
+    "status": {
+      "exchangeRate": "تم حفظ تجاوز سعر الصرف.",
+      "coupon": "تم حفظ قسيمة الفوترة.",
+      "plan": "تم حفظ خطة الفوترة.",
+      "price": "تم حفظ سعر الفوترة.",
+      "provider": "تم حفظ مزود الدفع.",
+      "taxRate": "تم حفظ معدل الضريبة."
+    },
+    "taxBehavior": {
+      "exclusive": "الضريبة خارج السعر",
+      "inclusive": "الضريبة ضمن السعر",
+      "unspecified": "غير محدد"
+    },
+    "taxRate": {
+      "active": "نشط",
+      "country": "الدولة",
+      "inclusive": "ضريبة ضمن السعر",
+      "provider": "المزود",
+      "rate": "نقاط أساس النسبة",
+      "region": "المنطقة",
+      "save": "حفظ معدل الضريبة",
+      "title": "قاعدة ضريبة يدوية",
+      "type": "نوع الضريبة"
+    },
+    "usage": {
+      "licensed": "مرخص",
+      "metered": "مقاس",
+      "one_time": "مرة واحدة"
+    }
+  },
   "AdminValidation": {
     "contactFieldsRequired": "يلزم وجود حقل تواصل واحد على الأقل.",
     "defaultLocaleMustBeEnabled": "يجب أن تكون اللغة الافتراضية مفعلة.",
@@ -338,6 +476,7 @@
   },
   "Navigation": {
     "admin": "الإدارة",
+    "billing": "الفوترة",
     "contact": "تواصل",
     "dashboard": "لوحة التحكم",
     "home": "الرئيسية",
@@ -355,7 +494,14 @@
   },
   "PricingPage": {
     "configured": "مهيأة",
-    "eyebrow": "أسعار مدارة"
+    "eyebrow": "أسعار مدارة",
+    "interval": {
+      "month": "تدفع شهريا",
+      "one_time": "دفعة واحدة",
+      "usage": "حسب الاستخدام",
+      "year": "تدفع سنويا"
+    },
+    "priceUnavailable": "لا يوجد سعر نشط"
   },
   "PublicationState": {
     "archived": "مؤرشفة",
@@ -430,6 +576,7 @@
     "applicationNavigation": "تنقل التطبيق",
     "authDescription": "يوفر هذا التخطيط عقدا متجاوبا مستقرا لتدفقات تسجيل الدخول ومفاتيح المرور والتحقق متعدد العوامل والاسترداد.",
     "authTitle": "واجهة مصادقة قابلة لإعادة الاستخدام وجاهزة لوحدة الهوية.",
+    "billingRegistry": "سجل الفوترة",
     "contentRegistry": "سجل المحتوى",
     "identityRegistry": "سجل الهوية",
     "impersonationNotice": "{actor} ينتحل {subject}. كل الإجراءات مسجلة في التدقيق.",
@@ -557,6 +704,107 @@
     "passwordDescription": "استخدم 12 حرفا على الأقل مع حرف كبير وحرف صغير ورقم.",
     "submit": "قبول الدعوة",
     "title": "قبول الدعوة"
+  },
+  "BillingSettings": {
+    "disabled": "معطل",
+    "coupons": {
+      "code": "رمز القسيمة",
+      "optional": "رمز قسيمة اختياري"
+    },
+    "discounts": {
+      "code": "القسيمة",
+      "empty": "لم يتم تطبيق خصومات.",
+      "starts": "تاريخ التطبيق",
+      "status": "الحالة"
+    },
+    "enabled": "مفعل",
+    "entitlements": {
+      "description": "يعاد حساب صلاحيات الميزات من أحداث الاشتراك الموقعة.",
+      "empty": "لا توجد صلاحيات فوترة نشطة.",
+      "feature": "الميزة",
+      "limit": "الحد",
+      "status": "الحالة",
+      "title": "الصلاحيات",
+      "used": "المستخدم"
+    },
+    "interval": {
+      "month": "شهري",
+      "one_time": "مرة واحدة",
+      "usage": "استخدام",
+      "year": "سنوي"
+    },
+    "invoices": {
+      "action": "الإجراء",
+      "description": "تحفظ الفواتير من أحداث المزود ويمكن ربطها بسجلات مزود الدفع.",
+      "empty": "لم يتم استلام فواتير.",
+      "issued": "الإصدار",
+      "paymentId": "معرف الدفع لدى المزود",
+      "refund": "طلب استرداد",
+      "refundAmount": "مبلغ الاسترداد بالوحدات الصغرى",
+      "status": "الحالة",
+      "title": "الفواتير",
+      "total": "الإجمالي"
+    },
+    "paymentMethods": {
+      "details": "التفاصيل",
+      "empty": "لا توجد طرق دفع مرتبطة.",
+      "status": "الحالة",
+      "title": "طرق الدفع",
+      "type": "النوع"
+    },
+    "plans": {
+      "available": "متاحة",
+      "noPrice": "لا يوجد سعر نشط",
+      "quantity": "المقاعد",
+      "trial": "تجربة {days} يوم"
+    },
+    "settings": {
+      "currency": "العملة الافتراضية",
+      "description": "تحدد إعدادات فوترة المستأجر عملة الدفع وتوجيه المزود وسلوك الضريبة.",
+      "provider": "مزود الدفع",
+      "save": "حفظ إعدادات الفوترة",
+      "taxBehavior": "سلوك الضريبة",
+      "title": "إعدادات الفوترة"
+    },
+    "status": {
+      "checkoutCancelled": "تم إلغاء الدفع.",
+      "checkoutStarted": "بدأ الدفع. تتغير الصلاحيات بعد معالجة webhook الموقع من المزود.",
+      "discountApplied": "تم تطبيق الخصم. تتغير حالة الفوترة لدى المزود بعد معالجة webhook الموقع.",
+      "refundRequested": "تم إرسال طلب الاسترداد إلى المزود.",
+      "settingsUpdated": "تم تحديث إعدادات الفوترة.",
+      "subscriptionCancelRequested": "تم طلب إلغاء الاشتراك. تتغير الحالة المحلية بعد webhook المزود.",
+      "taxSettingsUpdated": "تم تحديث إعدادات الضريبة."
+    },
+    "subscriptions": {
+      "action": "الإجراء",
+      "applyDiscount": "تطبيق الخصم",
+      "cancel": "إلغاء",
+      "changePlan": "تغيير الخطة",
+      "description": "تحدث حالة الاشتراك من أحداث مزود موقعة، وليس من إعادة توجيه العميل.",
+      "empty": "لا توجد اشتراكات نشطة لهذه المؤسسة.",
+      "portal": "فتح بوابة الفوترة",
+      "quantity": "الكمية",
+      "renews": "يتجدد",
+      "status": "الحالة",
+      "title": "الاشتراكات"
+    },
+    "tax": {
+      "businessName": "اسم النشاط",
+      "country": "دولة الفوترة",
+      "description": "هذه الحقول تدعم تجريد الضريبة وبيانات الفواتير؛ وليست نصيحة قانونية أو ضريبية.",
+      "region": "منطقة الفوترة",
+      "reverseCharge": "ينطبق الاحتساب العكسي",
+      "save": "حفظ إعدادات الضريبة",
+      "taxExempt": "معفى من الضريبة",
+      "taxId": "معرف الضريبة / VAT",
+      "title": "ملف الضريبة"
+    },
+    "taxBehavior": {
+      "exclusive": "الضريبة خارج السعر",
+      "inclusive": "الضريبة ضمن السعر",
+      "unspecified": "غير محدد"
+    },
+    "unlimited": "غير محدود"
   },
   "MagicLinkPage": {
     "description": "أكد أن هذا المتصفح سينشئ جلسة من رمز الرابط السحري.",

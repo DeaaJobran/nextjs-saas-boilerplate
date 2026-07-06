@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@nextjs-saas/auth": "workspace:*",
+    "@nextjs-saas/billing": "workspace:*",
     "@nextjs-saas/config": "workspace:*",
     "@nextjs-saas/db": "workspace:*",
     "@nextjs-saas/localization": "workspace:*",

@@ -134,6 +134,144 @@
     "usersTitle": "Users",
     "verified": "verified"
   },
+  "AdminBilling": {
+    "disabled": "disabled",
+    "enabled": "enabled",
+    "coupons": {
+      "active": "Active",
+      "amount": "Fixed amount",
+      "amountOff": "Amount off in minor units",
+      "anyProvider": "any provider",
+      "code": "Code",
+      "currency": "Currency",
+      "description": "Coupons create provider-backed discounts that can be applied during checkout or to an existing subscription.",
+      "discountType": "Discount type",
+      "duration": "Duration",
+      "durationMonths": "Duration in months",
+      "empty": "No coupons have been configured.",
+      "forever": "forever",
+      "maxRedemptions": "Max redemptions",
+      "name": "Name",
+      "once": "once",
+      "percent": "Percent",
+      "percentOff": "Percent off in basis points",
+      "provider": "Provider",
+      "providerCouponId": "Provider coupon ID",
+      "redeemBy": "Redeem by",
+      "repeating": "repeating",
+      "status": "Status",
+      "title": "Coupons",
+      "value": "Value"
+    },
+    "exchange": {
+      "base": "Base currency",
+      "provider": "Rate provider",
+      "quote": "Quote currency",
+      "rate": "Rate micro-units",
+      "save": "Save exchange rate",
+      "title": "Manual exchange-rate override"
+    },
+    "interval": {
+      "month": "monthly",
+      "one_time": "one-time",
+      "usage": "usage",
+      "year": "yearly"
+    },
+    "newPlan": {
+      "create": "Create plan",
+      "title": "Create billing plan"
+    },
+    "newPrice": {
+      "create": "Create price",
+      "title": "Create price"
+    },
+    "newCoupon": {
+      "create": "Create coupon",
+      "title": "Create coupon"
+    },
+    "plans": {
+      "active": "active",
+      "archived": "archived",
+      "ctaLabel": "CTA label",
+      "description": "Description",
+      "draft": "draft",
+      "entitlementFeatures": "Entitlement features",
+      "entitlementLimits": "Entitlement limits",
+      "features": "Marketing features",
+      "highlighted": "Highlighted",
+      "name": "Name",
+      "private": "private",
+      "public": "public",
+      "publicVisible": "Publicly visible",
+      "save": "Save plan",
+      "seatBased": "Seat based",
+      "slug": "Slug",
+      "sortOrder": "Sort order",
+      "status": "Status",
+      "trialDays": "Trial days",
+      "usageBased": "Usage based"
+    },
+    "prices": {
+      "active": "Active",
+      "amount": "Amount",
+      "amountMinor": "Amount in minor units",
+      "currency": "Currency",
+      "empty": "No active prices are attached to this plan.",
+      "interval": "Interval",
+      "plan": "Plan",
+      "provider": "Provider",
+      "providerPriceId": "Provider price ID",
+      "taxBehavior": "Tax behavior",
+      "usage": "Usage"
+    },
+    "providers": {
+      "apiBaseUrl": "API base URL",
+      "apiVersion": "API version",
+      "checkout": "Checkout",
+      "currencies": "Supported currencies",
+      "description": "Provider settings store references and capabilities; secret values stay in environment variables or secret storage.",
+      "displayName": "Display name",
+      "enabled": "Enabled",
+      "live": "live",
+      "mode": "Mode",
+      "portal": "Portal",
+      "refunds": "Refunds",
+      "save": "Save provider",
+      "secretRef": "Secret reference",
+      "subscriptions": "Subscriptions",
+      "test": "test",
+      "webhookSecretRef": "Webhook secret reference"
+    },
+    "status": {
+      "exchangeRate": "Exchange-rate override saved.",
+      "coupon": "Billing coupon saved.",
+      "plan": "Billing plan saved.",
+      "price": "Billing price saved.",
+      "provider": "Payment provider saved.",
+      "taxRate": "Tax rate saved."
+    },
+    "taxBehavior": {
+      "exclusive": "tax exclusive",
+      "inclusive": "tax inclusive",
+      "unspecified": "unspecified"
+    },
+    "taxRate": {
+      "active": "Active",
+      "country": "Country",
+      "inclusive": "Inclusive tax",
+      "provider": "Provider",
+      "rate": "Percentage basis points",
+      "region": "Region",
+      "save": "Save tax rate",
+      "title": "Manual tax rule",
+      "type": "Tax type"
+    },
+    "usage": {
+      "licensed": "licensed",
+      "metered": "metered",
+      "one_time": "one-time"
+    }
+  },
   "AdminValidation": {
     "contactFieldsRequired": "At least one contact field is required.",
     "defaultLocaleMustBeEnabled": "The default locale must be enabled.",
@@ -338,6 +476,7 @@
   },
   "Navigation": {
     "admin": "Admin",
+    "billing": "Billing",
     "contact": "Contact",
     "dashboard": "Dashboard",
     "home": "Home",
@@ -355,7 +494,14 @@
   },
   "PricingPage": {
     "configured": "Configured",
-    "eyebrow": "Managed pricing"
+    "eyebrow": "Managed pricing",
+    "interval": {
+      "month": "Billed monthly",
+      "one_time": "One-time payment",
+      "usage": "Usage based",
+      "year": "Billed yearly"
+    },
+    "priceUnavailable": "No active price"
   },
   "PublicationState": {
     "archived": "archived",
@@ -430,6 +576,7 @@
     "applicationNavigation": "Application navigation",
     "authDescription": "This layout gives future sign-in, passkey, MFA, and recovery flows a stable responsive contract.",
     "authTitle": "A reusable auth surface ready for the identity module.",
+    "billingRegistry": "Billing registry",
     "contentRegistry": "Content registry",
     "identityRegistry": "Identity registry",
     "impersonationNotice": "{actor} is impersonating {subject}. Actions are audited.",
@@ -557,6 +704,107 @@
     "passwordDescription": "Use at least 12 characters with uppercase, lowercase, and a number.",
     "submit": "Accept invitation",
     "title": "Accept invitation"
+  },
+  "BillingSettings": {
+    "disabled": "disabled",
+    "coupons": {
+      "code": "Coupon code",
+      "optional": "Optional coupon code"
+    },
+    "discounts": {
+      "code": "Coupon",
+      "empty": "No discounts have been applied.",
+      "starts": "Applied",
+      "status": "Status"
+    },
+    "enabled": "enabled",
+    "entitlements": {
+      "description": "Feature access is recalculated from verified subscription events.",
+      "empty": "No billing entitlements are active.",
+      "feature": "Feature",
+      "limit": "Limit",
+      "status": "Status",
+      "title": "Entitlements",
+      "used": "Used"
+    },
+    "interval": {
+      "month": "monthly",
+      "one_time": "one-time",
+      "usage": "usage",
+      "year": "yearly"
+    },
+    "invoices": {
+      "action": "Action",
+      "description": "Invoices are stored from provider events and can be matched back to payment-provider records.",
+      "empty": "No invoices have been received.",
+      "issued": "Issued",
+      "paymentId": "Provider payment ID",
+      "refund": "Request refund",
+      "refundAmount": "Refund amount in minor units",
+      "status": "Status",
+      "title": "Invoices",
+      "total": "Total"
+    },
+    "paymentMethods": {
+      "details": "Details",
+      "empty": "No payment methods have been attached.",
+      "status": "Status",
+      "title": "Payment methods",
+      "type": "Type"
+    },
+    "plans": {
+      "available": "available",
+      "noPrice": "No active price",
+      "quantity": "Seats",
+      "trial": "{days}-day trial"
+    },
+    "settings": {
+      "currency": "Default currency",
+      "description": "Tenant billing settings determine checkout currency, provider routing, and tax behavior.",
+      "provider": "Payment provider",
+      "save": "Save billing settings",
+      "taxBehavior": "Tax behavior",
+      "title": "Billing settings"
+    },
+    "status": {
+      "checkoutCancelled": "Checkout was cancelled.",
+      "checkoutStarted": "Checkout was started. Access changes after the signed provider webhook is processed.",
+      "discountApplied": "Discount applied. Provider billing state changes after the signed provider webhook is processed.",
+      "refundRequested": "Refund request sent to the provider.",
+      "settingsUpdated": "Billing settings updated.",
+      "subscriptionCancelRequested": "Subscription cancellation requested. Local state changes after the provider webhook is processed.",
+      "taxSettingsUpdated": "Tax settings updated."
+    },
+    "subscriptions": {
+      "action": "Action",
+      "applyDiscount": "Apply discount",
+      "cancel": "Cancel",
+      "changePlan": "Change plan",
+      "description": "Subscription state is updated from signed provider events, not from client redirects.",
+      "empty": "No subscriptions are active for this organization.",
+      "portal": "Open billing portal",
+      "quantity": "Quantity",
+      "renews": "Renews",
+      "status": "Status",
+      "title": "Subscriptions"
+    },
+    "tax": {
+      "businessName": "Business name",
+      "country": "Billing country",
+      "description": "These fields support tax abstraction and invoice metadata; they are not legal or tax advice.",
+      "region": "Billing region",
+      "reverseCharge": "Reverse charge applies",
+      "save": "Save tax settings",
+      "taxExempt": "Tax exempt",
+      "taxId": "Tax ID / VAT number",
+      "title": "Tax profile"
+    },
+    "taxBehavior": {
+      "exclusive": "tax exclusive",
+      "inclusive": "tax inclusive",
+      "unspecified": "unspecified"
+    },
+    "unlimited": "unlimited"
   },
   "MagicLinkPage": {
     "description": "Confirm this browser should create a session from the magic link token.",

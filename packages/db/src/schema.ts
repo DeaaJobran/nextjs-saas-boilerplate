@@ -1118,6 +1118,857 @@ export const tenantAuditEvents = pgTable(
   ],
 );
 
+export const billingPaymentProviders = pgTable(
+  "billing_payment_providers",
+  {
+    capabilities: jsonb("capabilities")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    configuration: jsonb("configuration")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    displayName: text("display_name").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    id: text("id").primaryKey(),
+    mode: text("mode").notNull(),
+    provider: text("provider").notNull(),
+    secretRef: text("secret_ref"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    webhookSecretRef: text("webhook_secret_ref"),
+  },
+  (table) => [
+    uniqueIndex("billing_payment_providers_provider_unique").on(table.provider),
+  ],
+);
+
+export const billingTenantSettings = pgTable("billing_tenant_settings", {
+  createdAt: timestamp("created_at", {
+    mode: "string",
+    withTimezone: true,
+  }).notNull(),
+  defaultCurrency: text("default_currency").notNull(),
+  paymentProvider: text("payment_provider").notNull(),
+  taxBehavior: text("tax_behavior").notNull(),
+  tenantId: text("tenant_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  updatedAt: timestamp("updated_at", {
+    mode: "string",
+    withTimezone: true,
+  }).notNull(),
+  updatedBy: text("updated_by").references(() => authUsers.id, {
+    onDelete: "set null",
+  }),
+});
+
+export const billingPlans = pgTable(
+  "billing_plans",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    entitlements: jsonb("entitlements")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    highlighted: boolean("highlighted").notNull().default(false),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    publicVisible: boolean("public_visible").notNull().default(true),
+    seatBased: boolean("seat_based").notNull().default(false),
+    slug: text("slug").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    status: text("status").notNull(),
+    trialDays: integer("trial_days").notNull().default(0),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    usageBased: boolean("usage_based").notNull().default(false),
+  },
+  (table) => [
+    uniqueIndex("billing_plans_slug_unique").on(table.slug),
+    index("billing_plans_public_status_idx").on(
+      table.publicVisible,
+      table.status,
+      table.sortOrder,
+    ),
+  ],
+);
+
+export const billingPlanTranslations = pgTable(
+  "billing_plan_translations",
+  {
+    ctaLabel: text("cta_label").notNull(),
+    description: text("description").notNull(),
+    features: jsonb("features").$type<string[]>().notNull(),
+    locale: text("locale").notNull(),
+    name: text("name").notNull(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => billingPlans.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.planId, table.locale] })],
+);
+
+export const billingPrices = pgTable(
+  "billing_prices",
+  {
+    active: boolean("active").notNull().default(true),
+    billingScheme: text("billing_scheme").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    currency: text("currency").notNull(),
+    id: text("id").primaryKey(),
+    interval: text("interval").notNull(),
+    intervalCount: integer("interval_count").notNull().default(1),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => billingPlans.id, { onDelete: "cascade" }),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerPriceId: text("provider_price_id"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    taxBehavior: text("tax_behavior").notNull(),
+    unitAmountMinor: bigint("unit_amount_minor", {
+      mode: "number",
+    }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    usageType: text("usage_type").notNull(),
+  },
+  (table) => [
+    index("billing_prices_plan_active_idx").on(
+      table.planId,
+      table.active,
+      table.sortOrder,
+    ),
+    uniqueIndex("billing_prices_provider_price_unique").on(
+      table.provider,
+      table.providerPriceId,
+    ),
+  ],
+);
+
+export const billingCustomers = pgTable(
+  "billing_customers",
+  {
+    billingCountry: text("billing_country"),
+    billingRegion: text("billing_region"),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    email: text("email"),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    name: text("name"),
+    preferredCurrency: text("preferred_currency"),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerCustomerId: text("provider_customer_id").notNull(),
+    reverseCharge: boolean("reverse_charge").notNull().default(false),
+    taxId: text("tax_id"),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("billing_customers_provider_customer_unique").on(
+      table.provider,
+      table.providerCustomerId,
+    ),
+    index("billing_customers_tenant_provider_idx").on(
+      table.tenantId,
+      table.provider,
+    ),
+  ],
+);
+
+export const billingCheckoutSessions = pgTable(
+  "billing_checkout_sessions",
+  {
+    amountMinor: bigint("amount_minor", { mode: "number" }).notNull(),
+    cancelUrl: text("cancel_url").notNull(),
+    clientReferenceId: text("client_reference_id").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    currency: text("currency").notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    mode: text("mode").notNull(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => billingPlans.id, { onDelete: "restrict" }),
+    priceId: text("price_id")
+      .notNull()
+      .references(() => billingPrices.id, { onDelete: "restrict" }),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerSessionId: text("provider_session_id").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    status: text("status").notNull(),
+    successUrl: text("success_url").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    url: text("url").notNull(),
+  },
+  (table) => [
+    uniqueIndex("billing_checkout_sessions_provider_session_unique").on(
+      table.provider,
+      table.providerSessionId,
+    ),
+    index("billing_checkout_sessions_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const billingSubscriptions = pgTable(
+  "billing_subscriptions",
+  {
+    cancelAt: timestamp("cancel_at", { mode: "string", withTimezone: true }),
+    canceledAt: timestamp("canceled_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    currentPeriodEnd: timestamp("current_period_end", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    currentPeriodStart: timestamp("current_period_start", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    gracePeriodEndsAt: timestamp("grace_period_ends_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => billingPlans.id, { onDelete: "restrict" }),
+    priceId: text("price_id")
+      .notNull()
+      .references(() => billingPrices.id, { onDelete: "restrict" }),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerCustomerId: text("provider_customer_id"),
+    providerSubscriptionId: text("provider_subscription_id").notNull(),
+    providerSubscriptionItemId: text("provider_subscription_item_id"),
+    quantity: integer("quantity").notNull().default(1),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    trialEnd: timestamp("trial_end", { mode: "string", withTimezone: true }),
+    trialStart: timestamp("trial_start", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("billing_subscriptions_provider_subscription_unique").on(
+      table.provider,
+      table.providerSubscriptionId,
+    ),
+    index("billing_subscriptions_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+      table.currentPeriodEnd,
+    ),
+  ],
+);
+
+export const billingInvoices = pgTable(
+  "billing_invoices",
+  {
+    amountDueMinor: bigint("amount_due_minor", {
+      mode: "number",
+    }).notNull(),
+    amountPaidMinor: bigint("amount_paid_minor", {
+      mode: "number",
+    }).notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    currency: text("currency").notNull(),
+    discountMinor: bigint("discount_minor", { mode: "number" }).notNull(),
+    dueAt: timestamp("due_at", { mode: "string", withTimezone: true }),
+    hostedInvoiceUrl: text("hosted_invoice_url"),
+    id: text("id").primaryKey(),
+    issuedAt: timestamp("issued_at", { mode: "string", withTimezone: true }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    paidAt: timestamp("paid_at", { mode: "string", withTimezone: true }),
+    periodEnd: timestamp("period_end", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    periodStart: timestamp("period_start", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerCustomerId: text("provider_customer_id"),
+    providerInvoiceId: text("provider_invoice_id").notNull(),
+    status: text("status").notNull(),
+    subscriptionId: text("subscription_id").references(
+      () => billingSubscriptions.id,
+      { onDelete: "set null" },
+    ),
+    subtotalMinor: bigint("subtotal_minor", { mode: "number" }).notNull(),
+    taxBehavior: text("tax_behavior").notNull(),
+    taxMinor: bigint("tax_minor", { mode: "number" }).notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    totalMinor: bigint("total_minor", { mode: "number" }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("billing_invoices_provider_invoice_unique").on(
+      table.provider,
+      table.providerInvoiceId,
+    ),
+    index("billing_invoices_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+      table.issuedAt,
+    ),
+  ],
+);
+
+export const billingInvoiceItems = pgTable(
+  "billing_invoice_items",
+  {
+    description: text("description").notNull(),
+    discountMinor: bigint("discount_minor", { mode: "number" }).notNull(),
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .references(() => billingInvoices.id, { onDelete: "cascade" }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    planId: text("plan_id").references(() => billingPlans.id, {
+      onDelete: "set null",
+    }),
+    priceId: text("price_id").references(() => billingPrices.id, {
+      onDelete: "set null",
+    }),
+    quantity: integer("quantity").notNull().default(1),
+    subtotalMinor: bigint("subtotal_minor", { mode: "number" }).notNull(),
+    taxBreakdown: jsonb("tax_breakdown")
+      .$type<Record<string, unknown>[]>()
+      .notNull(),
+    taxMinor: bigint("tax_minor", { mode: "number" }).notNull(),
+    totalMinor: bigint("total_minor", { mode: "number" }).notNull(),
+    unitAmountMinor: bigint("unit_amount_minor", {
+      mode: "number",
+    }).notNull(),
+  },
+  (table) => [index("billing_invoice_items_invoice_idx").on(table.invoiceId)],
+);
+
+export const billingPaymentMethods = pgTable(
+  "billing_payment_methods",
+  {
+    billingEmail: text("billing_email"),
+    billingName: text("billing_name"),
+    brand: text("brand"),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expMonth: integer("exp_month"),
+    expYear: integer("exp_year"),
+    id: text("id").primaryKey(),
+    last4: text("last4"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerCustomerId: text("provider_customer_id"),
+    providerPaymentMethodId: text("provider_payment_method_id").notNull(),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("billing_payment_methods_provider_method_unique").on(
+      table.provider,
+      table.providerPaymentMethodId,
+    ),
+    index("billing_payment_methods_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+    ),
+  ],
+);
+
+export const billingCoupons = pgTable(
+  "billing_coupons",
+  {
+    active: boolean("active").notNull().default(true),
+    amountOffMinor: bigint("amount_off_minor", { mode: "number" }),
+    code: text("code").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    currency: text("currency"),
+    discountType: text("discount_type").notNull(),
+    duration: text("duration").notNull(),
+    durationMonths: integer("duration_months"),
+    id: text("id").primaryKey(),
+    maxRedemptions: integer("max_redemptions"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    name: text("name").notNull(),
+    percentOffBasisPoints: integer("percent_off_basis_points"),
+    provider: text("provider").references(
+      () => billingPaymentProviders.provider,
+      {
+        onDelete: "set null",
+      },
+    ),
+    providerCouponId: text("provider_coupon_id"),
+    redeemBy: timestamp("redeem_by", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    uniqueIndex("billing_coupons_code_unique").on(table.code),
+    uniqueIndex("billing_coupons_provider_coupon_unique").on(
+      table.provider,
+      table.providerCouponId,
+    ),
+  ],
+);
+
+export const billingDiscounts = pgTable(
+  "billing_discounts",
+  {
+    couponId: text("coupon_id")
+      .notNull()
+      .references(() => billingCoupons.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    endsAt: timestamp("ends_at", { mode: "string", withTimezone: true }),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    provider: text("provider").references(
+      () => billingPaymentProviders.provider,
+      {
+        onDelete: "set null",
+      },
+    ),
+    providerDiscountId: text("provider_discount_id"),
+    startsAt: timestamp("starts_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    status: text("status").notNull(),
+    subscriptionId: text("subscription_id").references(
+      () => billingSubscriptions.id,
+      { onDelete: "cascade" },
+    ),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("billing_discounts_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+      table.startsAt,
+    ),
+  ],
+);
+
+export const billingRefunds = pgTable(
+  "billing_refunds",
+  {
+    amountMinor: bigint("amount_minor", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdBy: text("created_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    currency: text("currency").notNull(),
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").references(() => billingInvoices.id, {
+      onDelete: "set null",
+    }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerPaymentId: text("provider_payment_id"),
+    providerRefundId: text("provider_refund_id").notNull(),
+    reason: text("reason"),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("billing_refunds_provider_refund_unique").on(
+      table.provider,
+      table.providerRefundId,
+    ),
+    index("billing_refunds_tenant_status_idx").on(
+      table.tenantId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const billingUsageMeters = pgTable(
+  "billing_usage_meters",
+  {
+    active: boolean("active").notNull().default(true),
+    aggregation: text("aggregation").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    key: text("key").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    name: text("name").notNull(),
+    resetInterval: text("reset_interval").notNull(),
+    unit: text("unit").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [uniqueIndex("billing_usage_meters_key_unique").on(table.key)],
+);
+
+export const billingUsageRecords = pgTable(
+  "billing_usage_records",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    meterId: text("meter_id")
+      .notNull()
+      .references(() => billingUsageMeters.id, { onDelete: "restrict" }),
+    occurredAt: timestamp("occurred_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    provider: text("provider").references(
+      () => billingPaymentProviders.provider,
+      {
+        onDelete: "set null",
+      },
+    ),
+    providerRecordId: text("provider_record_id"),
+    quantity: bigint("quantity", { mode: "number" }).notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("billing_usage_records_meter_idempotency_unique").on(
+      table.tenantId,
+      table.meterId,
+      table.idempotencyKey,
+    ),
+    index("billing_usage_records_tenant_occurred_idx").on(
+      table.tenantId,
+      table.occurredAt,
+    ),
+  ],
+);
+
+export const billingEntitlements = pgTable(
+  "billing_entitlements",
+  {
+    enabled: boolean("enabled").notNull().default(false),
+    featureKey: text("feature_key").notNull(),
+    limitValue: bigint("limit_value", { mode: "number" }),
+    planId: text("plan_id").references(() => billingPlans.id, {
+      onDelete: "set null",
+    }),
+    resetAt: timestamp("reset_at", { mode: "string", withTimezone: true }),
+    source: text("source").notNull(),
+    subscriptionId: text("subscription_id").references(
+      () => billingSubscriptions.id,
+      { onDelete: "set null" },
+    ),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    usedValue: bigint("used_value", { mode: "number" }).notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.featureKey] }),
+    index("billing_entitlements_tenant_enabled_idx").on(
+      table.tenantId,
+      table.enabled,
+    ),
+  ],
+);
+
+export const billingExchangeRates = pgTable(
+  "billing_exchange_rates",
+  {
+    baseCurrency: text("base_currency").notNull(),
+    manual: boolean("manual").notNull().default(false),
+    provider: text("provider").notNull(),
+    quoteCurrency: text("quote_currency").notNull(),
+    rateMicroUnits: bigint("rate_micro_units", { mode: "number" }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    validAt: timestamp("valid_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.baseCurrency, table.quoteCurrency] }),
+  ],
+);
+
+export const billingTaxSettings = pgTable("billing_tax_settings", {
+  billingCountry: text("billing_country"),
+  billingRegion: text("billing_region"),
+  businessName: text("business_name"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+  provider: text("provider"),
+  reverseCharge: boolean("reverse_charge").notNull().default(false),
+  taxBehavior: text("tax_behavior").notNull(),
+  taxExempt: boolean("tax_exempt").notNull().default(false),
+  taxId: text("tax_id"),
+  tenantId: text("tenant_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  updatedAt: timestamp("updated_at", {
+    mode: "string",
+    withTimezone: true,
+  }).notNull(),
+  updatedBy: text("updated_by").references(() => authUsers.id, {
+    onDelete: "set null",
+  }),
+});
+
+export const billingTaxRates = pgTable(
+  "billing_tax_rates",
+  {
+    active: boolean("active").notNull().default(true),
+    country: text("country").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    inclusive: boolean("inclusive").notNull().default(false),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    percentageBasisPoints: integer("percentage_basis_points").notNull(),
+    provider: text("provider"),
+    region: text("region"),
+    taxType: text("tax_type").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    updatedBy: text("updated_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("billing_tax_rates_country_active_idx").on(
+      table.country,
+      table.region,
+      table.active,
+    ),
+  ],
+);
+
+export const billingWebhookEvents = pgTable(
+  "billing_webhook_events",
+  {
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    processedAt: timestamp("processed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    processingError: text("processing_error"),
+    provider: text("provider")
+      .notNull()
+      .references(() => billingPaymentProviders.provider, {
+        onDelete: "restrict",
+      }),
+    providerEventId: text("provider_event_id").notNull(),
+    rawBodySha256: text("raw_body_sha256").notNull(),
+    receivedAt: timestamp("received_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    signatureHeader: text("signature_header"),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    uniqueIndex("billing_webhook_events_provider_event_unique").on(
+      table.provider,
+      table.providerEventId,
+    ),
+    index("billing_webhook_events_status_received_idx").on(
+      table.status,
+      table.receivedAt,
+    ),
+  ],
+);
+
+export const billingAuditEvents = pgTable(
+  "billing_audit_events",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    subjectId: text("subject_id"),
+    subjectType: text("subject_type"),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    index("billing_audit_events_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const managedPagesRelations = relations(managedPages, ({ many }) => ({
   sections: many(pageSections),
   versions: many(managedPageVersions),
