@@ -90,40 +90,50 @@ export async function createImageVariants(input: {
     .webp({ quality: 76 })
     .toBuffer({ resolveWithObject: true });
 
-  for (const variant of [
-    { buffer: optimized.data, info: optimized.info, kind: "optimized" },
-    { buffer: thumbnail.data, info: thumbnail.info, kind: "thumbnail" },
-  ]) {
-    const key = variantObjectKey({
-      extension: "webp",
-      fileId: input.fileId,
-      kind: variant.kind,
-      originalKey: input.originalKey,
-    });
+  try {
+    for (const variant of [
+      { buffer: optimized.data, info: optimized.info, kind: "optimized" },
+      { buffer: thumbnail.data, info: thumbnail.info, kind: "thumbnail" },
+    ]) {
+      const key = variantObjectKey({
+        extension: "webp",
+        fileId: input.fileId,
+        kind: variant.kind,
+        originalKey: input.originalKey,
+      });
 
-    await input.adapter.putObject({
-      body: variant.buffer,
-      checksumSha256: sha256Hex(variant.buffer),
-      contentType: "image/webp",
-      key,
-      metadata: {
-        source: input.fileId,
-        variant: variant.kind,
-      },
-    });
+      await input.adapter.putObject({
+        body: variant.buffer,
+        checksumSha256: sha256Hex(variant.buffer),
+        contentType: "image/webp",
+        key,
+        metadata: {
+          source: input.fileId,
+          variant: variant.kind,
+        },
+      });
 
-    variants.push({
-      byteSize: variant.buffer.byteLength,
-      contentType: "image/webp",
-      createdAt: input.createdAt,
-      fileId: input.fileId,
-      height: variant.info.height,
-      id: `${input.fileId}_${variant.kind}`,
-      kind: variant.kind,
-      metadata: { checksumSha256: sha256Hex(variant.buffer) },
-      objectKey: key,
-      width: variant.info.width,
-    });
+      variants.push({
+        byteSize: variant.buffer.byteLength,
+        contentType: "image/webp",
+        createdAt: input.createdAt,
+        fileId: input.fileId,
+        height: variant.info.height,
+        id: `${input.fileId}_${variant.kind}`,
+        kind: variant.kind,
+        metadata: { checksumSha256: sha256Hex(variant.buffer) },
+        objectKey: key,
+        width: variant.info.width,
+      });
+    }
+  } catch (error) {
+    await Promise.all(
+      variants.map((variant) =>
+        input.adapter.deleteObject({ key: variant.objectKey }),
+      ),
+    );
+
+    throw error;
   }
 
   return variants;

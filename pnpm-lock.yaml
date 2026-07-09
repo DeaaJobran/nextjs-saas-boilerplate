@@ -142,6 +142,9 @@ importers:
       '@nextjs-saas/localization':
         specifier: workspace:*
         version: link:../../packages/localization
+      '@nextjs-saas/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@nextjs-saas/tenant':
         specifier: workspace:*
         version: link:../../packages/tenant

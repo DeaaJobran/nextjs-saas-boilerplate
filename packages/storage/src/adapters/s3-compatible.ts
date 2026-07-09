@@ -28,6 +28,22 @@ function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function base64FromHex(value: string) {
+  return Buffer.from(value, "hex").toString("base64");
+}
+
+function hexFromBase64(value: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return Buffer.from(value, "base64").toString("hex") || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function encodePath(value: string) {
   return value
     .split("/")
@@ -80,13 +96,14 @@ function objectUrl(options: S3CompatibleAdapterOptions, key: string) {
 function presign(input: {
   expiresAt: Date;
   fileName?: string;
+  headers?: Record<string, string>;
   key: string;
-  method: "DELETE" | "GET" | "PUT";
+  method: "DELETE" | "GET" | "HEAD" | "PUT";
   now: Date;
   options: S3CompatibleAdapterOptions;
 }) {
   const url = objectUrl(input.options, input.key);
-  const signedHeaders = "host";
+  const canonicalHeaders = new Map<string, string>([["host", url.host]]);
   const date = amzDate(input.now);
   const timestamp = amzTimestamp(input.now);
   const expiresIn = Math.max(
@@ -102,11 +119,24 @@ function presign(input: {
   );
   url.searchParams.set("X-Amz-Date", timestamp);
   url.searchParams.set("X-Amz-Expires", expiresIn.toString());
-  url.searchParams.set("X-Amz-SignedHeaders", signedHeaders);
 
   if (input.options.sessionToken) {
     url.searchParams.set("X-Amz-Security-Token", input.options.sessionToken);
   }
+
+  for (const [key, value] of Object.entries(input.headers ?? {})) {
+    canonicalHeaders.set(key.toLowerCase(), value.trim().replace(/\s+/g, " "));
+  }
+
+  const sortedHeaders = [...canonicalHeaders.entries()].sort(
+    ([left], [right]) => left.localeCompare(right),
+  );
+  const signedHeaders = sortedHeaders.map(([key]) => key).join(";");
+  const canonicalHeaderString = sortedHeaders
+    .map(([key, value]) => `${key}:${value}\n`)
+    .join("");
+
+  url.searchParams.set("X-Amz-SignedHeaders", signedHeaders);
 
   if (input.fileName && input.method === "GET") {
     url.searchParams.set(
@@ -119,7 +149,7 @@ function presign(input: {
     input.method,
     url.pathname,
     canonicalQuery(url.searchParams),
-    `host:${url.host}\n`,
+    canonicalHeaderString,
     signedHeaders,
     "UNSIGNED-PAYLOAD",
   ].join("\n");
@@ -149,8 +179,9 @@ export function createS3CompatibleStorageAdapter(
   async function signedUrl(input: {
     expiresAt: Date;
     fileName?: string;
+    headers?: Record<string, string>;
     key: string;
-    method: "DELETE" | "GET" | "PUT";
+    method: "DELETE" | "GET" | "HEAD" | "PUT";
   }): Promise<StorageSignedUrl> {
     const url = presign({
       ...input,
@@ -160,10 +191,7 @@ export function createS3CompatibleStorageAdapter(
 
     return {
       expiresAt: input.expiresAt.toISOString(),
-      headers:
-        input.method === "PUT"
-          ? { "content-type": "application/octet-stream" }
-          : {},
+      headers: input.headers ?? {},
       method: input.method,
       url: url.toString(),
     };
@@ -189,7 +217,7 @@ export function createS3CompatibleStorageAdapter(
       const signed = await signedUrl({
         expiresAt: new Date(Date.now() + 60_000),
         key: input.key,
-        method: "GET",
+        method: "HEAD",
       });
       const response = await fetch(signed.url, { method: "HEAD" });
 
@@ -209,6 +237,34 @@ export function createS3CompatibleStorageAdapter(
 
       return new Uint8Array(await response.arrayBuffer());
     },
+    async headObject(input) {
+      const signed = await signedUrl({
+        expiresAt: new Date(Date.now() + 60_000),
+        key: input.key,
+        method: "HEAD",
+      });
+      const response = await fetch(signed.url, { method: "HEAD" });
+
+      if (!response.ok) {
+        throw new Error(
+          `S3 metadata read failed with status ${response.status}.`,
+        );
+      }
+
+      const byteSize = Number(response.headers.get("content-length"));
+
+      if (!Number.isFinite(byteSize)) {
+        throw new Error("S3 metadata response did not include a valid size.");
+      }
+
+      return {
+        byteSize,
+        checksumSha256: hexFromBase64(
+          response.headers.get("x-amz-checksum-sha256"),
+        ),
+        contentType: response.headers.get("content-type") ?? undefined,
+      };
+    },
     async putObject(input: StorageAdapterPutInput) {
       const signed = await this.signedUploadUrl({
         checksumSha256: input.checksumSha256,
@@ -218,7 +274,7 @@ export function createS3CompatibleStorageAdapter(
       });
       const response = await fetch(signed.url, {
         body: Buffer.from(input.body),
-        headers: { "content-type": input.contentType },
+        headers: signed.headers,
         method: "PUT",
       });
 
@@ -230,16 +286,17 @@ export function createS3CompatibleStorageAdapter(
       return signedUrl({ ...input, method: "GET" });
     },
     async signedUploadUrl(input) {
-      const signed = await signedUrl({ ...input, method: "PUT" });
+      const headers = {
+        "content-type": input.contentType,
+        ...(input.checksumSha256
+          ? { "x-amz-checksum-sha256": base64FromHex(input.checksumSha256) }
+          : {}),
+      };
+      const signed = await signedUrl({ ...input, headers, method: "PUT" });
 
       return {
         ...signed,
-        headers: {
-          "content-type": input.contentType,
-          ...(input.checksumSha256
-            ? { "x-amz-checksum-sha256": input.checksumSha256 }
-            : {}),
-        },
+        headers,
       };
     },
   };

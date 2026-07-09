@@ -49,7 +49,7 @@ export function assertSafeObjectKey(key: string) {
     key.startsWith("/") ||
     key.includes("..") ||
     key.includes("\\") ||
-    key.split("/").some((segment) => segment.length === 0)
+    key.split("/").some((segment) => segment.length === 0 || segment === ".")
   ) {
     throw new StorageError("Storage object key is unsafe.", "unsafe_key");
   }

@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { StorageError } from "../errors";
@@ -22,7 +22,7 @@ function sign(value: string, secret: string) {
   return createHmac("sha256", secret).update(value).digest("hex");
 }
 
-function createSignedLocalUrl(input: {
+export function createSignedLocalStorageUrl(input: {
   action: "download" | "upload";
   expiresAt: Date;
   key: string;
@@ -51,13 +51,41 @@ function createSignedLocalUrl(input: {
   return `local-storage://${input.providerId}/${input.action}/${encodedKey}?expires=${expires}&signature=${signature}`;
 }
 
+export function verifyLocalStorageSignature(input: {
+  action: "download" | "upload";
+  expires: string | null;
+  key: string;
+  now?: Date;
+  providerId: string;
+  secret: string;
+  signature: string | null;
+}) {
+  if (!input.expires || !input.signature) {
+    return false;
+  }
+
+  const expiresAt = Number(input.expires);
+
+  if (!Number.isFinite(expiresAt)) {
+    return false;
+  }
+
+  if (expiresAt <= Math.floor((input.now ?? new Date()).getTime() / 1000)) {
+    return false;
+  }
+
+  const payload = `${input.action}:${input.providerId}:${input.key}:${input.expires}`;
+
+  return sign(payload, input.secret) === input.signature;
+}
+
 function resolveStoragePath(rootDir: string, key: string) {
   assertSafeObjectKey(key);
 
   const root = path.resolve(rootDir);
   const resolved = path.resolve(root, key);
 
-  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+  if (resolved === root || !resolved.startsWith(`${root}${path.sep}`)) {
     throw new StorageError(
       "Storage object key escapes the local root.",
       "unsafe_key",
@@ -84,7 +112,7 @@ export function createLocalStorageAdapter(
     },
     async exists(input) {
       try {
-        await readFile(resolveStoragePath(options.rootDir, input.key));
+        await this.headObject(input);
 
         return true;
       } catch {
@@ -93,6 +121,11 @@ export function createLocalStorageAdapter(
     },
     async getObject(input) {
       return readFile(resolveStoragePath(options.rootDir, input.key));
+    },
+    async headObject(input) {
+      const stats = await stat(resolveStoragePath(options.rootDir, input.key));
+
+      return { byteSize: stats.size };
     },
     async putObject(input: StorageAdapterPutInput) {
       const filePath = resolveStoragePath(options.rootDir, input.key);
@@ -105,7 +138,7 @@ export function createLocalStorageAdapter(
         expiresAt: input.expiresAt.toISOString(),
         headers: {},
         method: "GET",
-        url: createSignedLocalUrl({
+        url: createSignedLocalStorageUrl({
           action: "download",
           expiresAt: input.expiresAt,
           key: input.key,
@@ -120,7 +153,7 @@ export function createLocalStorageAdapter(
         expiresAt: input.expiresAt.toISOString(),
         headers: { "content-type": input.contentType },
         method: "PUT",
-        url: createSignedLocalUrl({
+        url: createSignedLocalStorageUrl({
           action: "upload",
           expiresAt: input.expiresAt,
           key: input.key,

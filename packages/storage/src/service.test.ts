@@ -20,6 +20,7 @@ import {
   createWasabiStorageAdapter,
 } from "./adapters/s3-compatible";
 import { createStorageService } from "./service";
+import { sha256Hex } from "./validation";
 
 let dataDir: string;
 let localRoot: string;
@@ -157,6 +158,13 @@ describe("storage service", () => {
     await expect(
       adapter.exists({ key: uploaded.file.objectKey }),
     ).resolves.toBe(true);
+    await expect(
+      adapter.putObject({
+        body: new TextEncoder().encode("unsafe"),
+        contentType: "text/plain",
+        key: ".",
+      }),
+    ).rejects.toMatchObject({ code: "unsafe_key" });
 
     const usage = await storage.getUsage({ tenantId: organization.id });
 
@@ -196,6 +204,39 @@ describe("storage service", () => {
 
     await storage.grantFileAccess({
       fileId: uploaded.file.id,
+      granteeId: "support",
+      granteeType: "role",
+      permission: "read",
+      principal: {
+        actorId: "storage_owner",
+        tenantId: organization.id,
+      },
+    });
+
+    await expect(
+      storage.getFile({
+        fileId: uploaded.file.id,
+        principal: {
+          actorId: "storage_member",
+          roles: ["support"],
+          tenantId: organization.id,
+        },
+      }),
+    ).resolves.toMatchObject({ file: { id: uploaded.file.id } });
+
+    await expect(
+      storage.listFiles({
+        limit: 1,
+        principal: {
+          actorId: "storage_member",
+          roles: ["support"],
+          tenantId: organization.id,
+        },
+      }),
+    ).resolves.toMatchObject([{ id: uploaded.file.id }]);
+
+    await storage.grantFileAccess({
+      fileId: uploaded.file.id,
       granteeId: "storage_member",
       granteeType: "user",
       permission: "read",
@@ -226,14 +267,25 @@ describe("storage service", () => {
     await expect(
       storage.getUsage({ tenantId: organization.id }),
     ).resolves.toMatchObject({ fileCount: 0, storageBytesUsed: 0 });
+
+    await expect(
+      storage.deleteFile({
+        fileId: uploaded.file.id,
+        principal: {
+          actorId: "storage_owner",
+          tenantId: organization.id,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "file_not_available" });
   }, 60_000);
 
   it("completes signed upload intents and generates document previews", async () => {
     const { adapter, organization, storage } = await createStorageScenario();
     const body = new TextEncoder().encode("alpha beta\ngamma delta\n");
+    const checksumSha256 = sha256Hex(body);
     const intent = await storage.createUploadIntent({
       byteSize: body.byteLength,
-      checksumSha256: undefined,
+      checksumSha256,
       contentType: "text/plain",
       fileName: "notes.txt",
       ownerId: "storage_owner",
@@ -249,6 +301,7 @@ describe("storage service", () => {
 
     const completed = await storage.completeUploadIntent({
       byteSize: body.byteLength,
+      checksumSha256,
       contentType: "text/plain",
       intentId: intent.file.id,
       token: intent.token,
@@ -383,5 +436,21 @@ describe("storage service", () => {
       expect(url.searchParams.get("X-Amz-Algorithm")).toBe("AWS4-HMAC-SHA256");
       expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[a-f0-9]{64}$/);
     }
+
+    const checksumSha256 = "a".repeat(64);
+    const signed = await adapters[0].signedUploadUrl({
+      checksumSha256,
+      contentType: "text/plain",
+      expiresAt: new Date(fixedNow.getTime() + 60_000),
+      key: "tenants/test/users/user/checksum.txt",
+    });
+    const url = new URL(signed.url);
+
+    expect(signed.headers["x-amz-checksum-sha256"]).toBe(
+      Buffer.from(checksumSha256, "hex").toString("base64"),
+    );
+    expect(url.searchParams.get("X-Amz-SignedHeaders")).toContain(
+      "x-amz-checksum-sha256",
+    );
   });
 });

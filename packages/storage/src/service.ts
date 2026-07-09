@@ -100,7 +100,10 @@ type IntentRow = {
   expires_at: Date | string;
   file_id: string;
   id: string;
-  status: "pending" | "completed" | "expired";
+  object_key: string;
+  owner_id: string | null;
+  status: "pending" | "processing" | "completed" | "expired";
+  tenant_id: string;
   token_hash: string;
 };
 
@@ -492,32 +495,63 @@ export function createStorageService(options: StorageServiceOptions = {}) {
       principal: StoragePrincipal;
     },
   ) {
-    if (!input.principal.actorId) {
-      return false;
+    const timestampIso = now().toISOString();
+
+    if (input.principal.actorId) {
+      const rows = await client.execute<{ id: string }>(
+        `
+          SELECT id
+          FROM storage_access_grants
+          WHERE file_id = $1
+            AND tenant_id = $2
+            AND grantee_type = 'user'
+            AND grantee_id = $3
+            AND (permission = $4 OR permission = 'owner')
+            AND (expires_at IS NULL OR expires_at > $5)
+          LIMIT 1
+        `,
+        [
+          input.file.id,
+          input.file.tenantId,
+          input.principal.actorId,
+          input.permission,
+          timestampIso,
+        ],
+      );
+
+      if (rows[0]) {
+        return true;
+      }
     }
 
-    const rows = await client.execute<{ id: string }>(
-      `
-        SELECT id
-        FROM storage_access_grants
-        WHERE file_id = $1
-          AND tenant_id = $2
-          AND grantee_type = 'user'
-          AND grantee_id = $3
-          AND (permission = $4 OR permission = 'owner')
-          AND (expires_at IS NULL OR expires_at > $5)
-        LIMIT 1
-      `,
-      [
-        input.file.id,
-        input.file.tenantId,
-        input.principal.actorId,
-        input.permission,
-        now().toISOString(),
-      ],
-    );
+    for (const role of input.principal.roles ?? []) {
+      const rows = await client.execute<{ id: string }>(
+        `
+          SELECT id
+          FROM storage_access_grants
+          WHERE file_id = $1
+            AND tenant_id = $2
+            AND grantee_type = 'role'
+            AND grantee_id = $3
+            AND (permission = $4 OR permission = 'owner')
+            AND (expires_at IS NULL OR expires_at > $5)
+          LIMIT 1
+        `,
+        [
+          input.file.id,
+          input.file.tenantId,
+          role,
+          input.permission,
+          timestampIso,
+        ],
+      );
 
-    return Boolean(rows[0]);
+      if (rows[0]) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   async function scanFile(input: {
@@ -653,33 +687,43 @@ export function createStorageService(options: StorageServiceOptions = {}) {
   }) {
     const variants: StorageFileVariant[] = [];
 
-    if (isImage(input.contentType)) {
-      variants.push(
-        ...(await createImageVariants({
-          adapter,
-          contentType: input.contentType,
-          createdAt: input.createdAt,
-          data: input.data,
-          fileId: input.fileId,
-          originalKey: input.objectKey,
-        })),
+    try {
+      if (isImage(input.contentType)) {
+        variants.push(
+          ...(await createImageVariants({
+            adapter,
+            contentType: input.contentType,
+            createdAt: input.createdAt,
+            data: input.data,
+            fileId: input.fileId,
+            originalKey: input.objectKey,
+          })),
+        );
+      }
+
+      const preview = await createPreviewVariant({
+        contentType: input.contentType,
+        createdAt: input.createdAt,
+        data: input.data,
+        fileId: input.fileId,
+        fileName: input.fileName,
+        originalKey: input.objectKey,
+      });
+
+      if (preview) {
+        variants.push(preview);
+      }
+
+      return variants;
+    } catch (error) {
+      await Promise.all(
+        variants.map((variant) =>
+          adapter.deleteObject({ key: variant.objectKey }),
+        ),
       );
+
+      throw error;
     }
-
-    const preview = await createPreviewVariant({
-      contentType: input.contentType,
-      createdAt: input.createdAt,
-      data: input.data,
-      fileId: input.fileId,
-      fileName: input.fileName,
-      originalKey: input.objectKey,
-    });
-
-    if (preview) {
-      variants.push(preview);
-    }
-
-    return variants;
   }
 
   async function createUploadIntent(input: {
@@ -732,6 +776,10 @@ export function createStorageService(options: StorageServiceOptions = {}) {
 
     await ensureProvider(client);
     await withTransaction(client, async (transaction) => {
+      await reserveQuota(transaction, {
+        byteDelta: input.byteSize,
+        tenantId: input.tenantId,
+      });
       await transaction.execute(
         `
           INSERT INTO storage_files (
@@ -818,6 +866,28 @@ export function createStorageService(options: StorageServiceOptions = {}) {
           timestampIso,
         ],
       );
+      await transaction.execute(
+        `
+          INSERT INTO storage_usage_records (
+            id,
+            tenant_id,
+            file_id,
+            byte_delta,
+            reason,
+            metadata,
+            created_at
+          )
+          VALUES ($1, $2, $3, $4, 'upload_intent_reserved', $5::jsonb, $6)
+        `,
+        [
+          randomUUID(),
+          input.tenantId,
+          fileId,
+          input.byteSize,
+          JSON.stringify({ contentType: normalized.contentType }),
+          timestampIso,
+        ],
+      );
       await audit(transaction, {
         actorId: input.ownerId,
         eventType: "storage.upload_intent.created",
@@ -890,26 +960,30 @@ export function createStorageService(options: StorageServiceOptions = {}) {
       publicRead: input.visibility === "public",
       requireTenantMember: true,
     };
-    const metadata = await buildMetadata({
-      contentType: normalized.contentType,
-      data: input.data,
-      fileName: input.fileName,
-    });
-    const variants = await createManagedVariants({
-      contentType: normalized.contentType,
-      createdAt: timestampIso,
-      data: input.data,
-      fileId,
-      fileName: input.fileName,
-      objectKey,
-    });
-    const byteDelta =
-      input.data.byteLength +
-      variants.reduce((total, variant) => total + variant.byteSize, 0);
 
+    const variants: StorageFileVariant[] = [];
     let originalObjectWritten = false;
 
     try {
+      const metadata = await buildMetadata({
+        contentType: normalized.contentType,
+        data: input.data,
+        fileName: input.fileName,
+      });
+      variants.push(
+        ...(await createManagedVariants({
+          contentType: normalized.contentType,
+          createdAt: timestampIso,
+          data: input.data,
+          fileId,
+          fileName: input.fileName,
+          objectKey,
+        })),
+      );
+      const byteDelta =
+        input.data.byteLength +
+        variants.reduce((total, variant) => total + variant.byteSize, 0);
+
       await adapter.putObject({
         body: input.data,
         checksumSha256,
@@ -1053,35 +1127,24 @@ export function createStorageService(options: StorageServiceOptions = {}) {
   }): Promise<StorageUploadResult> {
     const client = await getClient();
     const timestampIso = now().toISOString();
-    const rows = await client.execute<IntentRow & FileRow>(
+    const rows = await client.execute<IntentRow>(
       `
-        SELECT
-          storage_upload_intents.*,
-          storage_files.access_policy,
-          storage_files.bucket,
-          storage_files.created_at,
-          storage_files.deleted_at,
-          storage_files.document_metadata,
-          storage_files.expires_at AS file_expires_at,
-          storage_files.file_name,
-          storage_files.image_metadata,
-          storage_files.metadata AS file_metadata,
-          storage_files.object_key,
-          storage_files.owner_id,
-          storage_files.provider_id,
-          storage_files.status AS file_status,
-          storage_files.tenant_id,
-          storage_files.updated_at,
-          storage_files.uploaded_at,
-          storage_files.visibility
-        FROM storage_upload_intents
-        INNER JOIN storage_files ON storage_files.id = storage_upload_intents.file_id
-        WHERE storage_upload_intents.file_id = $1
-          AND storage_upload_intents.token_hash = $2
-          AND storage_upload_intents.status = 'pending'
-          AND storage_upload_intents.expires_at > $3
+        UPDATE storage_upload_intents
+        SET status = 'processing',
+            updated_at = $4
+        WHERE file_id = $1
+          AND token_hash = $2
+          AND status = 'pending'
+          AND expires_at > $3
+          AND EXISTS (
+            SELECT 1
+            FROM storage_files
+            WHERE storage_files.id = storage_upload_intents.file_id
+              AND storage_files.status = 'pending'
+          )
+        RETURNING *
       `,
-      [input.intentId, sha256Hex(input.token), timestampIso],
+      [input.intentId, sha256Hex(input.token), timestampIso, timestampIso],
     );
     const intent = rows[0];
 
@@ -1092,59 +1155,122 @@ export function createStorageService(options: StorageServiceOptions = {}) {
       );
     }
 
-    validateStorageObject({
-      byteSize: input.byteSize,
-      checksumSha256:
-        input.checksumSha256 ?? intent.checksum_sha256 ?? undefined,
-      contentType: input.contentType,
-      data: input.data,
-      fileName: intent.file_name,
-      rules: validation,
-    });
-
-    const data =
-      input.data ?? (await adapter.getObject({ key: intent.object_key }));
-
-    assertStorageCondition(
-      data.byteLength === input.byteSize,
-      "Uploaded object size does not match the intent.",
-      "size_mismatch",
-    );
-
-    await scanFile({
-      byteSize: data.byteLength,
-      contentType: input.contentType,
-      data,
-      fileName: intent.file_name,
-      tenantId: intent.tenant_id,
-    });
-
-    const checksumSha256 = input.checksumSha256 ?? sha256Hex(data);
-    const metadata = await buildMetadata({
-      contentType: input.contentType,
-      data,
-      fileName: intent.file_name,
-    });
-    const variants = await createManagedVariants({
-      contentType: input.contentType,
-      createdAt: timestampIso,
-      data,
-      fileId: intent.file_id,
-      fileName: intent.file_name,
-      objectKey: intent.object_key,
-    });
-    const byteDelta =
-      data.byteLength +
-      variants.reduce((total, variant) => total + variant.byteSize, 0);
-
+    const variants: StorageFileVariant[] = [];
     let uploadedObjectWritten = false;
 
     try {
+      const file = await loadFile(client, intent.file_id);
+
+      assertStorageCondition(file, "File was not found.", "file_not_found");
+      assertStorageCondition(
+        file.status === "pending",
+        "Upload intent has already been completed.",
+        "upload_already_completed",
+      );
+      assertStorageCondition(
+        input.contentType.toLowerCase() === intent.content_type,
+        "Uploaded object content type does not match the intent.",
+        "content_type_mismatch",
+      );
+      assertStorageCondition(
+        input.byteSize === toNumber(intent.byte_size),
+        "Uploaded object size does not match the intent.",
+        "size_mismatch",
+      );
+
+      const expectedChecksum =
+        input.checksumSha256 ?? intent.checksum_sha256 ?? undefined;
+
+      if (input.checksumSha256 && intent.checksum_sha256) {
+        assertStorageCondition(
+          input.checksumSha256.toLowerCase() ===
+            intent.checksum_sha256.toLowerCase(),
+          "Uploaded object checksum does not match the intent.",
+          "checksum_mismatch",
+        );
+      }
+
+      const normalized = validateStorageObject({
+        byteSize: input.byteSize,
+        checksumSha256: expectedChecksum,
+        contentType: input.contentType,
+        data: input.data,
+        fileName: file.fileName,
+        rules: validation,
+      });
+
+      if (!input.data) {
+        const objectMetadata = await adapter.headObject({
+          key: intent.object_key,
+        });
+
+        assertStorageCondition(
+          objectMetadata.byteSize === input.byteSize,
+          "Uploaded object size does not match the intent.",
+          "size_mismatch",
+        );
+
+        if (objectMetadata.checksumSha256 && expectedChecksum) {
+          assertStorageCondition(
+            objectMetadata.checksumSha256.toLowerCase() ===
+              expectedChecksum.toLowerCase(),
+            "Uploaded object checksum does not match the intent.",
+            "checksum_mismatch",
+          );
+        }
+      }
+
+      const data =
+        input.data ?? (await adapter.getObject({ key: intent.object_key }));
+      const checksumSha256 = sha256Hex(data);
+
+      assertStorageCondition(
+        data.byteLength === input.byteSize,
+        "Uploaded object size does not match the intent.",
+        "size_mismatch",
+      );
+
+      if (expectedChecksum) {
+        assertStorageCondition(
+          checksumSha256.toLowerCase() === expectedChecksum.toLowerCase(),
+          "Uploaded object checksum does not match the intent.",
+          "checksum_mismatch",
+        );
+      }
+
+      await scanFile({
+        byteSize: data.byteLength,
+        contentType: normalized.contentType,
+        data,
+        fileName: file.fileName,
+        tenantId: intent.tenant_id,
+      });
+
+      const metadata = await buildMetadata({
+        contentType: normalized.contentType,
+        data,
+        fileName: file.fileName,
+      });
+      variants.push(
+        ...(await createManagedVariants({
+          contentType: normalized.contentType,
+          createdAt: timestampIso,
+          data,
+          fileId: intent.file_id,
+          fileName: file.fileName,
+          objectKey: intent.object_key,
+        })),
+      );
+      const byteDelta =
+        data.byteLength +
+        variants.reduce((total, variant) => total + variant.byteSize, 0) -
+        toNumber(intent.byte_size);
+
       if (input.data) {
         await adapter.putObject({
           body: input.data,
           checksumSha256,
-          contentType: input.contentType,
+          contentType: normalized.contentType,
           key: intent.object_key,
           metadata: {
             fileId: intent.file_id,
@@ -1155,11 +1281,7 @@ export function createStorageService(options: StorageServiceOptions = {}) {
       }
 
       await withTransaction(client, async (transaction) => {
-        await reserveQuota(transaction, {
-          byteDelta,
-          tenantId: intent.tenant_id,
-        });
-        await transaction.execute(
+        const fileRows = await transaction.execute<{ id: string }>(
           `
             UPDATE storage_files
             SET status = 'available',
@@ -1172,12 +1294,13 @@ export function createStorageService(options: StorageServiceOptions = {}) {
                 updated_at = $7
             WHERE id = $1
               AND status = 'pending'
+            RETURNING id
           `,
           [
             intent.file_id,
             data.byteLength,
             checksumSha256,
-            input.contentType,
+            normalized.contentType,
             metadata.imageMetadata
               ? JSON.stringify(metadata.imageMetadata)
               : null,
@@ -1187,6 +1310,18 @@ export function createStorageService(options: StorageServiceOptions = {}) {
             timestampIso,
           ],
         );
+
+        if (!fileRows[0]) {
+          throw new StorageError(
+            "Upload intent has already been completed.",
+            "upload_already_completed",
+          );
+        }
+
+        await reserveQuota(transaction, {
+          byteDelta,
+          tenantId: intent.tenant_id,
+        });
         await transaction.execute(
           `
             UPDATE storage_upload_intents
@@ -1194,6 +1329,7 @@ export function createStorageService(options: StorageServiceOptions = {}) {
                 completed_at = $2,
                 updated_at = $2
             WHERE file_id = $1
+              AND status = 'processing'
           `,
           [intent.file_id, timestampIso],
         );
@@ -1216,7 +1352,10 @@ export function createStorageService(options: StorageServiceOptions = {}) {
             intent.tenant_id,
             intent.file_id,
             byteDelta,
-            JSON.stringify({ variantCount: variants.length }),
+            JSON.stringify({
+              reservedBytes: toNumber(intent.byte_size),
+              variantCount: variants.length,
+            }),
             timestampIso,
           ],
         );
@@ -1229,15 +1368,93 @@ export function createStorageService(options: StorageServiceOptions = {}) {
         });
       });
     } catch (error) {
-      if (uploadedObjectWritten) {
-        await adapter.deleteObject({ key: intent.object_key });
-      }
+      const permanentFailure =
+        error instanceof StorageError &&
+        [
+          "checksum_mismatch",
+          "content_type_mismatch",
+          "file_too_large",
+          "malware_detected",
+          "mime_not_allowed",
+          "size_mismatch",
+        ].includes(error.code);
 
-      await Promise.all(
-        variants.map((variant) =>
+      await Promise.allSettled([
+        ...(uploadedObjectWritten || (permanentFailure && !input.data)
+          ? [adapter.deleteObject({ key: intent.object_key })]
+          : []),
+        ...variants.map((variant) =>
           adapter.deleteObject({ key: variant.objectKey }),
         ),
-      );
+      ]);
+
+      if (permanentFailure) {
+        await withTransaction(client, async (transaction) => {
+          const fileRows = await transaction.execute<{ id: string }>(
+            `
+              UPDATE storage_files
+              SET status = 'abandoned',
+                  updated_at = $2
+              WHERE id = $1
+                AND status = 'pending'
+              RETURNING id
+            `,
+            [intent.file_id, timestampIso],
+          );
+
+          if (fileRows[0]) {
+            await reserveQuota(transaction, {
+              byteDelta: -toNumber(intent.byte_size),
+              tenantId: intent.tenant_id,
+            });
+            await transaction.execute(
+              `
+                INSERT INTO storage_usage_records (
+                  id,
+                  tenant_id,
+                  file_id,
+                  byte_delta,
+                  reason,
+                  metadata,
+                  created_at
+                )
+                VALUES ($1, $2, $3, $4, 'upload_intent_released', $5::jsonb, $6)
+              `,
+              [
+                randomUUID(),
+                intent.tenant_id,
+                intent.file_id,
+                -toNumber(intent.byte_size),
+                JSON.stringify({ reason: error.code }),
+                timestampIso,
+              ],
+            );
+          }
+
+          await transaction.execute(
+            `
+              UPDATE storage_upload_intents
+              SET status = 'expired',
+                  updated_at = $2
+              WHERE file_id = $1
+                AND status = 'processing'
+            `,
+            [intent.file_id, timestampIso],
+          );
+        });
+      } else {
+        await client.execute(
+          `
+            UPDATE storage_upload_intents
+            SET status = 'pending',
+                updated_at = $2
+            WHERE file_id = $1
+              AND status = 'processing'
+              AND expires_at > $2
+          `,
+          [intent.file_id, now().toISOString()],
+        );
+      }
 
       throw error;
     }
@@ -1293,6 +1510,10 @@ export function createStorageService(options: StorageServiceOptions = {}) {
     status?: StorageFileStatus;
   }) {
     const client = await getClient();
+    const actorId = input.principal.actorId ?? null;
+    const roles = JSON.stringify(input.principal.roles ?? []);
+    const status = input.status ?? "available";
+    const timestampIso = now().toISOString();
     const rows = await client.execute<FileRow>(
       `
         SELECT *
@@ -1300,20 +1521,57 @@ export function createStorageService(options: StorageServiceOptions = {}) {
         WHERE tenant_id = $1
           AND ($2::text IS NULL OR owner_id = $2)
           AND status = $3
+          AND $3 = 'available'
+          AND (
+            $4::boolean
+            OR visibility = 'public'
+            OR COALESCE((access_policy->>'publicRead')::boolean, false)
+            OR ($5::text IS NOT NULL AND owner_id = $5)
+            OR (
+              $5::text IS NOT NULL
+              AND COALESCE(access_policy->'allowedUserIds', '[]'::jsonb) ? $5
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM storage_access_grants
+              WHERE storage_access_grants.file_id = storage_files.id
+                AND storage_access_grants.tenant_id = storage_files.tenant_id
+                AND (storage_access_grants.permission = 'read' OR storage_access_grants.permission = 'owner')
+                AND (
+                  storage_access_grants.expires_at IS NULL
+                  OR storage_access_grants.expires_at > $6
+                )
+                AND (
+                  (
+                    $5::text IS NOT NULL
+                    AND storage_access_grants.grantee_type = 'user'
+                    AND storage_access_grants.grantee_id = $5
+                  )
+                  OR (
+                    storage_access_grants.grantee_type = 'role'
+                    AND storage_access_grants.grantee_id IN (
+                      SELECT jsonb_array_elements_text($7::jsonb)
+                    )
+                  )
+                )
+            )
+          )
         ORDER BY created_at DESC
-        LIMIT $4
+        LIMIT $8
       `,
       [
         input.principal.tenantId,
         input.ownerId ?? null,
-        input.status ?? "available",
+        status,
+        hasPermission(input.principal, "read"),
+        actorId,
+        timestampIso,
+        roles,
         Math.min(Math.max(input.limit ?? 50, 1), 100),
       ],
     );
 
-    return rows
-      .map(toFile)
-      .filter((file) => canReadFile(file, input.principal));
+    return rows.map(toFile);
   }
 
   async function grantFileAccess(input: {
@@ -1398,6 +1656,11 @@ export function createStorageService(options: StorageServiceOptions = {}) {
       "File deletion is not allowed.",
       "forbidden",
     );
+    assertStorageCondition(
+      file.status === "available",
+      "Only available files can be deleted.",
+      "file_not_available",
+    );
 
     const variants = await loadVariants(client, file.id);
     const byteDelta = -(
@@ -1406,23 +1669,28 @@ export function createStorageService(options: StorageServiceOptions = {}) {
     );
     const timestamp = now().toISOString();
 
-    for (const variant of variants) {
-      await adapter.deleteObject({ key: variant.objectKey });
-    }
-
-    await adapter.deleteObject({ key: file.objectKey });
     await withTransaction(client, async (transaction) => {
-      await reserveQuota(transaction, { byteDelta, tenantId: file.tenantId });
-      await transaction.execute(
+      const rows = await transaction.execute<{ id: string }>(
         `
           UPDATE storage_files
           SET status = 'deleted',
               deleted_at = $2,
               updated_at = $2
           WHERE id = $1
+            AND status = 'available'
+          RETURNING id
         `,
         [file.id, timestamp],
       );
+
+      if (!rows[0]) {
+        throw new StorageError(
+          "Only available files can be deleted.",
+          "file_not_available",
+        );
+      }
+
+      await reserveQuota(transaction, { byteDelta, tenantId: file.tenantId });
       await transaction.execute(
         `
           INSERT INTO storage_usage_records (
@@ -1446,65 +1714,171 @@ export function createStorageService(options: StorageServiceOptions = {}) {
         tenantId: file.tenantId,
       });
     });
+
+    await Promise.allSettled([
+      adapter.deleteObject({ key: file.objectKey }),
+      ...variants.map((variant) =>
+        adapter.deleteObject({ key: variant.objectKey }),
+      ),
+    ]);
   }
 
   async function cleanupExpiredUploadIntents() {
     const client = await getClient();
     const timestamp = now().toISOString();
-    const rows = await client.execute<{ file_id: string; object_key: string }>(
+    const rows = await client.execute<{
+      byte_size: number | string;
+      file_id: string;
+      object_key: string;
+      tenant_id: string;
+    }>(
       `
-        UPDATE storage_upload_intents
-        SET status = 'expired',
-            updated_at = $1
-        WHERE status = 'pending'
+        SELECT byte_size, file_id, object_key, tenant_id
+        FROM storage_upload_intents
+        WHERE status IN ('pending', 'processing')
           AND expires_at <= $1
-        RETURNING file_id, object_key
       `,
       [timestamp],
     );
+    let cleaned = 0;
 
     for (const row of rows) {
-      await adapter.deleteObject({ key: row.object_key });
-      await client.execute(
-        `
-          UPDATE storage_files
-          SET status = 'abandoned',
-              updated_at = $2
-          WHERE id = $1
-            AND status = 'pending'
-        `,
-        [row.file_id, timestamp],
-      );
+      const deleteResults = await Promise.allSettled([
+        adapter.deleteObject({ key: row.object_key }),
+      ]);
+
+      if (deleteResults.some((result) => result.status === "rejected")) {
+        continue;
+      }
+
+      await withTransaction(client, async (transaction) => {
+        await transaction.execute(
+          `
+            UPDATE storage_upload_intents
+            SET status = 'expired',
+                updated_at = $2
+            WHERE file_id = $1
+              AND status IN ('pending', 'processing')
+          `,
+          [row.file_id, timestamp],
+        );
+        const fileRows = await transaction.execute<{ id: string }>(
+          `
+            UPDATE storage_files
+            SET status = 'abandoned',
+                updated_at = $2
+            WHERE id = $1
+              AND status = 'pending'
+            RETURNING id
+          `,
+          [row.file_id, timestamp],
+        );
+
+        if (fileRows[0]) {
+          const byteDelta = -toNumber(row.byte_size);
+
+          await reserveQuota(transaction, {
+            byteDelta,
+            tenantId: row.tenant_id,
+          });
+          await transaction.execute(
+            `
+              INSERT INTO storage_usage_records (
+                id,
+                tenant_id,
+                file_id,
+                byte_delta,
+                reason,
+                metadata,
+                created_at
+              )
+              VALUES ($1, $2, $3, $4, 'upload_intent_expired', '{}'::jsonb, $5)
+            `,
+            [randomUUID(), row.tenant_id, row.file_id, byteDelta, timestamp],
+          );
+        }
+      });
+      cleaned += 1;
     }
 
-    return rows.length;
+    return cleaned;
   }
 
   async function cleanupOrphanedFiles(input: { olderThan: string }) {
     const client = await getClient();
-    const rows = await client.execute<{ id: string; object_key: string }>(
+    const timestamp = now().toISOString();
+    const rows = await client.execute<{
+      byte_size: number | string;
+      id: string;
+      object_key: string;
+      tenant_id: string;
+    }>(
       `
-        UPDATE storage_files
-        SET status = 'abandoned',
-            updated_at = $2
+        SELECT byte_size, id, object_key, tenant_id
+        FROM storage_files
         WHERE status = 'pending'
           AND created_at < $1
           AND NOT EXISTS (
             SELECT 1
             FROM storage_upload_intents
             WHERE storage_upload_intents.file_id = storage_files.id
-              AND storage_upload_intents.status = 'pending'
+              AND storage_upload_intents.status IN ('pending', 'processing')
           )
-        RETURNING id, object_key
       `,
-      [input.olderThan, now().toISOString()],
+      [input.olderThan],
     );
+    let cleaned = 0;
 
     for (const row of rows) {
-      await adapter.deleteObject({ key: row.object_key });
+      const deleteResults = await Promise.allSettled([
+        adapter.deleteObject({ key: row.object_key }),
+      ]);
+
+      if (deleteResults.some((result) => result.status === "rejected")) {
+        continue;
+      }
+
+      await withTransaction(client, async (transaction) => {
+        const fileRows = await transaction.execute<{ id: string }>(
+          `
+            UPDATE storage_files
+            SET status = 'abandoned',
+                updated_at = $2
+            WHERE id = $1
+              AND status = 'pending'
+            RETURNING id
+          `,
+          [row.id, timestamp],
+        );
+
+        if (fileRows[0]) {
+          const byteDelta = -toNumber(row.byte_size);
+
+          await reserveQuota(transaction, {
+            byteDelta,
+            tenantId: row.tenant_id,
+          });
+          await transaction.execute(
+            `
+              INSERT INTO storage_usage_records (
+                id,
+                tenant_id,
+                file_id,
+                byte_delta,
+                reason,
+                metadata,
+                created_at
+              )
+              VALUES ($1, $2, $3, $4, 'orphaned_file_released', '{}'::jsonb, $5)
+            `,
+            [randomUUID(), row.tenant_id, row.id, byteDelta, timestamp],
+          );
+        }
+      });
+      cleaned += 1;
     }
 
-    return rows.length;
+    return cleaned;
   }
 
   async function cleanupDeletedFiles(input: { olderThan: string }) {
@@ -1518,12 +1892,33 @@ export function createStorageService(options: StorageServiceOptions = {}) {
       `,
       [input.olderThan],
     );
+    let cleaned = 0;
 
     for (const row of rows) {
-      await adapter.deleteObject({ key: row.object_key });
+      const variants = await loadVariants(client, row.id);
+      const deleteResults = await Promise.allSettled([
+        adapter.deleteObject({ key: row.object_key }),
+        ...variants.map((variant) =>
+          adapter.deleteObject({ key: variant.objectKey }),
+        ),
+      ]);
+
+      if (deleteResults.some((result) => result.status === "rejected")) {
+        continue;
+      }
+
+      await client.execute(
+        `
+          DELETE FROM storage_files
+          WHERE id = $1
+            AND status = 'deleted'
+        `,
+        [row.id],
+      );
+      cleaned += 1;
     }
 
-    return rows.length;
+    return cleaned;
   }
 
   async function getUsage(input: { tenantId: string }) {

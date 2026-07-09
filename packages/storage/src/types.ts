@@ -10,6 +10,7 @@ export type StoragePermission = "read" | "write" | "owner";
 export type StoragePrincipal = {
   actorId?: string;
   permissions?: StoragePermission[];
+  roles?: string[];
   tenantId: string;
 };
 
@@ -28,7 +29,7 @@ export type StorageValidationRules = {
 export type StorageSignedUrl = {
   expiresAt: string;
   headers: Record<string, string>;
-  method: "DELETE" | "GET" | "PUT";
+  method: "DELETE" | "GET" | "HEAD" | "PUT";
   url: string;
 };
 
@@ -40,10 +41,17 @@ export type StorageAdapterPutInput = {
   metadata?: Record<string, string>;
 };
 
+export type StorageObjectMetadata = {
+  byteSize: number;
+  checksumSha256?: string;
+  contentType?: string;
+};
+
 export type StorageAdapter = {
   deleteObject(input: { key: string }): Promise<void>;
   exists(input: { key: string }): Promise<boolean>;
   getObject(input: { key: string }): Promise<Uint8Array>;
+  headObject(input: { key: string }): Promise<StorageObjectMetadata>;
   id: string;
   kind: StorageProviderKind;
   putObject(input: StorageAdapterPutInput): Promise<void>;
@@ -106,7 +114,7 @@ export type StorageUploadIntent = {
   file: StorageFile;
   id: string;
   signedUpload: StorageSignedUrl;
-  status: "pending" | "completed" | "expired";
+  status: "pending" | "processing" | "completed" | "expired";
   token: string;
 };
 
