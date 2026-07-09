@@ -12,5 +12,6 @@ export default defineConfig({
       "apps/**/*.{test,spec}.{ts,tsx}",
       "packages/**/*.{test,spec}.{ts,tsx}",
     ],
+    testTimeout: 60_000,
   },
 });

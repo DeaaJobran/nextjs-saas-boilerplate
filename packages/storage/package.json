@@ -1,23 +1,23 @@
 {
-  "name": "@nextjs-saas/api",
+  "name": "@nextjs-saas/storage",
   "version": "0.3.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./contracts": "./src/contracts.ts",
-    "./service": "./src/service.ts"
+    "./adapters/local": "./src/adapters/local.ts",
+    "./adapters/s3-compatible": "./src/adapters/s3-compatible.ts",
+    "./media": "./src/media.ts",
+    "./types": "./src/types.ts"
   },
   "scripts": {
-    "test": "vitest run --root ../.. packages/api/src",
+    "test": "vitest run --root ../.. packages/storage/src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@nextjs-saas/auth": "workspace:*",
     "@nextjs-saas/db": "workspace:*",
-    "@nextjs-saas/storage": "workspace:*",
     "@nextjs-saas/tenant": "workspace:*",
-    "zod": "^4.4.3"
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "^20",

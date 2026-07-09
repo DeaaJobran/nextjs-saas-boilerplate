@@ -2300,6 +2300,292 @@ export const billingAuditEvents = pgTable(
   ],
 );
 
+export const storageProviders = pgTable(
+  "storage_providers",
+  {
+    accessKeyRef: text("access_key_ref"),
+    active: boolean("active").notNull().default(true),
+    allowedExtensions: jsonb("allowed_extensions").$type<string[]>().notNull(),
+    allowedMimeTypes: jsonb("allowed_mime_types").$type<string[]>().notNull(),
+    bucket: text("bucket").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    displayName: text("display_name").notNull(),
+    endpoint: text("endpoint"),
+    forcePathStyle: boolean("force_path_style").notNull().default(false),
+    id: text("id").primaryKey(),
+    imageProcessingEnabled: boolean("image_processing_enabled")
+      .notNull()
+      .default(true),
+    kind: text("kind").notNull(),
+    malwareScannerRef: text("malware_scanner_ref"),
+    maxUploadBytes: bigint("max_upload_bytes", { mode: "number" }).notNull(),
+    provider: text("provider").notNull(),
+    publicBaseUrl: text("public_base_url"),
+    region: text("region"),
+    secretKeyRef: text("secret_key_ref"),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    virusScanningEnabled: boolean("virus_scanning_enabled")
+      .notNull()
+      .default(false),
+  },
+  (table) => [
+    uniqueIndex("storage_providers_provider_unique").on(table.provider),
+  ],
+);
+
+export const storageFiles = pgTable(
+  "storage_files",
+  {
+    accessPolicy: jsonb("access_policy")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    bucket: text("bucket").notNull(),
+    byteSize: bigint("byte_size", { mode: "number" }).notNull(),
+    checksumSha256: text("checksum_sha256"),
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deletedAt: timestamp("deleted_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    documentMetadata:
+      jsonb("document_metadata").$type<Record<string, unknown>>(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    fileName: text("file_name").notNull(),
+    id: text("id").primaryKey(),
+    imageMetadata: jsonb("image_metadata").$type<Record<string, unknown>>(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    objectKey: text("object_key").notNull(),
+    ownerId: text("owner_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    providerId: text("provider_id")
+      .notNull()
+      .references(() => storageProviders.id, { onDelete: "restrict" }),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    uploadedAt: timestamp("uploaded_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    visibility: text("visibility").notNull(),
+  },
+  (table) => [
+    uniqueIndex("storage_files_provider_object_unique").on(
+      table.providerId,
+      table.objectKey,
+    ),
+    index("storage_files_tenant_status_created_idx").on(
+      table.tenantId,
+      table.status,
+      table.createdAt,
+    ),
+    index("storage_files_owner_status_idx").on(
+      table.ownerId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const storageFileVariants = pgTable(
+  "storage_file_variants",
+  {
+    byteSize: bigint("byte_size", { mode: "number" }).notNull(),
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    fileId: text("file_id")
+      .notNull()
+      .references(() => storageFiles.id, { onDelete: "cascade" }),
+    height: integer("height"),
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    objectKey: text("object_key").notNull(),
+    width: integer("width"),
+  },
+  (table) => [
+    uniqueIndex("storage_file_variants_file_kind_unique").on(
+      table.fileId,
+      table.kind,
+    ),
+    index("storage_file_variants_file_idx").on(table.fileId),
+  ],
+);
+
+export const storageUploadIntents = pgTable(
+  "storage_upload_intents",
+  {
+    byteSize: bigint("byte_size", { mode: "number" }).notNull(),
+    checksumSha256: text("checksum_sha256"),
+    completedAt: timestamp("completed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    fileId: text("file_id")
+      .notNull()
+      .references(() => storageFiles.id, { onDelete: "cascade" }),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    objectKey: text("object_key").notNull(),
+    ownerId: text("owner_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    providerId: text("provider_id")
+      .notNull()
+      .references(() => storageProviders.id, { onDelete: "restrict" }),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    uploadUrl: text("upload_url").notNull(),
+  },
+  (table) => [
+    uniqueIndex("storage_upload_intents_token_unique").on(table.tokenHash),
+    index("storage_upload_intents_file_status_idx").on(
+      table.fileId,
+      table.status,
+    ),
+    index("storage_upload_intents_expiry_idx").on(
+      table.status,
+      table.expiresAt,
+    ),
+  ],
+);
+
+export const storageAccessGrants = pgTable(
+  "storage_access_grants",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    createdBy: text("created_by").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    fileId: text("file_id")
+      .notNull()
+      .references(() => storageFiles.id, { onDelete: "cascade" }),
+    granteeId: text("grantee_id").notNull(),
+    granteeType: text("grantee_type").notNull(),
+    id: text("id").primaryKey(),
+    permission: text("permission").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("storage_access_grants_file_idx").on(
+      table.fileId,
+      table.permission,
+      table.expiresAt,
+    ),
+    index("storage_access_grants_grantee_idx").on(
+      table.tenantId,
+      table.granteeType,
+      table.granteeId,
+      table.permission,
+    ),
+  ],
+);
+
+export const storageUsageRecords = pgTable(
+  "storage_usage_records",
+  {
+    byteDelta: bigint("byte_delta", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    fileId: text("file_id").references(() => storageFiles.id, {
+      onDelete: "set null",
+    }),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    reason: text("reason").notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("storage_usage_records_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const storageAuditEvents = pgTable(
+  "storage_audit_events",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    eventType: text("event_type").notNull(),
+    fileId: text("file_id").references(() => storageFiles.id, {
+      onDelete: "set null",
+    }),
+    id: text("id").primaryKey(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("storage_audit_events_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+    index("storage_audit_events_file_created_idx").on(
+      table.fileId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const managedPagesRelations = relations(managedPages, ({ many }) => ({
   sections: many(pageSections),
   versions: many(managedPageVersions),

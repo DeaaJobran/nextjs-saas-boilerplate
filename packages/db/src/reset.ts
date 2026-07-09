@@ -67,10 +67,21 @@ const apiRuntimeTables = [
   "api_audit_events",
 ] as const;
 
+const storageRuntimeTables = [
+  "storage_audit_events",
+  "storage_usage_records",
+  "storage_access_grants",
+  "storage_upload_intents",
+  "storage_file_variants",
+  "storage_files",
+  "storage_providers",
+] as const;
+
 async function lockServiceFoundationTables(client: Queryable) {
   await client.execute(`
     LOCK TABLE
       ${[
+        ...storageRuntimeTables,
         ...apiRuntimeTables,
         ...billingRuntimeTables,
         ...serviceFoundationTables,
@@ -87,6 +98,10 @@ export async function resetDatabaseData() {
   await runMigrations(runtime);
   await runtime.transaction(async (transaction) => {
     await lockServiceFoundationTables(transaction);
+
+    for (const tableName of storageRuntimeTables) {
+      await transaction.execute(`DELETE FROM ${tableName}`);
+    }
 
     for (const tableName of apiRuntimeTables) {
       await transaction.execute(`DELETE FROM ${tableName}`);
