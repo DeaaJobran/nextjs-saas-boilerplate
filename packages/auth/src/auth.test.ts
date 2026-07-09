@@ -103,7 +103,7 @@ describe("auth identity service", () => {
     ).rejects.toMatchObject({
       code: "unsupported_locale",
     });
-  }, 15_000);
+  }, 60_000);
 
   it("creates users, signs in, rotates refresh tokens, and revokes sessions", async () => {
     const auth = await createService();

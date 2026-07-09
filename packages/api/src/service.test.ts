@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -9,6 +10,10 @@ import {
   resetDatabaseRuntimeForTests,
   runMigrations,
 } from "@nextjs-saas/db";
+import {
+  createLocalStorageAdapter,
+  createStorageService,
+} from "@nextjs-saas/storage";
 import { createTenantService } from "@nextjs-saas/tenant";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -16,12 +21,16 @@ import { generateOpenApiSpec } from "./contracts";
 import { createApiService } from "./service";
 
 let dataDir: string;
+let storageDir: string;
 let databaseRuntimeOpened = false;
 const fixedNow = new Date("2026-07-06T08:00:00.000Z");
 const authSecret = "test-auth-secret-with-at-least-32-characters";
 
 beforeEach(async () => {
   dataDir = await mkdtemp(path.join(os.tmpdir(), "nextjs-saas-api-"));
+  storageDir = await mkdtemp(
+    path.join(os.tmpdir(), "nextjs-saas-api-storage-"),
+  );
   delete process.env.DATABASE_URL;
   process.env.PGLITE_DATA_DIR = dataDir;
   process.env.AUTH_SECRET = authSecret;
@@ -38,6 +47,7 @@ afterEach(async () => {
   delete process.env.PGLITE_DATA_DIR;
   delete process.env.AUTH_SECRET;
   await rm(dataDir, { force: true, recursive: true });
+  await rm(storageDir, { force: true, recursive: true });
 });
 
 async function getRuntime() {
@@ -51,6 +61,16 @@ async function getRuntime() {
 }
 
 function createServices(client: Queryable) {
+  const storageAdapter = createLocalStorageAdapter({
+    rootDir: storageDir,
+    signingSecret: "test-api-storage-secret",
+  });
+  const storage = createStorageService({
+    adapter: storageAdapter,
+    client,
+    now: () => fixedNow,
+  });
+
   return {
     api: createApiService({
       appBaseUrl: "https://app.example.test",
@@ -58,6 +78,7 @@ function createServices(client: Queryable) {
       client,
       deepLinkSecret: "test-mobile-deep-link-secret",
       now: () => fixedNow,
+      storage,
     }),
     auth: createAuthService({
       appBaseUrl: "https://app.example.test",
@@ -71,6 +92,8 @@ function createServices(client: Queryable) {
       client,
       now: () => fixedNow,
     }),
+    storage,
+    storageAdapter,
   };
 }
 
@@ -327,7 +350,7 @@ describe("public API service", () => {
   }, 60_000);
 
   it("supports mobile sessions, token rotation, device revocation, push, deep links, and upload intents", async () => {
-    const { organization, services, user } =
+    const { organization, runtime, services, user } =
       await createOwnerScenario("Mobile Labs");
     const session = await services.api.createMobileSession({
       appVersion: "1.0.0",
@@ -380,21 +403,35 @@ describe("public API service", () => {
 
     expect(deepLink.url).toContain("/mobile/deep-links/");
 
+    const uploadBody = new TextEncoder().encode("mobile upload body");
+    const uploadChecksum = createHash("sha256")
+      .update(uploadBody)
+      .digest("hex");
     const upload = await services.api.createMobileUploadIntent({
-      byteSize: 128,
-      checksumSha256:
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      contentType: "image/png",
-      fileName: "avatar.png",
+      byteSize: uploadBody.byteLength,
+      checksumSha256: uploadChecksum,
+      contentType: "text/plain",
+      fileName: "avatar.txt",
       metadata: { purpose: "avatar" },
       principal: rotatedPrincipal,
       tenantId: organization.id,
     });
+    const storageRows = await runtime.execute<{ object_key: string }>(
+      "SELECT object_key FROM storage_files WHERE id = $1",
+      [upload.id],
+    );
+
+    await services.storageAdapter.putObject({
+      body: uploadBody,
+      checksumSha256: uploadChecksum,
+      contentType: "text/plain",
+      key: storageRows[0]!.object_key,
+    });
+
     const completed = await services.api.completeMobileUploadIntent({
-      byteSize: 128,
-      checksumSha256:
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      contentType: "image/png",
+      byteSize: uploadBody.byteLength,
+      checksumSha256: uploadChecksum,
+      contentType: "text/plain",
       intentId: upload.id,
       token: upload.token,
     });

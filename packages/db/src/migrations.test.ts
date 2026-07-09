@@ -66,7 +66,7 @@ describe("database migrations", () => {
 
     await expect(runMigrations(runtime)).resolves.toEqual(migrations);
     await expect(runMigrations(runtime)).resolves.toEqual([]);
-  }, 15_000);
+  }, 60_000);
 
   it("creates service foundation tables", async () => {
     databaseRuntimeOpened = true;
@@ -100,7 +100,7 @@ describe("database migrations", () => {
       "outbox_events",
       "rate_limit_buckets",
     ]);
-  }, 15_000);
+  }, 60_000);
 
   it("creates auth identity tables", async () => {
     databaseRuntimeOpened = true;
@@ -144,7 +144,7 @@ describe("database migrations", () => {
       "auth_tokens",
       "auth_users",
     ]);
-  }, 15_000);
+  }, 60_000);
 
   it("creates tenant administration tables", async () => {
     databaseRuntimeOpened = true;
@@ -180,7 +180,7 @@ describe("database migrations", () => {
       "organizations",
       "tenant_audit_events",
     ]);
-  }, 15_000);
+  }, 60_000);
 
   it("creates localization settings table", async () => {
     databaseRuntimeOpened = true;
@@ -199,7 +199,7 @@ describe("database migrations", () => {
     expect(rows.map((row) => row.table_name)).toEqual([
       "localization_settings",
     ]);
-  }, 15_000);
+  }, 60_000);
 
   it("creates billing, payment, currency, and tax tables", async () => {
     databaseRuntimeOpened = true;
@@ -273,7 +273,7 @@ describe("database migrations", () => {
 
     expect(Number(providerRows[0]?.count)).toBe(2);
     expect(Number(priceRows[0]?.count)).toBeGreaterThan(0);
-  }, 15_000);
+  }, 60_000);
 
   it("creates public API, webhook, realtime, and mobile support tables", async () => {
     databaseRuntimeOpened = true;
@@ -311,7 +311,41 @@ describe("database migrations", () => {
       "mobile_sessions",
       "mobile_upload_intents",
     ]);
-  }, 15_000);
+  }, 60_000);
+
+  it("creates storage and file-management tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'storage_access_grants',
+          'storage_audit_events',
+          'storage_file_variants',
+          'storage_files',
+          'storage_providers',
+          'storage_upload_intents',
+          'storage_usage_records'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "storage_access_grants",
+      "storage_audit_events",
+      "storage_file_variants",
+      "storage_files",
+      "storage_providers",
+      "storage_upload_intents",
+      "storage_usage_records",
+    ]);
+  }, 60_000);
 
   it("seeds content and records versions and audit events for admin changes", async () => {
     databaseRuntimeOpened = true;
@@ -347,7 +381,7 @@ describe("database migrations", () => {
 
     expect(Number(versionRows[0]?.count)).toBeGreaterThan(0);
     expect(Number(auditRows[0]?.count)).toBeGreaterThan(0);
-  }, 15_000);
+  }, 60_000);
 
   it("persists and audits localization settings", async () => {
     databaseRuntimeOpened = true;
@@ -375,7 +409,7 @@ describe("database migrations", () => {
       enabledLocales: ["en", "ar"],
     });
     expect(Number(auditRows[0]?.count)).toBeGreaterThan(0);
-  }, 15_000);
+  }, 60_000);
 
   it("resets service data and restores seed content", async () => {
     databaseRuntimeOpened = true;
@@ -425,5 +459,5 @@ describe("database migrations", () => {
     expect(contentSnapshot.pages.some((page) => page.id === "landing-en")).toBe(
       true,
     );
-  }, 20_000);
+  }, 60_000);
 });

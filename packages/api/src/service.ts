@@ -19,6 +19,7 @@ import {
   runMigrations,
   verifyApiKeySecret,
 } from "@nextjs-saas/db";
+import { createStorageService } from "@nextjs-saas/storage";
 import {
   createTenantService,
   TenantError,
@@ -67,6 +68,7 @@ export type ApiServiceOptions = {
   mobileUploadTtlSeconds?: number;
   now?: () => Date;
   oauthAdapters?: OAuthProviderAdapter[];
+  storage?: ReturnType<typeof createStorageService>;
 };
 
 export type ApiPrincipal =
@@ -646,6 +648,17 @@ export function createApiService(options: ApiServiceOptions = {}) {
       client,
       now,
     });
+  }
+
+  function getStorage() {
+    return (
+      options.storage ??
+      createStorageService({
+        client: options.client,
+        now,
+        uploadTtlSeconds: mobileUploadTtlSeconds,
+      })
+    );
   }
 
   function getDeepLinkSecret() {
@@ -1965,12 +1978,25 @@ export function createApiService(options: ApiServiceOptions = {}) {
     const timestamp = now();
     const token = `nsupload_${randomBytes(32).toString("base64url")}`;
     const id = randomUUID();
-    const uploadUrl = new URL(
-      `/api/v1/mobile/uploads/${encodeURIComponent(id)}`,
-      appBaseUrl,
-    );
-
-    uploadUrl.searchParams.set("token", token);
+    const expiresAt = addSeconds(
+      timestamp,
+      mobileUploadTtlSeconds,
+    ).toISOString();
+    const storageIntent = await getStorage().createUploadIntent({
+      byteSize: input.byteSize,
+      checksumSha256: input.checksumSha256,
+      contentType: input.contentType,
+      expiresAt,
+      fileId: id,
+      fileName: input.fileName,
+      metadata: {
+        ...input.metadata,
+        source: "mobile_upload",
+      },
+      ownerId: input.principal.actorId,
+      tenantId: input.tenantId,
+      token,
+    });
 
     await client.execute(
       `
@@ -2000,17 +2026,24 @@ export function createApiService(options: ApiServiceOptions = {}) {
         input.byteSize,
         input.checksumSha256 ?? null,
         hashLookupToken(token),
-        addSeconds(timestamp, mobileUploadTtlSeconds).toISOString(),
-        JSON.stringify(input.metadata ?? {}),
+        expiresAt,
+        JSON.stringify({
+          ...input.metadata,
+          storage: {
+            fileId: storageIntent.file.id,
+            objectKey: storageIntent.file.objectKey,
+            providerId: storageIntent.file.providerId,
+          },
+        }),
         timestamp.toISOString(),
       ],
     );
 
     return {
-      expiresAt: addSeconds(timestamp, mobileUploadTtlSeconds).toISOString(),
+      expiresAt,
       id,
       token,
-      uploadUrl: uploadUrl.toString(),
+      uploadUrl: storageIntent.signedUpload.url,
     };
   }
 
@@ -2025,10 +2058,8 @@ export function createApiService(options: ApiServiceOptions = {}) {
     const timestamp = now().toISOString();
     const rows = await client.execute<MobileUploadIntentRow>(
       `
-        UPDATE mobile_upload_intents
-        SET status = 'uploaded',
-            uploaded_at = $1,
-            updated_at = $1
+        SELECT *
+        FROM mobile_upload_intents
         WHERE id = $2
           AND token_hash = $3
           AND status = 'pending'
@@ -2039,7 +2070,6 @@ export function createApiService(options: ApiServiceOptions = {}) {
             (checksum_sha256 IS NULL AND $6::text IS NULL)
             OR checksum_sha256 = $6::text
           )
-        RETURNING *
       `,
       [
         timestamp,
@@ -2060,8 +2090,28 @@ export function createApiService(options: ApiServiceOptions = {}) {
       );
     }
 
-    // TODO(storage): hand the validated upload stream to the configured storage adapter once binary object persistence is available for mobile uploads.
-    return toMobileUploadIntent(intent);
+    await getStorage().completeUploadIntent({
+      byteSize: input.byteSize,
+      checksumSha256: input.checksumSha256,
+      contentType: input.contentType,
+      intentId: intent.id,
+      token: input.token,
+    });
+
+    const uploadedRows = await client.execute<MobileUploadIntentRow>(
+      `
+        UPDATE mobile_upload_intents
+        SET status = 'uploaded',
+            uploaded_at = $1,
+            updated_at = $1
+        WHERE id = $2
+          AND status = 'pending'
+        RETURNING *
+      `,
+      [timestamp, input.intentId],
+    );
+
+    return toMobileUploadIntent(uploadedRows[0] ?? intent);
   }
 
   function createCorsHeaders(origin?: string | null) {

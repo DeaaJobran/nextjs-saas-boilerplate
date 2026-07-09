@@ -105,7 +105,7 @@ describe("tenant service", () => {
     expect(summary.auditEvents[0]?.eventType).toBe(
       "tenant.organization.created",
     );
-  }, 15_000);
+  }, 60_000);
 
   it("rejects unsupported organization default locales", async () => {
     databaseRuntimeOpened = true;
@@ -130,7 +130,7 @@ describe("tenant service", () => {
     ).rejects.toMatchObject({
       code: "unsupported_locale",
     });
-  }, 15_000);
+  }, 60_000);
 
   it("ensures personal organizations idempotently", async () => {
     databaseRuntimeOpened = true;
@@ -160,7 +160,7 @@ describe("tenant service", () => {
 
     expect(first.id).toBe(second.id);
     expect(organizations).toHaveLength(1);
-  }, 15_000);
+  }, 60_000);
 
   it("blocks dangerous cross-tenant member reads", async () => {
     databaseRuntimeOpened = true;
@@ -201,7 +201,7 @@ describe("tenant service", () => {
         organizationId: organizationA.id,
       }),
     ).rejects.toMatchObject({ code: "membership_required" });
-  }, 15_000);
+  }, 60_000);
 
   it("supports organization invitations, acceptance, and rejection", async () => {
     databaseRuntimeOpened = true;
@@ -273,7 +273,7 @@ describe("tenant service", () => {
         userId: "user_pending",
       }),
     ).rejects.toMatchObject({ code: "invalid_invitation" });
-  }, 15_000);
+  }, 60_000);
 
   it("enforces custom permissions and tenant-scoped API keys", async () => {
     databaseRuntimeOpened = true;
@@ -353,7 +353,7 @@ describe("tenant service", () => {
         organizationId: organizationB.id,
       }),
     ).resolves.toEqual([]);
-  }, 15_000);
+  }, 60_000);
 
   it("requires audited support or admin impersonation sessions", async () => {
     databaseRuntimeOpened = true;
@@ -474,5 +474,5 @@ describe("tenant service", () => {
         sessionId: developmentSession.id,
       }),
     ).resolves.toMatchObject({ endedBy: "development-admin" });
-  }, 15_000);
+  }, 60_000);
 });

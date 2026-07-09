@@ -15,6 +15,7 @@
     "@nextjs-saas/config": "workspace:*",
     "@nextjs-saas/db": "workspace:*",
     "@nextjs-saas/localization": "workspace:*",
+    "@nextjs-saas/storage": "workspace:*",
     "@nextjs-saas/tenant": "workspace:*",
     "@nextjs-saas/ui": "workspace:*",
     "@simplewebauthn/browser": "^13.3.0",

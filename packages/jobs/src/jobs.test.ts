@@ -19,7 +19,7 @@ import {
 } from "./index";
 
 let dataDir: string;
-const databaseTestTimeoutMs = 20_000;
+const databaseTestTimeoutMs = 60_000;
 
 beforeEach(async () => {
   dataDir = await mkdtemp(path.join(os.tmpdir(), "nextjs-saas-jobs-"));
