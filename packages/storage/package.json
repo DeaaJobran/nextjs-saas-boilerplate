@@ -17,11 +17,11 @@
   "dependencies": {
     "@nextjs-saas/db": "workspace:*",
     "@nextjs-saas/tenant": "workspace:*",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/node": "^20",
     "typescript": "^5",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   }
 }
