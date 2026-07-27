@@ -18,10 +18,10 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "next": "16.2.10"
+    "next": "16.2.11"
   },
   "devDependencies": {
-    "next": "16.2.10",
+    "next": "16.2.11",
     "typescript": "^5"
   }
 }
