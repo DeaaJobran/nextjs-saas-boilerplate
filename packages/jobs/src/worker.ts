@@ -50,11 +50,11 @@ for (const schedule of createStorageMaintenanceSchedules(
 for (const schedule of messagingSchedules) {
   await registerCronSchedule(schedule);
 }
-let defaultHandlers: Record<string, WorkerHandler> = {
+const defaultHandlers: Record<string, WorkerHandler> = {
   healthcheck: async () => {},
   ...createMessagingJobHandlers(messaging),
 };
-let storageHandlers: Record<string, WorkerHandler> =
+const storageHandlers: Record<string, WorkerHandler> =
   createStorageMaintenanceHandlers(storage, storageRuntime.adapter.id);
 await Promise.all([
   runWorker({
