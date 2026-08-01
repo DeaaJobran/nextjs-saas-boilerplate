@@ -395,7 +395,9 @@ export function createMessagingService(options: MessagingServiceOptions) {
         })
       : undefined;
     const locale = input.locale ?? preference?.locale ?? "en";
-    const requiredDelivery = input.eventType.startsWith("auth.");
+    const requiredDelivery =
+      input.eventType.startsWith("auth.") ||
+      input.eventType === "tenant.invitation.notification";
     const status =
       preference?.emailEnabled === false && !requiredDelivery
         ? "suppressed"
@@ -479,7 +481,7 @@ export function createMessagingService(options: MessagingServiceOptions) {
             input.tenantId ?? null,
             messagingJobTypes.sendEmail,
             JSON.stringify({ deliveryId }),
-            maxAttempts,
+            maxAttempts + 1,
             timestamp,
           ],
         );
@@ -543,6 +545,44 @@ export function createMessagingService(options: MessagingServiceOptions) {
       if (current.status === "sent") {
         await ensureSentAudit(client, current);
         return toDelivery(current);
+      }
+
+      const staleBefore = new Date(
+        claimedAt.getTime() - deliveryClaimTimeoutMs,
+      ).toISOString();
+
+      if (
+        current.status === "sending" &&
+        current.attempts >= current.max_attempts &&
+        toIso(current.updated_at)! <= staleBefore
+      ) {
+        const message = "Email delivery timed out after its final attempt.";
+        const failedAt = claimedAt.toISOString();
+        const failed = await client.execute<DeliveryRow>(
+          `
+            UPDATE message_deliveries
+            SET status = 'failed', last_error = $1,
+                failed_at = $2, updated_at = $2
+            WHERE id = $3
+              AND status = 'sending'
+              AND attempts >= max_attempts
+              AND updated_at <= $4
+            RETURNING *
+          `,
+          [message, failedAt, deliveryId, staleBefore],
+        );
+
+        if (failed[0]) {
+          await audit(client, {
+            deliveryId,
+            eventType: "messaging.delivery.failed",
+            payload: { error: message },
+            tenantId: failed[0].tenant_id ?? undefined,
+            userId: failed[0].user_id ?? undefined,
+          });
+
+          return toDelivery(failed[0]);
+        }
       }
 
       if (current.status === "sending") {
@@ -755,17 +795,19 @@ export function createMessagingService(options: MessagingServiceOptions) {
     return rows.map(toDelivery);
   }
 
-  async function dispatchAuthOutbox(limit = 25) {
+  async function dispatchOutbox(limit = 25) {
     const client = await getClient();
     const events = await client.execute<{
       attempts: number;
+      event_type: "auth.notification" | "tenant.invitation.notification";
       id: string;
       payload: Record<string, unknown> | string;
+      tenant_id: string | null;
     }>(
       `
-        SELECT id, attempts, payload
+        SELECT id, tenant_id, event_type, attempts, payload
         FROM outbox_events
-        WHERE event_type = 'auth.notification'
+        WHERE event_type IN ('auth.notification', 'tenant.invitation.notification')
           AND status = 'queued'
           AND available_at <= $1
         ORDER BY created_at ASC
@@ -779,9 +821,15 @@ export function createMessagingService(options: MessagingServiceOptions) {
       try {
         const payload = parseJson(event.payload, {});
         const email = typeof payload.email === "string" ? payload.email : "";
-        const userId =
+        let userId =
           typeof payload.userId === "string" ? payload.userId : undefined;
-        const kind = typeof payload.kind === "string" ? payload.kind : "auth";
+        const isTenantInvitation =
+          event.event_type === "tenant.invitation.notification";
+        const kind = isTenantInvitation
+          ? "invitation"
+          : typeof payload.kind === "string"
+            ? payload.kind
+            : "auth";
 
         if (!validEmail(email)) {
           await client.execute(
@@ -796,22 +844,55 @@ export function createMessagingService(options: MessagingServiceOptions) {
           continue;
         }
 
-        let locale: MessageLocale = "en";
-        if (userId) {
+        let locale: MessageLocale | undefined;
+        if (!userId && isTenantInvitation) {
+          const users = await client.execute<{
+            id: string;
+            locale: string | null;
+          }>(
+            `
+              SELECT id, locale
+              FROM auth_users
+              WHERE normalized_email = LOWER($1)
+                AND deleted_at IS NULL
+              LIMIT 1
+            `,
+            [email.trim()],
+          );
+          userId = users[0]?.id;
+          locale = users[0]?.locale ?? undefined;
+        } else if (userId) {
           const users = await client.execute<{ locale: string | null }>(
-            "SELECT locale FROM auth_users WHERE id = $1 LIMIT 1",
+            "SELECT locale FROM auth_users WHERE id = $1 AND deleted_at IS NULL LIMIT 1",
             [userId],
           );
-          locale = users[0]?.locale ?? "en";
+          locale = users[0]?.locale ?? undefined;
+        }
+
+        const tenantId =
+          event.tenant_id ??
+          (typeof payload.organizationId === "string"
+            ? payload.organizationId
+            : undefined);
+        if (!locale && isTenantInvitation && tenantId) {
+          const organizations = await client.execute<{
+            default_locale: string;
+          }>("SELECT default_locale FROM organizations WHERE id = $1 LIMIT 1", [
+            tenantId,
+          ]);
+          locale = organizations[0]?.default_locale;
         }
 
         await queueEmail({
-          eventType: `auth.${kind}`,
+          eventType: isTenantInvitation
+            ? "tenant.invitation.notification"
+            : `auth.${kind}`,
           idempotencyKey: `outbox:${event.id}`,
-          locale,
-          payload,
+          locale: locale ?? "en",
+          payload: { ...payload, kind },
           recipient: { email },
           templateKey: "auth.notification",
+          tenantId,
           userId,
         });
         const timestamp = now().toISOString();
@@ -914,7 +995,7 @@ export function createMessagingService(options: MessagingServiceOptions) {
 
   return {
     createInAppNotification,
-    dispatchAuthOutbox,
+    dispatchOutbox,
     getPreference,
     listDeliveries,
     listInAppNotifications,
@@ -933,7 +1014,7 @@ export function createMessagingJobHandlers(
 ) {
   return {
     [messagingJobTypes.dispatchOutbox]: async () => {
-      await service.dispatchAuthOutbox();
+      await service.dispatchOutbox();
     },
     [messagingJobTypes.sendEmail]: async (job: {
       payload: Record<string, unknown>;

@@ -484,7 +484,7 @@ describe("messaging service", () => {
         ],
       );
 
-      await expect(service.dispatchAuthOutbox()).resolves.toBe(1);
+      await expect(service.dispatchOutbox()).resolves.toBe(1);
       const [delivery] = await service.listDeliveries({ userId: "user_1" });
 
       await expect(service.processEmailDelivery(delivery!.id)).rejects.toThrow(

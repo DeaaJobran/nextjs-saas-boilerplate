@@ -163,7 +163,7 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
     emailEnabled: formData.get("emailEnabled") === "on",
     eventType: "*",
     inAppEnabled: formData.get("inAppEnabled") === "on",
-    locale: session.user.locale,
+    locale: tenantContext.effectiveUser.locale,
     pushEnabled: formData.get("pushEnabled") === "on",
     smsEnabled: formData.get("smsEnabled") === "on",
     tenantId: tenantContext.organization.id,
