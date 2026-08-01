@@ -113,7 +113,7 @@ export async function handleApiRoute<T>(config: ApiRouteConfig<T>) {
       tenantId: (result) => result?.tenantId ?? tenantId,
     });
 
-    tenantId = result.tenantId;
+    tenantId = result.tenantId ?? tenantId;
 
     await service.recordApiRequest({
       context: { ...context, requestId },

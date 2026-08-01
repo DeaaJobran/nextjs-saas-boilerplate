@@ -63,7 +63,7 @@ const observability = createObservabilityService({
 });
 await observability.upsertUptimeMonitor({
   intervalSeconds: uptimeIntervalSeconds,
-  name: "Web application liveness",
+  name: "web-application-liveness",
   timeoutMs: Number(process.env.OBSERVABILITY_UPTIME_TIMEOUT_MS ?? 10_000),
   url: new URL(
     "/api/v1/health",

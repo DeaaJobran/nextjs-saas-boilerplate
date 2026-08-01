@@ -55,6 +55,9 @@ export default async function ObservabilityPage({
     down: t("uptimeStatus.down"),
     up: t("uptimeStatus.up"),
   };
+  const uptimeMonitorLabels: Record<string, string> = {
+    "web-application-liveness": t("uptimeMonitors.webApplicationLiveness"),
+  };
   const formatDuration = (durationMs: number) =>
     formatNumber(locale, durationMs, {
       maximumFractionDigits: 1,
@@ -155,7 +158,7 @@ export default async function ObservabilityPage({
                 key: "message",
               },
               {
-                cell: (row) => row.requestId ?? row.traceId ?? "—",
+                cell: (row) => row.requestId ?? row.traceId ?? row.jobId ?? "—",
                 header: t("table.correlation"),
                 key: "correlation",
               },
@@ -173,7 +176,11 @@ export default async function ObservabilityPage({
         <CardContent>
           <DataTable
             columns={[
-              { cell: (row) => row.name, header: t("table.name"), key: "name" },
+              {
+                cell: (row) => uptimeMonitorLabels[row.name] ?? row.name,
+                header: t("table.name"),
+                key: "name",
+              },
               {
                 cell: (row) =>
                   row.lastStatus

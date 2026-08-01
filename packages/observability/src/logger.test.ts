@@ -69,11 +69,17 @@ describe("structured logger", () => {
       "Bearer access-token password=hunter2 postgres://admin:db-secret@db.test/app",
     );
 
-    await logger.error("Provider request failed", { error });
+    await logger.error(
+      "Provider request failed token=message-secret redis://worker:queue-secret@cache.test/0",
+      { error },
+    );
 
     expect(records[0]?.error).toBeDefined();
-    expect(JSON.stringify(records[0]?.error)).not.toMatch(
-      /access-token|hunter2|db-secret/,
+    expect(JSON.stringify(records[0])).not.toMatch(
+      /access-token|hunter2|db-secret|message-secret|queue-secret/,
+    );
+    expect(records[0]?.message).toBe(
+      "Provider request failed token=[REDACTED] redis://[REDACTED]:[REDACTED]@cache.test/0",
     );
     expect(records[0]?.error).toMatchObject({
       message:

@@ -1,8 +1,8 @@
 import { context, trace } from "@opentelemetry/api";
 
 import type {
-  LoggerContext,
   LogError,
+  LoggerContext,
   LogLevel,
   LogTransport,
   StructuredLogRecord,
@@ -12,13 +12,97 @@ const sensitiveKey =
   /authorization|cookie|credential|password|secret|token|api[-_]?key|session/i;
 
 const bearerCredential = /\bBearer\s+[^\s,;]+/gi;
-const connectionCredential = /([a-z][a-z\d+.-]*:\/\/)([^/\s:@]+):([^@\s/]+)@/gi;
 const labeledCredential =
   /\b(authorization|cookie|credential|password|secret|token|api[-_]?key|session)(\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;&]+)/gi;
 
+function isSchemeCharacter(value: string) {
+  const code = value.charCodeAt(0);
+
+  return (
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    value === "+" ||
+    value === "-" ||
+    value === "."
+  );
+}
+
+function isAsciiLetter(value: string) {
+  const code = value.charCodeAt(0);
+
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isAuthorityBoundary(value: string) {
+  return (
+    value === "/" ||
+    value === "?" ||
+    value === "#" ||
+    value === " " ||
+    value === "\t" ||
+    value === "\n" ||
+    value === "\r"
+  );
+}
+
+function redactConnectionCredentials(value: string) {
+  let redacted = "";
+  let searchStart = 0;
+
+  while (searchStart < value.length) {
+    const separator = value.indexOf("://", searchStart);
+
+    if (separator === -1) {
+      return redacted + value.slice(searchStart);
+    }
+
+    let schemeStart = separator;
+
+    while (
+      schemeStart > searchStart &&
+      isSchemeCharacter(value[schemeStart - 1] ?? "")
+    ) {
+      schemeStart -= 1;
+    }
+
+    const authorityStart = separator + 3;
+
+    if (!isAsciiLetter(value[schemeStart] ?? "")) {
+      redacted += value.slice(searchStart, authorityStart);
+      searchStart = authorityStart;
+      continue;
+    }
+
+    let authorityEnd = authorityStart;
+
+    while (
+      authorityEnd < value.length &&
+      !isAuthorityBoundary(value[authorityEnd] ?? "")
+    ) {
+      authorityEnd += 1;
+    }
+
+    const authority = value.slice(authorityStart, authorityEnd);
+    const credentialEnd = authority.lastIndexOf("@");
+    const credentialSeparator = authority.indexOf(":");
+
+    redacted += value.slice(searchStart, authorityStart);
+
+    if (credentialSeparator < 1 || credentialEnd <= credentialSeparator + 1) {
+      redacted += authority;
+    } else {
+      redacted += `[REDACTED]:[REDACTED]@${authority.slice(credentialEnd + 1)}`;
+    }
+
+    searchStart = authorityEnd;
+  }
+
+  return redacted;
+}
+
 function redactLogText(value: string) {
-  const redacted = value
-    .replace(connectionCredential, "$1[REDACTED]:[REDACTED]@")
+  const redacted = redactConnectionCredentials(value)
     .replace(bearerCredential, "Bearer [REDACTED]")
     .replace(labeledCredential, "$1$2[REDACTED]");
 
@@ -115,7 +199,7 @@ export function createLogger(options: {
       error: redactLogError(input.error),
       jobId: input.jobId ?? options.bindings?.jobId,
       level,
-      message,
+      message: redactLogText(message),
       requestId: input.requestId ?? options.bindings?.requestId,
       service: options.service,
       spanId: spanContext?.spanId,

@@ -130,7 +130,7 @@
       "monitors": "Monitors"
     },
     "table": {
-      "correlation": "Request / trace",
+      "correlation": "Request / trace / job",
       "duration": "Duration",
       "events": "Events",
       "level": "Level",
@@ -142,6 +142,9 @@
       "time": "Time"
     },
     "uptime": "Uptime checks",
+    "uptimeMonitors": {
+      "webApplicationLiveness": "Web application liveness"
+    },
     "uptimeStatus": {
       "down": "Down",
       "up": "Up"
