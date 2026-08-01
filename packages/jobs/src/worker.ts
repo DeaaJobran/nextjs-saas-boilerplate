@@ -1,4 +1,10 @@
 import {
+  createEmailRuntimeConfiguration,
+  createMessagingJobHandlers,
+  createMessagingService,
+  messagingSchedules,
+} from "@nextjs-saas/emails";
+import {
   createStorageMaintenanceHandlers,
   createStorageMaintenanceSchedules,
   createStorageRuntimeConfiguration,
@@ -7,6 +13,13 @@ import {
 } from "@nextjs-saas/storage";
 
 import { registerCronSchedule, runWorker } from "./index";
+
+type WorkerHandler = (job: {
+  id: string;
+  payload: Record<string, unknown>;
+  tenantId?: string;
+  type: string;
+}) => Promise<void> | void;
 
 const abortController = new AbortController();
 
@@ -22,19 +35,37 @@ const storage = createStorageService({
   adapter: storageRuntime.adapter,
   provider: storageRuntime.provider,
 });
-
+const emailRuntime = createEmailRuntimeConfiguration();
+const messaging = createMessagingService({
+  brand: emailRuntime.brand,
+  emailProvider: emailRuntime.provider,
+  from: emailRuntime.from,
+});
 for (const schedule of createStorageMaintenanceSchedules(
   storageRuntime.adapter.id,
 )) {
   await registerCronSchedule(schedule);
 }
 
-await runWorker({
-  handlers: {
-    healthcheck: async () => {},
-    ...createStorageMaintenanceHandlers(storage, storageRuntime.adapter.id),
-  },
-  queue: storageMaintenanceQueue(storageRuntime.adapter.id),
-  signal: abortController.signal,
-  workerId: `worker-${process.pid}`,
-});
+for (const schedule of messagingSchedules) {
+  await registerCronSchedule(schedule);
+}
+const defaultHandlers: Record<string, WorkerHandler> = {
+  healthcheck: async () => {},
+  ...createMessagingJobHandlers(messaging),
+};
+const storageHandlers: Record<string, WorkerHandler> =
+  createStorageMaintenanceHandlers(storage, storageRuntime.adapter.id);
+await Promise.all([
+  runWorker({
+    handlers: defaultHandlers,
+    signal: abortController.signal,
+    workerId: `worker-${process.pid}-default`,
+  }),
+  runWorker({
+    handlers: storageHandlers,
+    queue: storageMaintenanceQueue(storageRuntime.adapter.id),
+    signal: abortController.signal,
+    workerId: `worker-${process.pid}-storage-${storageRuntime.adapter.id}`,
+  }),
+]);

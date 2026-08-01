@@ -6,9 +6,11 @@ describe("createEnv", () => {
   it("uses safe defaults for local development", () => {
     expect(createEnv({})).toEqual({
       AUTH_ALLOW_ADMIN_BYPASS: false,
+      EMAIL_PROVIDER: "preview",
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
       NODE_ENV: "development",
       S3_FORCE_PATH_STYLE: false,
+      SMTP_SECURE: false,
       STORAGE_PROVIDER_KIND: "local",
     });
   });
@@ -68,6 +70,7 @@ describe("createEnv", () => {
         SMTP_FROM: "no-reply@example.test",
         SMTP_HOST: "127.0.0.1",
         SMTP_PORT: "1025",
+        SMTP_SECURE: "false",
         SMTP_WEB_PORT: "8025",
       }),
     ).toMatchObject({
@@ -81,6 +84,7 @@ describe("createEnv", () => {
       S3_PORT: 9000,
       STORAGE_PROVIDER_KIND: "minio",
       SMTP_PORT: 1025,
+      SMTP_SECURE: false,
       SMTP_WEB_PORT: 8025,
     });
   });

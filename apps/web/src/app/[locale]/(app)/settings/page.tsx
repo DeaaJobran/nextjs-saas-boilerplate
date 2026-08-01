@@ -1,4 +1,3 @@
-import { isLocale, localeLabels } from "@nextjs-saas/localization";
 import {
   Badge,
   Button,
@@ -8,7 +7,6 @@ import {
   CardTitle,
   DataTable,
   Field,
-  SelectInput,
   TextInput,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
@@ -19,6 +17,7 @@ import { getAuthService, requireCurrentSession } from "../../../../lib/auth";
 import { getContentRepository } from "../../../../lib/content-store";
 import { assertLocale } from "../../../../lib/locale";
 import { formatLocaleDateTime } from "../../../../lib/locale-formatters";
+import { getActiveTenantContext } from "../../../../lib/tenant";
 import {
   deleteAccountAction,
   enableMfaAction,
@@ -27,8 +26,9 @@ import {
   requestEmailChangeAction,
   revokeSessionAction,
   startMfaEnrollmentAction,
-  updateProfileAction,
 } from "./actions";
+import { NotificationSettings } from "./notification-settings";
+import { ProfileSettings } from "./profile-settings";
 
 type SettingsSearchParams = {
   error?: string;
@@ -49,18 +49,15 @@ export default async function SettingsPage({
   const session = await requireCurrentSession();
   const repository = await getContentRepository();
   const availableLocales = repository.listEnabledLocales();
-  const preferredLocale =
-    isLocale(session.user.locale) &&
-    availableLocales.includes(session.user.locale)
-      ? session.user.locale
-      : resolvedLocale;
   const auth = getAuthService();
-  const [sessions, mfaFactors, passkeys, mfaSetup] = await Promise.all([
-    auth.listSessions(session.user.id),
-    auth.listMfaFactors(session.user.id),
-    auth.listPasskeys(session.user.id),
-    readMfaSetup(),
-  ]);
+  const [tenantContext, sessions, mfaFactors, passkeys, mfaSetup] =
+    await Promise.all([
+      getActiveTenantContext("organization.read"),
+      auth.listSessions(session.user.id),
+      auth.listMfaFactors(session.user.id),
+      auth.listPasskeys(session.user.id),
+      readMfaSetup(),
+    ]);
 
   return (
     <div className="grid gap-6">
@@ -83,57 +80,25 @@ export default async function SettingsPage({
                       ? t("status.sessionRevoked")
                       : params.status === "invalid-locale"
                         ? t("status.invalidLocale")
-                        : t("status.generic")}
+                        : params.status === "notification-preferences-updated"
+                          ? t("status.notificationPreferencesUpdated")
+                          : params.status === "notification-read"
+                            ? t("status.notificationRead")
+                            : t("status.generic")}
         </p>
       ) : null}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("profileTitle")}</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            {t("profileDescription")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form
-            action={updateProfileAction}
-            className="grid gap-4 md:grid-cols-2"
-          >
-            <input name="locale" type="hidden" value={resolvedLocale} />
-            <Field label={t("displayName")}>
-              <TextInput
-                autoComplete="name"
-                defaultValue={session.user.displayName}
-                name="displayName"
-              />
-            </Field>
-            <Field label={t("avatarUrl")}>
-              <TextInput
-                defaultValue={session.user.avatarUrl}
-                name="avatarUrl"
-                type="url"
-              />
-            </Field>
-            <Field
-              description={t("preferredLocaleDescription")}
-              label={t("preferredLocale")}
-            >
-              <SelectInput
-                defaultValue={preferredLocale}
-                name="preferredLocale"
-              >
-                {availableLocales.map((availableLocale) => (
-                  <option key={availableLocale} value={availableLocale}>
-                    {localeLabels[availableLocale]}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <div className="md:col-span-2">
-              <Button type="submit">{t("saveProfile")}</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      <ProfileSettings
+        availableLocales={availableLocales}
+        avatarUrl={session.user.avatarUrl}
+        displayName={session.user.displayName}
+        locale={resolvedLocale}
+        userLocale={session.user.locale}
+      />
+      <NotificationSettings
+        locale={resolvedLocale}
+        tenantId={tenantContext.organization.id}
+        userId={tenantContext.effectiveUser.id}
+      />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>

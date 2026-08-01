@@ -2587,6 +2587,185 @@ export const storageAuditEvents = pgTable(
   ],
 );
 
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    emailEnabled: boolean("email_enabled").notNull().default(true),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    inAppEnabled: boolean("in_app_enabled").notNull().default(true),
+    locale: text("locale"),
+    pushEnabled: boolean("push_enabled").notNull().default(true),
+    quietHours: jsonb("quiet_hours").$type<Record<string, unknown>>().notNull(),
+    smsEnabled: boolean("sms_enabled").notNull().default(false),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("notification_preferences_scope_unique").on(
+      table.userId,
+      sql`COALESCE(${table.tenantId}, '')`,
+      table.eventType,
+    ),
+    index("notification_preferences_tenant_user_idx").on(
+      table.tenantId,
+      table.userId,
+    ),
+  ],
+);
+
+export const inAppNotifications = pgTable(
+  "in_app_notifications",
+  {
+    actionUrl: text("action_url"),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    dismissedAt: timestamp("dismissed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    readAt: timestamp("read_at", { mode: "string", withTimezone: true }),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    title: text("title").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("in_app_notifications_user_unread_idx").on(
+      table.userId,
+      table.readAt,
+      table.createdAt,
+    ),
+    index("in_app_notifications_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const messageDeliveries = pgTable(
+  "message_deliveries",
+  {
+    attempts: integer("attempts").notNull().default(0),
+    brand: jsonb("brand").$type<Record<string, unknown>>().notNull(),
+    channel: text("channel").notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    eventType: text("event_type").notNull(),
+    failedAt: timestamp("failed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    id: text("id").primaryKey(),
+    idempotencyKey: text("idempotency_key"),
+    lastError: text("last_error"),
+    locale: text("locale").notNull(),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    provider: text("provider").notNull(),
+    providerMessageId: text("provider_message_id"),
+    queuedAt: timestamp("queued_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    recipient: text("recipient").notNull(),
+    sentAt: timestamp("sent_at", { mode: "string", withTimezone: true }),
+    status: text("status").notNull(),
+    subject: text("subject"),
+    templateKey: text("template_key").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    uniqueIndex("message_deliveries_idempotency_unique")
+      .on(sql`COALESCE(${table.tenantId}, '')`, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+    index("message_deliveries_status_queued_idx").on(
+      table.status,
+      table.queuedAt,
+    ),
+    index("message_deliveries_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+    index("message_deliveries_user_created_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const messagingAuditEvents = pgTable(
+  "messaging_audit_events",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    deliveryId: text("delivery_id").references(() => messageDeliveries.id, {
+      onDelete: "set null",
+    }),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    userId: text("user_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("messaging_audit_events_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+    index("messaging_audit_events_delivery_created_idx").on(
+      table.deliveryId,
+      table.createdAt,
+    ),
+    uniqueIndex("messaging_audit_events_delivery_sent_unique")
+      .on(table.deliveryId, table.eventType)
+      .where(
+        sql`${table.deliveryId} IS NOT NULL AND ${table.eventType} = 'messaging.delivery.sent'`,
+      ),
+  ],
+);
+
 export const managedPagesRelations = relations(managedPages, ({ many }) => ({
   sections: many(pageSections),
   versions: many(managedPageVersions),

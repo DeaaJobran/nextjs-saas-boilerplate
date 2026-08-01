@@ -244,6 +244,7 @@ type ImpersonationRow = {
   reason: string;
   started_at: Date | string;
   subject_email?: string;
+  subject_locale?: string;
   subject_name?: string;
   subject_user_id: string;
 };
@@ -370,6 +371,7 @@ export type ImpersonationSession = {
   reason: string;
   startedAt: string;
   subjectEmail?: string;
+  subjectLocale?: string;
   subjectName?: string;
   subjectUserId: string;
 };
@@ -732,6 +734,7 @@ function toImpersonationSession(row: ImpersonationRow): ImpersonationSession {
     reason: row.reason,
     startedAt: toIsoString(row.started_at)!,
     subjectEmail: row.subject_email,
+    subjectLocale: row.subject_locale,
     subjectName: row.subject_name,
     subjectUserId: row.subject_user_id,
   };
@@ -1638,7 +1641,8 @@ export function createTenantService(options: TenantServiceOptions = {}) {
             actor.display_name AS actor_name,
             actor.email AS actor_email,
             subject.display_name AS subject_name,
-            subject.email AS subject_email
+            subject.email AS subject_email,
+            subject.locale AS subject_locale
           FROM impersonation_sessions s
           INNER JOIN auth_users actor ON actor.id = s.actor_id
           INNER JOIN auth_users subject ON subject.id = s.subject_user_id
@@ -1738,7 +1742,8 @@ export function createTenantService(options: TenantServiceOptions = {}) {
                 actor.display_name AS actor_name,
                 actor.email AS actor_email,
                 subject.display_name AS subject_name,
-                subject.email AS subject_email
+                subject.email AS subject_email,
+                subject.locale AS subject_locale
               FROM impersonation_sessions s
               INNER JOIN auth_users actor ON actor.id = s.actor_id
               INNER JOIN auth_users subject ON subject.id = s.subject_user_id

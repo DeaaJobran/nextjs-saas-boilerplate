@@ -81,14 +81,17 @@ export async function getActiveTenantContext(permission?: TenantPermission) {
   const impersonation = impersonationSessionId
     ? await readActiveImpersonation(session.user.id, impersonationSessionId)
     : undefined;
+  const sessionLocale =
+    "locale" in session.user ? session.user.locale : undefined;
   const effectiveUser = impersonation
     ? {
         displayName: impersonation.subjectName ?? session.user.displayName,
         email: impersonation.subjectEmail ?? session.user.email,
         id: impersonation.subjectUserId,
+        locale: impersonation.subjectLocale,
         role: session.user.role,
       }
-    : session.user;
+    : { ...session.user, locale: sessionLocale };
   const organizations = await tenant.listOrganizationsForUser(effectiveUser.id);
   const availableOrganizations =
     organizations.length > 0

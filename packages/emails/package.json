@@ -1,0 +1,30 @@
+{
+  "name": "@nextjs-saas/emails",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapters": "./src/adapters/index.ts",
+    "./renderer": "./src/renderer.ts",
+    "./templates": "./src/templates.tsx",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/emails/src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nextjs-saas/db": "workspace:*",
+    "@react-email/render": "^2.0.7",
+    "nodemailer": "^9.0.3",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/nodemailer": "^7.0.11",
+    "@types/react": "^19",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
+  }
+}

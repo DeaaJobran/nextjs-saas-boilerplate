@@ -5,12 +5,15 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  DataTable,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
 
 import { requireAdminSession } from "../../../../lib/admin-auth";
 import { getContentRepository } from "../../../../lib/content-store";
 import { assertLocale } from "../../../../lib/locale";
+import { formatLocaleDateTime } from "../../../../lib/locale-formatters";
+import { getMessagingService } from "../../../../lib/messaging";
 import { getTenantService } from "../../../../lib/tenant";
 
 export default async function AdminPage({
@@ -28,10 +31,13 @@ export default async function AdminPage({
   const pages = repository.listAllPages();
   const submissions = repository.listContactSubmissions();
   const localization = repository.getLocalizationSettings();
-  const tenantSummary = await getTenantService().getSuperAdminSummary({
-    actorGlobalRole: session.user.role,
-    actorId: session.user.id,
-  });
+  const [tenantSummary, deliveries] = await Promise.all([
+    getTenantService().getSuperAdminSummary({
+      actorGlobalRole: session.user.role,
+      actorId: session.user.id,
+    }),
+    getMessagingService().listDeliveries({ limit: 20 }),
+  ]);
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
@@ -64,6 +70,11 @@ export default async function AdminPage({
           String(tenantSummary.activeImpersonations.length),
           t("impersonationsDescription"),
         ],
+        [
+          t("messageDeliveries"),
+          String(deliveries.length),
+          t("messageDeliveriesDescription"),
+        ],
       ].map(([title, value, description]) => (
         <Card key={title}>
           <CardHeader>
@@ -78,6 +89,45 @@ export default async function AdminPage({
           </CardContent>
         </Card>
       ))}
+      <Card className="md:col-span-3">
+        <CardHeader>
+          <CardTitle>{t("deliveryLogTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={[
+              {
+                cell: (delivery) => delivery.recipient,
+                header: t("deliveryTable.recipient"),
+                key: "recipient",
+              },
+              {
+                cell: (delivery) => delivery.eventType,
+                header: t("deliveryTable.event"),
+                key: "event",
+              },
+              {
+                cell: (delivery) => delivery.provider,
+                header: t("deliveryTable.provider"),
+                key: "provider",
+              },
+              {
+                cell: (delivery) => delivery.status,
+                header: t("deliveryTable.status"),
+                key: "status",
+              },
+              {
+                cell: (delivery) =>
+                  formatLocaleDateTime(locale, delivery.createdAt),
+                header: t("deliveryTable.created"),
+                key: "created",
+              },
+            ]}
+            data={deliveries}
+            emptyLabel={t("emptyDeliveries")}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
