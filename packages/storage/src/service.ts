@@ -1734,7 +1734,7 @@ export function createStorageService(options: StorageServiceOptions = {}) {
         SELECT intent.byte_size, intent.file_id, intent.object_key, intent.tenant_id
         FROM storage_upload_intents AS intent
         INNER JOIN storage_files AS file ON file.id = intent.file_id
-        WHERE intent.status IN ('pending', 'processing')
+        WHERE intent.status = 'pending'
           AND intent.expires_at <= $1
           AND file.provider_id = $2
       `,
@@ -1758,7 +1758,7 @@ export function createStorageService(options: StorageServiceOptions = {}) {
             SET status = 'expired',
                 updated_at = $2
             WHERE file_id = $1
-              AND status IN ('pending', 'processing')
+              AND status = 'pending'
           `,
           [row.file_id, timestamp],
         );

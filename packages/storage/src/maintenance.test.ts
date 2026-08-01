@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createStorageMaintenanceHandlers,
-  storageMaintenanceJobTypes,
+  createStorageMaintenanceJobTypes,
+  createStorageMaintenanceSchedules,
+  storageMaintenanceQueue,
 } from "./maintenance";
 
 describe("storage maintenance handlers", () => {
@@ -14,15 +16,20 @@ describe("storage maintenance handlers", () => {
     };
     const handlers = createStorageMaintenanceHandlers(
       service as never,
+      "primary",
       () => new Date("2026-08-01T12:00:00.000Z"),
     );
+    const jobTypes = createStorageMaintenanceJobTypes("primary");
+    const providerPayload = { providerId: "primary" };
 
-    await handlers[storageMaintenanceJobTypes.expiredUploadIntents]();
-    await handlers[storageMaintenanceJobTypes.orphanedFiles]({
-      payload: { olderThanSeconds: 3600 },
+    await handlers[jobTypes.expiredUploadIntents]({
+      payload: providerPayload,
     });
-    await handlers[storageMaintenanceJobTypes.deletedFiles]({
-      payload: { olderThanSeconds: 7200 },
+    await handlers[jobTypes.orphanedFiles]({
+      payload: { ...providerPayload, olderThanSeconds: 3600 },
+    });
+    await handlers[jobTypes.deletedFiles]({
+      payload: { ...providerPayload, olderThanSeconds: 7200 },
     });
 
     expect(service.cleanupExpiredUploadIntents).toHaveBeenCalledOnce();
@@ -32,5 +39,21 @@ describe("storage maintenance handlers", () => {
     expect(service.cleanupDeletedFiles).toHaveBeenCalledWith({
       olderThan: "2026-08-01T10:00:00.000Z",
     });
+  });
+
+  it("routes each provider through distinct schedules and queues", () => {
+    const primary = createStorageMaintenanceSchedules("primary");
+    const archive = createStorageMaintenanceSchedules("archive");
+
+    expect(primary.map((schedule) => schedule.id)).not.toEqual(
+      archive.map((schedule) => schedule.id),
+    );
+    expect(
+      primary.every((schedule) => schedule.queue === "storage:primary"),
+    ).toBe(true);
+    expect(
+      primary.every((schedule) => schedule.payload.providerId === "primary"),
+    ).toBe(true);
+    expect(storageMaintenanceQueue("archive")).toBe("storage:archive");
   });
 });

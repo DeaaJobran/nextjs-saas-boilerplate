@@ -406,6 +406,19 @@ describe("storage service", () => {
       ownerId: "storage_owner",
       tenantId: organization.id,
     });
+    const processing = await storage.createUploadIntent({
+      byteSize: 10,
+      contentType: "text/plain",
+      expiresAt: new Date(fixedNow.getTime() - 1000).toISOString(),
+      fileName: "processing.txt",
+      ownerId: "storage_owner",
+      tenantId: organization.id,
+    });
+
+    await runtime.execute(
+      `UPDATE storage_upload_intents SET status = 'processing' WHERE file_id = $1`,
+      [processing.file.id],
+    );
 
     expect(expired.status).toBe("pending");
     await expect(storage.cleanupExpiredUploadIntents()).resolves.toBe(1);
@@ -415,6 +428,12 @@ describe("storage service", () => {
         [archiveExpired.file.id],
       ),
     ).resolves.toMatchObject([{ status: "pending" }]);
+    await expect(
+      runtime.execute<{ status: string }>(
+        `SELECT status FROM storage_upload_intents WHERE file_id = $1`,
+        [processing.file.id],
+      ),
+    ).resolves.toMatchObject([{ status: "processing" }]);
   }, 60_000);
 
   it("generates signed URLs for S3-compatible providers", async () => {

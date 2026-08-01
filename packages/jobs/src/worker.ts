@@ -1,8 +1,9 @@
 import {
   createStorageMaintenanceHandlers,
+  createStorageMaintenanceSchedules,
   createStorageRuntimeConfiguration,
   createStorageService,
-  storageMaintenanceSchedules,
+  storageMaintenanceQueue,
 } from "@nextjs-saas/storage";
 
 import { registerCronSchedule, runWorker } from "./index";
@@ -22,15 +23,18 @@ const storage = createStorageService({
   provider: storageRuntime.provider,
 });
 
-for (const schedule of storageMaintenanceSchedules) {
+for (const schedule of createStorageMaintenanceSchedules(
+  storageRuntime.adapter.id,
+)) {
   await registerCronSchedule(schedule);
 }
 
 await runWorker({
   handlers: {
     healthcheck: async () => {},
-    ...createStorageMaintenanceHandlers(storage),
+    ...createStorageMaintenanceHandlers(storage, storageRuntime.adapter.id),
   },
+  queue: storageMaintenanceQueue(storageRuntime.adapter.id),
   signal: abortController.signal,
   workerId: `worker-${process.pid}`,
 });
