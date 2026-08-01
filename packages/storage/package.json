@@ -7,6 +7,8 @@
     ".": "./src/index.ts",
     "./adapters/local": "./src/adapters/local.ts",
     "./adapters/s3-compatible": "./src/adapters/s3-compatible.ts",
+    "./config": "./src/config.ts",
+    "./maintenance": "./src/maintenance.ts",
     "./media": "./src/media.ts",
     "./types": "./src/types.ts"
   },

@@ -9,6 +9,7 @@ describe("createEnv", () => {
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
       NODE_ENV: "development",
       S3_FORCE_PATH_STYLE: false,
+      STORAGE_PROVIDER_KIND: "local",
     });
   });
 
@@ -62,6 +63,8 @@ describe("createEnv", () => {
         S3_PORT: "9000",
         S3_REGION: "us-east-1",
         S3_SECRET_ACCESS_KEY: "minioadmin",
+        STORAGE_PROVIDER_KIND: "minio",
+        STORAGE_PROVIDER_NAME: "Local MinIO",
         SMTP_FROM: "no-reply@example.test",
         SMTP_HOST: "127.0.0.1",
         SMTP_PORT: "1025",
@@ -76,6 +79,7 @@ describe("createEnv", () => {
       S3_CONSOLE_PORT: 9001,
       S3_FORCE_PATH_STYLE: true,
       S3_PORT: 9000,
+      STORAGE_PROVIDER_KIND: "minio",
       SMTP_PORT: 1025,
       SMTP_WEB_PORT: 8025,
     });

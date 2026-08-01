@@ -28,6 +28,7 @@ The project has a working foundation for the web app, database, self-hosted iden
 - Self-hosted `@nextjs-saas/auth` package with email/password, magic links, email verification, password reset, refresh sessions, passkeys, TOTP MFA primitives, authorization helpers, audit events, and auth tests.
 - Tenant package with organizations, memberships, invitations, roles, permissions, tenant API keys, quotas, usage limits, feature flags, audit logs, support impersonation, and tenant tests.
 - Billing package with database-backed plans, localized plan copy, multi-currency prices, tenant billing settings, tax settings/rates, usage meters, subscriptions, invoices, payment methods, refunds, entitlements, signed idempotent webhooks, a mock provider adapter, and a Stripe-compatible adapter.
+- Storage package with local, S3, Wasabi, MinIO, and R2 adapters, signed transfers, tenant ownership policies, upload validation, media previews, malware scanning hooks, lifecycle cleanup, quota accounting, audit records, and tests.
 - Admin and super-admin surfaces for content, users, tenant controls, and impersonation workflows.
 - Jobs package with background job and cron schedule primitives.
 - Local Docker Compose services for PostgreSQL, Redis, MinIO, and Mailpit.
@@ -36,7 +37,6 @@ The project has a working foundation for the web app, database, self-hosted iden
 
 ## Roadmap Highlights
 
-- Storage/file module with provider adapters, signed URLs, validation, ownership policies, previews, cleanup, and malware scanning hooks.
 - Email and notification provider adapters with React Email templates and delivery logs.
 - Public API, OpenAPI generation, mobile session support, OAuth/OIDC support, SDK path, and API usage tracking.
 - Observability module with structured logs, metrics, tracing, health checks, uptime checks, and operational dashboards.
@@ -141,6 +141,7 @@ pnpm build:storybook
 - `packages/db`: database runtime, schema, migrations, content repository, query helpers, and scripts.
 - `packages/jobs`: background job and cron primitives.
 - `packages/localization`: locale definitions, direction helpers, and locale-aware formatting.
+- `packages/storage`: tenant-aware files, provider adapters, signed transfers, validation, media processing, lifecycle cleanup, quota accounting, and audit records.
 - `packages/tenant`: organizations, memberships, invitations, tenant permissions, tenant API keys, quotas, feature flags, audit, and impersonation.
 - `packages/ui`: shared UI primitives, components, styles, and Storybook stories.
 

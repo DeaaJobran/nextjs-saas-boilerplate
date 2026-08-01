@@ -8,6 +8,7 @@ Current runtime migrations:
 - `0002_service_foundation.sql`: event log, outbox, idempotency keys, generic API keys, rate-limit buckets, background jobs, and cron schedules.
 - `0003_auth_identity_foundation.sql`: self-hosted auth users, accounts, sessions, tokens, challenges, passkeys, MFA, invitations, login attempts, OAuth states, and auth audit events.
 - `0004_tenant_admin_foundation.sql`: organizations, memberships, invitations, feature flags, usage limits, quotas, impersonation sessions, and tenant audit events.
+- `0008_storage_file_management.sql`: provider-neutral tenant file records, upload intents, access grants, variants, usage accounting, and storage audit events.
 
 `pnpm db:generate` writes Drizzle draft migrations to `packages/db/migrations/generated/`. Treat those files as local review artifacts: inspect the generated SQL, promote the reviewed statements into the next numbered runtime migration, and add the same SQL to the migration manifest before committing.
 

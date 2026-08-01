@@ -389,9 +389,32 @@ describe("storage service", () => {
       ownerId: "storage_owner",
       tenantId: organization.id,
     });
+    const archiveStorage = createStorageService({
+      adapter: createLocalStorageAdapter({
+        id: "archive",
+        rootDir: localRoot,
+      }),
+      client: runtime,
+      now: () => fixedNow,
+      uploadTtlSeconds: 60,
+    });
+    const archiveExpired = await archiveStorage.createUploadIntent({
+      byteSize: 7,
+      contentType: "text/plain",
+      expiresAt: new Date(fixedNow.getTime() - 1000).toISOString(),
+      fileName: "archive-expired.txt",
+      ownerId: "storage_owner",
+      tenantId: organization.id,
+    });
 
     expect(expired.status).toBe("pending");
     await expect(storage.cleanupExpiredUploadIntents()).resolves.toBe(1);
+    await expect(
+      runtime.execute<{ status: string }>(
+        `SELECT status FROM storage_upload_intents WHERE file_id = $1`,
+        [archiveExpired.file.id],
+      ),
+    ).resolves.toMatchObject([{ status: "pending" }]);
   }, 60_000);
 
   it("generates signed URLs for S3-compatible providers", async () => {
