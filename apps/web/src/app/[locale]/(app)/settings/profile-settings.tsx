@@ -1,4 +1,4 @@
-import { isLocale, type Locale,localeLabels } from "@nextjs-saas/localization";
+import { isLocale, type Locale, localeLabels } from "@nextjs-saas/localization";
 import {
   Button,
   Card,
