@@ -1866,6 +1866,25 @@ export function createTenantService(options: TenantServiceOptions = {}) {
       return rows.map(toMembership);
     },
 
+    async listMembershipsForUser(userId: string) {
+      const client = await getClient();
+      const rows = await client.execute<MembershipRow>(
+        `
+          SELECT m.*
+          FROM organization_memberships m
+          INNER JOIN organizations o ON o.id = m.organization_id
+          WHERE m.user_id = $1
+            AND m.status = 'active'
+            AND m.removed_at IS NULL
+            AND o.deleted_at IS NULL
+          ORDER BY m.created_at ASC
+        `,
+        [userId],
+      );
+
+      return rows.map(toMembership);
+    },
+
     async listOrganizationsForUser(userId: string) {
       const client = await getClient();
       const rows = await client.execute<OrganizationRow>(

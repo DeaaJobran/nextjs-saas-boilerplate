@@ -68,6 +68,50 @@ describe("database migrations", () => {
     await expect(runMigrations(runtime)).resolves.toEqual([]);
   }, 60_000);
 
+  it("merges legacy global rate-limit buckets before replacing their index", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+    const pendingMigration = migrationManifest.at(-1)!;
+
+    for (const migration of migrationManifest.slice(0, -1)) {
+      await runtime.execute(migration.sql);
+      await runtime.execute(
+        "INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
+        [migration.id],
+      );
+    }
+
+    const bucketTimestamp = "2026-08-01T00:00:00.000Z";
+
+    for (const [id, count] of [
+      ["legacy_bucket_1", 2],
+      ["legacy_bucket_2", 3],
+    ] as const) {
+      await runtime.execute(
+        `
+          INSERT INTO rate_limit_buckets (
+            id, tenant_id, identifier, scope, window_start,
+            window_seconds, count, expires_at
+          )
+          VALUES ($1, NULL, 'hashed-identifier', 'auth', $2, 60, $3, $4)
+        `,
+        [id, bucketTimestamp, count, "2026-08-01T00:01:00.000Z"],
+      );
+    }
+
+    await expect(runMigrations(runtime)).resolves.toEqual([
+      pendingMigration.id,
+    ]);
+
+    const buckets = await runtime.execute<{ count: number }>(
+      "SELECT count FROM rate_limit_buckets WHERE tenant_id IS NULL AND identifier = 'hashed-identifier' AND scope = 'auth'",
+    );
+
+    expect(buckets).toHaveLength(1);
+    expect(Number(buckets[0]?.count)).toBe(5);
+  }, 60_000);
+
   it("creates service foundation tables", async () => {
     databaseRuntimeOpened = true;
 
@@ -516,6 +560,62 @@ describe("database migrations", () => {
       "observability_spans",
       "uptime_check_results",
       "uptime_monitors",
+    ]);
+  }, 60_000);
+
+  it("creates security, privacy, and legal-acceptance tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'legal_acceptances',
+          'privacy_requests',
+          'security_audit_events'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "legal_acceptances",
+      "privacy_requests",
+      "security_audit_events",
+    ]);
+
+    const passkeyColumns = await runtime.execute<{ column_name: string }>(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'auth_passkeys'
+        AND column_name = 'user_verified'
+    `);
+
+    expect(passkeyColumns).toEqual([{ column_name: "user_verified" }]);
+
+    await resetContentDatabase();
+
+    const legalPages = await runtime.execute<{
+      locale: string;
+      slug: string;
+    }>(`
+      SELECT locale, slug
+      FROM managed_pages
+      WHERE kind = 'legal'
+        AND slug IN ('privacy', 'terms')
+      ORDER BY locale, slug
+    `);
+
+    expect(legalPages).toEqual([
+      { locale: "ar", slug: "privacy" },
+      { locale: "ar", slug: "terms" },
+      { locale: "en", slug: "privacy" },
+      { locale: "en", slug: "terms" },
     ]);
   }, 60_000);
 });

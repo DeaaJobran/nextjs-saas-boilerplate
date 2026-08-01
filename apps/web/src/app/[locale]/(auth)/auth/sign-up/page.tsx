@@ -45,7 +45,9 @@ export default async function SignUpPage({
               ? t("errors.weakPassword")
               : params.error === "email_taken"
                 ? t("errors.emailTaken")
-                : t("errors.generic")}
+                : params.error === "legal_acceptance_required"
+                  ? t("legalAcceptanceError")
+                  : t("errors.generic")}
           </p>
         ) : null}
         <form action={signUpAction} className="grid gap-4">
@@ -73,6 +75,24 @@ export default async function SignUpPage({
               type="password"
             />
           </Field>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              className="mt-1 size-4 shrink-0 accent-current"
+              name="legalAcceptance"
+              required
+              type="checkbox"
+            />
+            <span>
+              {t("legalAgreement")}{" "}
+              <Link className="underline" href="/legal/terms">
+                {t("terms")}
+              </Link>{" "}
+              {t("and")}{" "}
+              <Link className="underline" href="/legal/privacy">
+                {t("privacy")}
+              </Link>
+            </span>
+          </label>
           <Button type="submit">{t("submit")}</Button>
         </form>
         <p className="text-muted-foreground text-sm">

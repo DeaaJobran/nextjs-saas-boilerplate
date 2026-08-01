@@ -1,18 +1,28 @@
 "use server";
 
+import { AuthError } from "@nextjs-saas/auth";
 import { appRoutes } from "@nextjs-saas/config/app";
+import { withDatabaseTransaction } from "@nextjs-saas/db";
 import { isLocale } from "@nextjs-saas/localization";
+import { SecurityError } from "@nextjs-saas/security";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
+  assertMfaEnrollmentAllowed,
+  assertMfaPolicy,
   clearAuthCookies,
   getAuthService,
   requireCurrentSession,
 } from "../../../../lib/auth";
 import { getContentRepository } from "../../../../lib/content-store";
 import { getMessagingService } from "../../../../lib/messaging";
-import { getActiveTenantContext } from "../../../../lib/tenant";
+import { getSecurityService } from "../../../../lib/security";
+import { protectServerAction } from "../../../../lib/server-action-security";
+import {
+  getActiveTenantContext,
+  getTenantService,
+} from "../../../../lib/tenant";
 
 const mfaSetupCookieName = "nextjs_saas_mfa_setup";
 
@@ -38,8 +48,33 @@ function redirectWithLocalizedStatus(
   );
 }
 
-export async function updateProfileAction(formData: FormData) {
+function actionErrorCode(error: unknown) {
+  return error instanceof AuthError || error instanceof SecurityError
+    ? error.code
+    : "unknown";
+}
+
+async function requireSensitiveSettingsAccess(formData: FormData) {
   const session = await requireCurrentSession();
+
+  try {
+    assertMfaPolicy(session, session.user.role);
+    const memberships = await getTenantService().listMembershipsForUser(
+      session.user.id,
+    );
+
+    for (const membership of memberships) {
+      assertMfaPolicy(session, membership.role);
+    }
+  } catch (error) {
+    redirectWithLocalizedStatus(formData, "error", actionErrorCode(error));
+  }
+
+  return session;
+}
+
+export async function updateProfileAction(formData: FormData) {
+  const session = await requireSensitiveSettingsAccess(formData);
   const preferredLocale = formValue(formData, "preferredLocale");
   const repository = await getContentRepository();
 
@@ -61,7 +96,7 @@ export async function updateProfileAction(formData: FormData) {
 }
 
 export async function requestEmailChangeAction(formData: FormData) {
-  const session = await requireCurrentSession();
+  const session = await requireSensitiveSettingsAccess(formData);
 
   await getAuthService().requestEmailChange({
     email: formValue(formData, "email"),
@@ -72,7 +107,7 @@ export async function requestEmailChangeAction(formData: FormData) {
 }
 
 export async function requestAccountPasswordResetAction(formData: FormData) {
-  const session = await requireCurrentSession();
+  const session = await requireSensitiveSettingsAccess(formData);
 
   await getAuthService().createPasswordReset({ email: session.user.email });
   redirectWithLocalizedStatus(formData, "status", "password-reset-sent");
@@ -80,6 +115,13 @@ export async function requestAccountPasswordResetAction(formData: FormData) {
 
 export async function startMfaEnrollmentAction(formData: FormData) {
   const session = await requireCurrentSession();
+
+  try {
+    await assertMfaEnrollmentAllowed(session);
+  } catch (error) {
+    redirectWithLocalizedStatus(formData, "error", actionErrorCode(error));
+  }
+
   const enrollment = await getAuthService().createTotpEnrollment({
     userId: session.user.id,
   });
@@ -120,9 +162,16 @@ export async function readMfaSetup() {
 export async function enableMfaAction(formData: FormData) {
   const session = await requireCurrentSession();
 
+  try {
+    await assertMfaEnrollmentAllowed(session);
+  } catch (error) {
+    redirectWithLocalizedStatus(formData, "error", actionErrorCode(error));
+  }
+
   await getAuthService().enableTotpFactor({
     code: formValue(formData, "code"),
     factorId: formValue(formData, "factorId"),
+    sessionId: session.session.id,
     userId: session.user.id,
   });
 
@@ -132,8 +181,32 @@ export async function enableMfaAction(formData: FormData) {
   redirectWithLocalizedStatus(formData, "status", "mfa-enabled");
 }
 
+export async function verifyMfaSessionAction(formData: FormData) {
+  const session = await requireCurrentSession();
+
+  try {
+    await protectServerAction({
+      identifier: session.user.id,
+      limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),
+      scope: "mfa-step-up",
+      windowSeconds: Number(
+        process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 15 * 60,
+      ),
+    });
+    await getAuthService().verifySessionMfa({
+      code: formValue(formData, "code"),
+      sessionId: session.session.id,
+      userId: session.user.id,
+    });
+  } catch (error) {
+    redirectWithLocalizedStatus(formData, "error", actionErrorCode(error));
+  }
+
+  redirectWithLocalizedStatus(formData, "status", "mfa-verified");
+}
+
 export async function revokeSessionAction(formData: FormData) {
-  await requireCurrentSession();
+  await requireSensitiveSettingsAccess(formData);
   await getAuthService().revokeSession({
     sessionId: formValue(formData, "sessionId"),
   });
@@ -142,12 +215,38 @@ export async function revokeSessionAction(formData: FormData) {
 }
 
 export async function deleteAccountAction(formData: FormData) {
-  const session = await requireCurrentSession();
+  const session = await requireSensitiveSettingsAccess(formData);
+  try {
+    await protectServerAction({
+      identifier: session.user.id,
+      limit: 3,
+      scope: "account-deletion",
+      windowSeconds: 60 * 60,
+    });
+    await withDatabaseTransaction(async (client) => {
+      const auth = getAuthService(client);
+      const security = getSecurityService(client);
 
-  await getAuthService().deleteAccount({
-    password: formValue(formData, "password"),
-    userId: session.user.id,
-  });
+      await auth.deleteAccount({
+        password: formValue(formData, "password"),
+        userId: session.user.id,
+      });
+      const privacyRequest = await security.requestPrivacyAction({
+        reason: "User confirmed account deletion from settings.",
+        type: "account_deletion",
+        userId: session.user.id,
+      });
+      await security.updatePrivacyRequest({
+        id: privacyRequest.id,
+        result: { sessionsRevoked: true, softDeleted: true },
+        status: "completed",
+        userId: session.user.id,
+      });
+    });
+  } catch (error) {
+    redirectWithLocalizedStatus(formData, "error", actionErrorCode(error));
+  }
+
   await clearAuthCookies();
   redirect(appRoutes.signIn);
 }

@@ -314,7 +314,7 @@ export const rateLimitBuckets = pgTable(
   },
   (table) => [
     uniqueIndex("rate_limit_buckets_window_unique").on(
-      table.tenantId,
+      sql`COALESCE(${table.tenantId}, '')`,
       table.identifier,
       table.scope,
       table.windowStart,
@@ -510,6 +510,10 @@ export const authSessions = pgTable(
       mode: "string",
       withTimezone: true,
     }).notNull(),
+    mfaVerifiedAt: timestamp("mfa_verified_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
     refreshExpiresAt: timestamp("refresh_expires_at", {
       mode: "string",
       withTimezone: true,
@@ -633,6 +637,7 @@ export const authPasskeys = pgTable(
     }),
     publicKey: text("public_key").notNull(),
     transports: jsonb("transports").$type<string[]>().notNull(),
+    userVerified: boolean("user_verified").notNull().default(false),
     userId: text("user_id")
       .notNull()
       .references(() => authUsers.id, { onDelete: "cascade" }),
@@ -2935,6 +2940,126 @@ export const uptimeCheckResults = pgTable(
     index("uptime_check_results_monitor_checked_idx").on(
       table.monitorId,
       table.checkedAt,
+    ),
+  ],
+);
+
+export const legalAcceptances = pgTable(
+  "legal_acceptances",
+  {
+    acceptedAt: timestamp("accepted_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    contentHash: text("content_hash").notNull(),
+    documentId: text("document_id").references(() => managedPages.id, {
+      onDelete: "set null",
+    }),
+    documentSlug: text("document_slug").notNull(),
+    id: text("id").primaryKey(),
+    ipAddressHash: text("ip_address_hash"),
+    locale: text("locale").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    userAgentHash: text("user_agent_hash"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    version: text("version").notNull(),
+  },
+  (table) => [
+    uniqueIndex("legal_acceptances_document_version_unique").on(
+      table.userId,
+      table.documentSlug,
+      table.locale,
+      table.version,
+    ),
+    index("legal_acceptances_user_accepted_idx").on(
+      table.userId,
+      table.acceptedAt,
+    ),
+  ],
+);
+
+export const privacyRequests = pgTable(
+  "privacy_requests",
+  {
+    completedAt: timestamp("completed_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    id: text("id").primaryKey(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull(),
+    reason: text("reason"),
+    requestType: text("request_type").notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("privacy_requests_user_created_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    index("privacy_requests_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const securityAuditEvents = pgTable(
+  "security_audit_events",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    eventType: text("event_type").notNull(),
+    id: text("id").primaryKey(),
+    ipAddressHash: text("ip_address_hash"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    requestId: text("request_id"),
+    severity: text("severity").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    userAgentHash: text("user_agent_hash"),
+    userId: text("user_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("security_audit_events_created_idx").on(table.createdAt),
+    index("security_audit_events_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+    index("security_audit_events_user_created_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    index("security_audit_events_type_created_idx").on(
+      table.eventType,
+      table.createdAt,
     ),
   ],
 );

@@ -17,6 +17,7 @@
     "@nextjs-saas/emails": "workspace:*",
     "@nextjs-saas/localization": "workspace:*",
     "@nextjs-saas/observability": "workspace:*",
+    "@nextjs-saas/security": "workspace:*",
     "@nextjs-saas/storage": "workspace:*",
     "@nextjs-saas/tenant": "workspace:*",
     "@nextjs-saas/ui": "workspace:*",

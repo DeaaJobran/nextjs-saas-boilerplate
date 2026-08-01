@@ -250,6 +250,17 @@ describe("auth identity service", () => {
       email: "mfa@example.test",
       password: "StrongPass123",
     });
+    const enrollmentSession = await auth.signInWithPassword({
+      email: "mfa@example.test",
+      password: "StrongPass123",
+    });
+
+    expect(enrollmentSession.status).toBe("signed_in");
+
+    if (enrollmentSession.status !== "signed_in") {
+      throw new Error("Expected enrollment sign-in to succeed.");
+    }
+
     const enrollment = await auth.createTotpEnrollment({ userId: user.id });
     const code = auth.createTotpCode(enrollment.secret, {
       timestamp: fixedNow.getTime(),
@@ -257,10 +268,44 @@ describe("auth identity service", () => {
     const enabled = await auth.enableTotpFactor({
       code,
       factorId: enrollment.factorId,
+      sessionId: enrollmentSession.session.session.id,
       userId: user.id,
     });
 
     expect(enabled.recoveryCodes).toHaveLength(10);
+    await expect(
+      auth.getSession(enrollmentSession.session.sessionToken),
+    ).resolves.toMatchObject({
+      session: { mfaVerifiedAt: fixedNow.toISOString() },
+    });
+
+    const magicLink = await auth.createMagicLink({ email: user.email });
+    const magicResult = await auth.signInWithMagicLink({
+      token: magicLink!.token,
+    });
+
+    expect(magicResult.session.session.mfaVerifiedAt).toBeUndefined();
+
+    await expect(
+      auth.verifySessionMfa({
+        code: "invalid-code",
+        sessionId: magicResult.session.session.id,
+        userId: user.id,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_mfa_code" });
+
+    await expect(
+      auth.verifySessionMfa({
+        code,
+        sessionId: magicResult.session.session.id,
+        userId: user.id,
+      }),
+    ).resolves.toMatchObject({ mfaVerifiedAt: fixedNow.toISOString() });
+    await expect(
+      auth.getSession(magicResult.session.sessionToken),
+    ).resolves.toMatchObject({
+      session: { mfaVerifiedAt: fixedNow.toISOString() },
+    });
 
     const firstAttempt = await auth.signInWithPassword({
       email: "mfa@example.test",
@@ -276,6 +321,12 @@ describe("auth identity service", () => {
     });
 
     expect(secondAttempt.status).toBe("signed_in");
+
+    if (secondAttempt.status === "signed_in") {
+      expect(secondAttempt.session.session.mfaVerifiedAt).toBe(
+        fixedNow.toISOString(),
+      );
+    }
   }, 45_000);
 
   it("supports invitations and admin-created users through reset tokens", async () => {
@@ -348,6 +399,34 @@ describe("auth identity service", () => {
       email: "passkey@example.test",
       password: "StrongPass123",
     });
+    const runtime = await getDatabaseRuntime();
+
+    await runtime.execute(
+      `
+        INSERT INTO auth_passkeys (
+          id,
+          user_id,
+          credential_id,
+          public_key,
+          counter,
+          transports,
+          label,
+          device_type,
+          backed_up,
+          created_at
+        )
+        VALUES ($1, $2, $3, $4, 0, '[]'::jsonb, $5, $6, false, $7)
+      `,
+      [
+        "legacy-passkey",
+        user.id,
+        "legacy-credential",
+        "legacy-public-key",
+        "Legacy key",
+        "singleDevice",
+        fixedNow.toISOString(),
+      ],
+    );
     const registrationOptions = await auth.beginPasskeyRegistration({
       label: "Laptop",
       userId: user.id,
@@ -355,10 +434,31 @@ describe("auth identity service", () => {
     const authenticationOptions = await auth.beginPasskeyAuthentication({
       email: "passkey@example.test",
     });
+    const stepUpOptions = await auth.beginPasskeyAuthentication({
+      email: "passkey@example.test",
+      userId: user.id,
+      userVerification: "required",
+    });
+    const stepUpChallenges = await runtime.execute<{ user_id: string | null }>(
+      `
+        SELECT user_id
+        FROM auth_challenges
+        WHERE challenge = $1
+      `,
+      [stepUpOptions.challenge],
+    );
 
     expect(registrationOptions.challenge).toBeTruthy();
     expect(registrationOptions.rp.id).toBe("app.example.test");
+    expect(registrationOptions.authenticatorSelection?.userVerification).toBe(
+      "required",
+    );
     expect(authenticationOptions.challenge).toBeTruthy();
+    expect(stepUpOptions.userVerification).toBe("required");
+    expect(stepUpChallenges[0]?.user_id).toBe(user.id);
+    await expect(auth.listPasskeys(user.id)).resolves.toMatchObject([
+      { id: "legacy-passkey", userVerified: false },
+    ]);
   }, 45_000);
 
   it("supports OAuth provider adapter state and callback handling", async () => {

@@ -25,7 +25,9 @@ export type DatabaseRuntime = Queryable & {
   transaction<T>(callback: (client: Queryable) => Promise<T>): Promise<T>;
 };
 
-let databaseRuntime: Promise<DatabaseRuntime> | undefined;
+const databaseGlobal = globalThis as typeof globalThis & {
+  __nextjsSaasDatabaseRuntimes?: Map<string, Promise<DatabaseRuntime>>;
+};
 
 type PgliteExecutor = Pick<PGliteInterface, "exec" | "query"> | Transaction;
 
@@ -62,6 +64,12 @@ function getPgliteDataDir() {
   }
 
   return path.join(process.cwd(), ".local", "pglite");
+}
+
+function getDatabaseRuntimeKey() {
+  return process.env.DATABASE_URL
+    ? `postgres:${process.env.DATABASE_URL}`
+    : `pglite:${getPgliteDataDir()}`;
 }
 
 function createPostgresRuntime(databaseUrl: string): DatabaseRuntime {
@@ -133,13 +141,21 @@ async function createPgliteRuntime(): Promise<DatabaseRuntime> {
 }
 
 export async function getDatabaseRuntime(): Promise<DatabaseRuntime> {
-  databaseRuntime ??= process.env.DATABASE_URL
-    ? Promise.resolve(createPostgresRuntime(process.env.DATABASE_URL))
-    : createPgliteRuntime();
+  databaseGlobal.__nextjsSaasDatabaseRuntimes ??= new Map();
+  const runtimes = databaseGlobal.__nextjsSaasDatabaseRuntimes;
+  const key = getDatabaseRuntimeKey();
+  let runtime = runtimes.get(key);
 
-  return databaseRuntime;
+  if (!runtime) {
+    runtime = process.env.DATABASE_URL
+      ? Promise.resolve(createPostgresRuntime(process.env.DATABASE_URL))
+      : createPgliteRuntime();
+    runtimes.set(key, runtime);
+  }
+
+  return runtime;
 }
 
 export function resetDatabaseRuntimeForTests() {
-  databaseRuntime = undefined;
+  databaseGlobal.__nextjsSaasDatabaseRuntimes?.delete(getDatabaseRuntimeKey());
 }

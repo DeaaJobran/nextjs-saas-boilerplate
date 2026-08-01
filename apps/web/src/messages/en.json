@@ -372,6 +372,7 @@
     "locale": "The selected locale is not supported.",
     "maxLength": "{field} must be {max} characters or less.",
     "minLength": "{field} must be at least {min} characters.",
+    "rateLimited": "Too many contact attempts. Try again later.",
     "required": "{field} is required."
   },
   "DashboardPage": {
@@ -612,15 +613,26 @@
     "deleteTitle": "Account deletion",
     "email": "Email",
     "emailChangeDescription": "A verification token is issued before the email address changes.",
+    "errors": {
+      "generic": "The settings action could not be completed.",
+      "invalidMfaCode": "Enter a valid authenticator or recovery code.",
+      "invalidPassword": "Password confirmation failed.",
+      "mfaRequired": "Verify with your existing MFA method before adding another authentication factor.",
+      "rateLimited": "Too many attempts. Try again later."
+    },
     "displayName": "Display name",
     "emptyPasskeys": "No passkeys have been registered.",
+    "emptyLegalAcceptances": "No legal acceptances are recorded.",
     "emptyNotifications": "No in-app notifications are available.",
+    "emptyPrivacyRequests": "No privacy requests are recorded.",
     "emptySessions": "No sessions are available.",
     "enableMfa": "Enable MFA",
     "enabled": "enabled",
     "mfaCode": "Authenticator code",
     "mfaDescription": "Use a time-based authenticator app and recovery codes for additional sign-in protection.",
     "mfaSetupDescription": "Add this secret to an authenticator app, then enter the generated code.",
+    "mfaStepUpCode": "Authenticator or recovery code",
+    "mfaStepUpDescription": "Verify with your authenticator, a recovery code, or a registered passkey to continue securely.",
     "mfaTitle": "Multi-factor authentication",
     "notEnabled": "not enabled",
     "notificationChannels": {
@@ -637,13 +649,42 @@
       "status": "Status",
       "title": "Notification"
     },
+    "downloadData": "Download my data",
+    "legalAcceptances": "Legal acceptances",
+    "legalDocuments": {
+      "privacy": "Privacy policy",
+      "terms": "Terms of service"
+    },
     "passkeyLabel": "Passkey label",
     "passkeyRegisterError": "Passkey registration failed. Try again with a supported authenticator.",
     "passkeyRegistered": "Passkey registered.",
+    "passkeyStepUp": "Verify with a passkey",
+    "passkeyStepUpError": "Passkey verification failed. Try again with a registered passkey.",
     "passkeysDescription": "Register passkeys for phishing-resistant sign-in.",
     "passkeysTitle": "Passkeys",
     "preferredLocale": "Preferred locale",
     "preferredLocaleDescription": "Used for account-level defaults when localized notifications and product flows are sent.",
+    "privacyDescription": "Review legal acceptances and privacy requests associated with your account.",
+    "privacyRequests": "Privacy requests",
+    "privacyRequestTypes": {
+      "accountDeletion": "Account deletion",
+      "dataExport": "Data export"
+    },
+    "privacyStatuses": {
+      "completed": "Completed",
+      "failed": "Failed",
+      "processing": "Processing",
+      "requested": "Requested"
+    },
+    "privacyTable": {
+      "date": "Date",
+      "document": "Document",
+      "request": "Request",
+      "status": "Status",
+      "version": "Version"
+    },
+    "privacyTitle": "Privacy and legal records",
+    "privacyUnknown": "Unknown",
     "profileDescription": "Profile fields are stored on the identity record.",
     "profileTitle": "Profile settings",
     "registerPasskey": "Register passkey",
@@ -666,6 +707,8 @@
       "generic": "Settings updated.",
       "invalidLocale": "Choose one of the enabled locales.",
       "mfaEnabled": "Multi-factor authentication enabled.",
+      "mfaRequired": "Complete multi-factor authentication to continue.",
+      "mfaVerified": "Multi-factor authentication verified for this session.",
       "notificationPreferencesUpdated": "Notification preferences updated.",
       "notificationRead": "Notification marked as read.",
       "passwordResetSent": "Password reset link issued.",
@@ -679,7 +722,8 @@
       "label": "Label",
       "lastSeen": "Last seen",
       "status": "Status"
-    }
+    },
+    "verifyMfaSession": "Verify this session"
   },
   "Shell": {
     "adminEyebrow": "Admin surface",
@@ -770,6 +814,7 @@
     "title": "Sign in to {appName}"
   },
   "SignUpPage": {
+    "and": "and",
     "description": "Create the first identity record for local development or a new workspace.",
     "displayName": "Display name",
     "email": "Email",
@@ -779,16 +824,24 @@
       "weakPassword": "Use a stronger password that satisfies the password policy."
     },
     "hasAccount": "Already have an account?",
+    "legalAcceptanceError": "Accept the terms of service and privacy policy to continue.",
+    "legalAgreement": "I agree to the",
     "password": "Password",
     "passwordDescription": "Use at least 12 characters with uppercase, lowercase, and a number.",
+    "privacy": "privacy policy",
     "signIn": "Sign in",
     "submit": "Create account",
+    "terms": "terms of service",
     "title": "Create {appName} account"
   },
   "ForgotPasswordPage": {
     "backToSignIn": "Back to sign in",
     "description": "Enter the account email to issue a reset token through the auth notification outbox.",
     "email": "Email",
+    "errors": {
+      "generic": "The password reset request could not be completed.",
+      "rateLimited": "Too many reset requests. Try again later."
+    },
     "sent": "If an account exists, a reset link has been issued.",
     "submit": "Send reset link",
     "title": "Reset password"

@@ -20,6 +20,11 @@ type PasskeyAuthenticationLabels = {
   signIn: string;
 };
 
+type PasskeyStepUpLabels = {
+  error: string;
+  verify: string;
+};
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
     body: JSON.stringify(body),
@@ -133,6 +138,48 @@ export function PasskeyAuthenticationControl({
       </Field>
       <Button onClick={signInWithPasskey} type="button" variant="outline">
         {labels.signIn}
+      </Button>
+      {failed ? (
+        <p className="text-destructive text-sm" role="alert">
+          {labels.error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export function PasskeyStepUpControl({
+  labels,
+  redirectTo,
+}: {
+  labels: PasskeyStepUpLabels;
+  redirectTo: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  async function verifyWithPasskey() {
+    setFailed(false);
+
+    try {
+      const options = await postJson<Parameters<typeof startAuthentication>[0]>(
+        "/api/auth/passkeys/step-up/options",
+        {},
+      );
+      const response = await startAuthentication({
+        optionsJSON: options as never,
+      });
+
+      await postJson("/api/auth/passkeys/step-up/verify", { response });
+      window.location.assign(redirectTo);
+    } catch {
+      setFailed(true);
+    }
+  }
+
+  return (
+    <div className="grid gap-3">
+      <Button onClick={verifyWithPasskey} type="button" variant="outline">
+        {labels.verify}
       </Button>
       {failed ? (
         <p className="text-destructive text-sm" role="alert">

@@ -8,7 +8,7 @@
     "./styles.css": "./src/styles/globals.css"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc6 --noEmit && tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.19",
@@ -25,8 +25,9 @@
     "react-dom": "19.2.7"
   },
   "devDependencies": {
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "typescript": "^5"
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2"
   }
 }

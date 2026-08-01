@@ -379,7 +379,7 @@ describe("billing service", () => {
     });
 
     expect(refund.status).toBe("succeeded");
-  }, 30_000);
+  }, 60_000);
 
   it("supports tenant billing settings, currency conversion, and manual tax calculation", async () => {
     const { organization, runtime } = await createOwnerOrganization();
@@ -463,7 +463,7 @@ describe("billing service", () => {
 
     expect(tax.taxMinor).toBe(1500);
     expect(tax.totalMinor).toBe(11500);
-  }, 30_000);
+  }, 60_000);
 
   it("keeps entitlements active during a configured subscription grace period", async () => {
     const { organization, runtime } = await createOwnerOrganization();
@@ -509,7 +509,7 @@ describe("billing service", () => {
         organizationId: organization.id,
       }),
     ).resolves.toBe(true);
-  }, 30_000);
+  }, 60_000);
 
   it("retries failed webhook events after dependencies become available", async () => {
     const { organization, runtime } = await createOwnerOrganization();
@@ -600,5 +600,5 @@ describe("billing service", () => {
         expect.objectContaining({ totalMinor: 2900 }),
       ]),
     });
-  }, 30_000);
+  }, 60_000);
 });

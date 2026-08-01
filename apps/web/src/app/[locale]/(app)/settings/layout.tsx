@@ -2,8 +2,15 @@ import { getTranslations } from "next-intl/server";
 
 import { OrganizationSwitcher } from "../../../../components/organization-switcher";
 import { DashboardShell } from "../../../../components/shells";
+import {
+  requireCurrentSession,
+  satisfiesMfaPolicy,
+} from "../../../../lib/auth";
 import { assertLocale } from "../../../../lib/locale";
-import { getActiveTenantContext } from "../../../../lib/tenant";
+import {
+  getActiveTenantContext,
+  getTenantService,
+} from "../../../../lib/tenant";
 
 export default async function SettingsLayout({
   children,
@@ -14,7 +21,7 @@ export default async function SettingsLayout({
 }) {
   const { locale } = await params;
   const resolvedLocale = assertLocale(locale);
-  const [t, shellT, tenantContext] = await Promise.all([
+  const [t, shellT, session] = await Promise.all([
     getTranslations({
       locale: resolvedLocale,
       namespace: "Navigation",
@@ -23,13 +30,26 @@ export default async function SettingsLayout({
       locale: resolvedLocale,
       namespace: "Shell",
     }),
-    getActiveTenantContext("organization.read"),
+    requireCurrentSession(),
   ]);
+  const memberships = await getTenantService().listMembershipsForUser(
+    session.user.id,
+  );
+  const needsMfaStepUp =
+    !satisfiesMfaPolicy(session, session.user.role) ||
+    memberships.some(
+      (membership) => !satisfiesMfaPolicy(session, membership.role),
+    );
+  const tenantContext = needsMfaStepUp
+    ? undefined
+    : await getActiveTenantContext("organization.read", {
+        allowMfaEnrollment: true,
+      });
 
   return (
     <DashboardShell
       impersonationNotice={
-        tenantContext.impersonation
+        tenantContext?.impersonation
           ? shellT("impersonationNotice", {
               actor: tenantContext.authUser.email,
               subject: tenantContext.effectiveUser.email,
@@ -38,12 +58,14 @@ export default async function SettingsLayout({
       }
       locale={resolvedLocale}
       tenantControls={
-        <OrganizationSwitcher
-          activeOrganization={tenantContext.organization}
-          impersonationSessionId={tenantContext.impersonation?.id}
-          locale={resolvedLocale}
-          organizations={tenantContext.organizations}
-        />
+        tenantContext ? (
+          <OrganizationSwitcher
+            activeOrganization={tenantContext.organization}
+            impersonationSessionId={tenantContext.impersonation?.id}
+            locale={resolvedLocale}
+            organizations={tenantContext.organizations}
+          />
+        ) : undefined
       }
       title={t("settings")}
     >

@@ -6,6 +6,7 @@ import {
   recordContactSubmission,
 } from "@nextjs-saas/config/content";
 import { defaultLocale, isLocale, locales } from "@nextjs-saas/localization";
+import { checkBotProtection, SecurityError } from "@nextjs-saas/security";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 
@@ -36,8 +37,6 @@ export async function submitContactMessageAction(
   _state: ContactFormState,
   formData: FormData,
 ): Promise<ContactFormState> {
-  await requirePublicFormAuth();
-
   const localeValue = readText(formData, "locale");
   const fallbackT = await getTranslations({
     locale: defaultLocale,
@@ -56,6 +55,23 @@ export async function submitContactMessageAction(
     locale: localeValue,
     namespace: "ContactValidation",
   });
+
+  let requestContext: Awaited<ReturnType<typeof requirePublicFormAuth>>;
+
+  try {
+    requestContext = await requirePublicFormAuth(readText(formData, "email"));
+  } catch (error) {
+    if (error instanceof SecurityError) {
+      return {
+        fieldErrors: {},
+        message: t("rateLimited"),
+        status: "error",
+      };
+    }
+
+    throw error;
+  }
+
   const snapshot = await readContentSnapshot();
   const repository = createContentRepository(snapshot);
   const fields = repository.listContactFields(localeValue);
@@ -64,7 +80,14 @@ export async function submitContactMessageAction(
     fields.map((field) => [field.id, readText(formData, field.id)]),
   );
 
-  if (routing.spamProtectionEnabled && readText(formData, "company")) {
+  const botCheck = await checkBotProtection({
+    action: "contact.submit",
+    honeypot: routing.spamProtectionEnabled
+      ? readText(formData, "company")
+      : undefined,
+    ipAddress: requestContext.ipAddress,
+  });
+  if (!botCheck.allowed) {
     return {
       message: routing.successMessage,
       status: "success",

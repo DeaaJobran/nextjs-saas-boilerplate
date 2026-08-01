@@ -15,6 +15,7 @@ import { Link } from "@/i18n/navigation";
 import { requestPasswordResetAction } from "../actions";
 
 type ForgotPasswordSearchParams = {
+  error?: string;
   status?: string;
 };
 
@@ -36,6 +37,16 @@ export default async function ForgotPasswordPage({
         <p className="text-muted-foreground text-sm">{t("description")}</p>
       </CardHeader>
       <CardContent className="grid gap-5">
+        {params.error ? (
+          <p
+            className="text-destructive rounded-md border p-3 text-sm"
+            role="alert"
+          >
+            {params.error === "rate_limited"
+              ? t("errors.rateLimited")
+              : t("errors.generic")}
+          </p>
+        ) : null}
         {params.status === "sent" ? (
           <p
             className="text-muted-foreground rounded-md border p-3 text-sm"

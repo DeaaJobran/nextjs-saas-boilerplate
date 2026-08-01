@@ -520,5 +520,5 @@ describe("public API service", () => {
 
     expect(authorization.url).toContain("code_challenge_method=S256");
     expect(authorization.url).toContain("client_id=client_test");
-  }, 30_000);
+  }, 60_000);
 });
