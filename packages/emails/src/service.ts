@@ -6,7 +6,7 @@ import {
   runMigrations,
 } from "@nextjs-saas/db";
 
-import { defaultEmailTemplateRenderer } from "./templates";
+import { defaultEmailTemplateRenderer } from "./renderer";
 import type {
   EmailAddress,
   EmailProvider,
@@ -162,7 +162,21 @@ function toNotification(row: NotificationRow): InAppNotification {
 }
 
 function validEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  for (const character of value) {
+    if (!character.trim()) {
+      return false;
+    }
+  }
+
+  const atIndex = value.indexOf("@");
+  if (atIndex <= 0 || atIndex !== value.lastIndexOf("@")) {
+    return false;
+  }
+
+  const domain = value.slice(atIndex + 1);
+  const dotIndex = domain.lastIndexOf(".");
+
+  return dotIndex > 0 && dotIndex < domain.length - 1;
 }
 
 export const messagingJobTypes = {

@@ -555,7 +555,7 @@
     "emailChangeDescription": "يصدر رمز تحقق قبل تغيير البريد الإلكتروني.",
     "displayName": "اسم العرض",
     "emptyPasskeys": "لم يتم تسجيل مفاتيح مرور.",
-"emptyLegalAcceptances": "لا توجد موافقات قانونية مسجلة.",
+    "emptyLegalAcceptances": "لا توجد موافقات قانونية مسجلة.",
     "emptyNotifications": "لا توجد إشعارات داخل التطبيق.",
     "emptySessions": "لا توجد جلسات متاحة.",
     "enableMfa": "تفعيل التحقق المتعدد",

@@ -1,4 +1,3 @@
-import { isLocale, localeLabels } from "@nextjs-saas/localization";
 import {
   Badge,
   Button,
@@ -8,7 +7,6 @@ import {
   CardTitle,
   DataTable,
   Field,
-  SelectInput,
   TextInput,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
@@ -19,20 +17,18 @@ import { getAuthService, requireCurrentSession } from "../../../../lib/auth";
 import { getContentRepository } from "../../../../lib/content-store";
 import { assertLocale } from "../../../../lib/locale";
 import { formatLocaleDateTime } from "../../../../lib/locale-formatters";
-import { getMessagingService } from "../../../../lib/messaging";
 import { getActiveTenantContext } from "../../../../lib/tenant";
 import {
   deleteAccountAction,
   enableMfaAction,
-  markNotificationReadAction,
   readMfaSetup,
   requestAccountPasswordResetAction,
   requestEmailChangeAction,
   revokeSessionAction,
   startMfaEnrollmentAction,
-  updateNotificationPreferencesAction,
-  updateProfileAction,
 } from "./actions";
+import { NotificationSettings } from "./notification-settings";
+import { ProfileSettings } from "./profile-settings";
 
 type SettingsSearchParams = {
   error?: string;
@@ -53,40 +49,15 @@ export default async function SettingsPage({
   const session = await requireCurrentSession();
   const repository = await getContentRepository();
   const availableLocales = repository.listEnabledLocales();
-  const preferredLocale =
-    isLocale(session.user.locale) &&
-    availableLocales.includes(session.user.locale)
-      ? session.user.locale
-      : resolvedLocale;
   const auth = getAuthService();
-  const tenantContext = await getActiveTenantContext("organization.read", {
-    allowMfaEnrollment: true,
-  });
-  const messaging = getMessagingService();
-  const [
-    sessions,
-    mfaFactors,
-    passkeys,
-    mfaSetup,
-    notificationPreferences,
-    notifications,
-  ] = await Promise.all([
-    auth.listSessions(session.user.id),
-    auth.listMfaFactors(session.user.id),
-    auth.listPasskeys(session.user.id),
-    readMfaSetup(),
-    messaging.listPreferences({
-      tenantId: tenantContext.organization.id,
-      userId: session.user.id,
-    }),
-    messaging.listInAppNotifications({
-      tenantId: tenantContext.organization.id,
-      userId: session.user.id,
-    }),
-  ]);
-  const notificationPreference = notificationPreferences.find(
-    (preference) => preference.eventType === "*",
-  );
+  const [tenantContext, sessions, mfaFactors, passkeys, mfaSetup] =
+    await Promise.all([
+      getActiveTenantContext("organization.read"),
+      auth.listSessions(session.user.id),
+      auth.listMfaFactors(session.user.id),
+      auth.listPasskeys(session.user.id),
+      readMfaSetup(),
+    ]);
 
   return (
     <div className="grid gap-6">
@@ -116,148 +87,18 @@ export default async function SettingsPage({
                             : t("status.generic")}
         </p>
       ) : null}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("profileTitle")}</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            {t("profileDescription")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form
-            action={updateProfileAction}
-            className="grid gap-4 md:grid-cols-2"
-          >
-            <input name="locale" type="hidden" value={resolvedLocale} />
-            <Field label={t("displayName")}>
-              <TextInput
-                autoComplete="name"
-                defaultValue={session.user.displayName}
-                name="displayName"
-              />
-            </Field>
-            <Field label={t("avatarUrl")}>
-              <TextInput
-                defaultValue={session.user.avatarUrl}
-                name="avatarUrl"
-                type="url"
-              />
-            </Field>
-            <Field
-              description={t("preferredLocaleDescription")}
-              label={t("preferredLocale")}
-            >
-              <SelectInput
-                defaultValue={preferredLocale}
-                name="preferredLocale"
-              >
-                {availableLocales.map((availableLocale) => (
-                  <option key={availableLocale} value={availableLocale}>
-                    {localeLabels[availableLocale]}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <div className="md:col-span-2">
-              <Button type="submit">{t("saveProfile")}</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("notificationsTitle")}</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            {t("notificationsDescription")}
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-6">
-          <form
-            action={updateNotificationPreferencesAction}
-            aria-label={t("notificationsTitle")}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            <input name="locale" type="hidden" value={resolvedLocale} />
-            {[
-              ["emailEnabled", t("notificationChannels.email"), true],
-              ["inAppEnabled", t("notificationChannels.inApp"), true],
-              ["pushEnabled", t("notificationChannels.push"), true],
-              ["smsEnabled", t("notificationChannels.sms"), false],
-            ].map(([name, label, enabled]) => (
-              <label
-                className="bg-muted/30 flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm"
-                key={String(name)}
-              >
-                <input
-                  defaultChecked={
-                    notificationPreference
-                      ? notificationPreference[
-                          name as
-                            | "emailEnabled"
-                            | "inAppEnabled"
-                            | "pushEnabled"
-                            | "smsEnabled"
-                        ]
-                      : Boolean(enabled)
-                  }
-                  name={String(name)}
-                  type="checkbox"
-                />
-                {label}
-              </label>
-            ))}
-            <div className="sm:col-span-2 lg:col-span-4">
-              <Button type="submit">{t("saveNotificationPreferences")}</Button>
-            </div>
-          </form>
-          <DataTable
-            columns={[
-              {
-                cell: (notification) => notification.title,
-                header: t("notificationTable.title"),
-                key: "title",
-              },
-              {
-                cell: (notification) => notification.eventType,
-                header: t("notificationTable.event"),
-                key: "event",
-              },
-              {
-                cell: (notification) =>
-                  formatLocaleDateTime(resolvedLocale, notification.createdAt),
-                header: t("notificationTable.created"),
-                key: "created",
-              },
-              {
-                cell: (notification) =>
-                  notification.readAt ? (
-                    <Badge variant="outline">{t("read")}</Badge>
-                  ) : (
-                    <form action={markNotificationReadAction}>
-                      <input
-                        name="notificationId"
-                        type="hidden"
-                        value={notification.id}
-                      />
-                      <input
-                        name="locale"
-                        type="hidden"
-                        value={resolvedLocale}
-                      />
-                      <Button size="sm" type="submit" variant="outline">
-                        {t("markRead")}
-                      </Button>
-                    </form>
-                  ),
-                header: t("notificationTable.status"),
-                key: "status",
-              },
-            ]}
-            data={notifications}
-            emptyLabel={t("emptyNotifications")}
-          />
-        </CardContent>
-      </Card>
+      <ProfileSettings
+        availableLocales={availableLocales}
+        avatarUrl={session.user.avatarUrl}
+        displayName={session.user.displayName}
+        locale={resolvedLocale}
+        userLocale={session.user.locale}
+      />
+      <NotificationSettings
+        locale={resolvedLocale}
+        tenantId={tenantContext.organization.id}
+        userId={tenantContext.effectiveUser.id}
+      />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>

@@ -167,7 +167,7 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
     pushEnabled: formData.get("pushEnabled") === "on",
     smsEnabled: formData.get("smsEnabled") === "on",
     tenantId: tenantContext.organization.id,
-    userId: session.user.id,
+    userId: tenantContext.effectiveUser.id,
   });
 
   redirectWithLocalizedStatus(
@@ -178,16 +178,13 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
 }
 
 export async function markNotificationReadAction(formData: FormData) {
-  const [session, tenantContext] = await Promise.all([
-    requireCurrentSession(),
-    getActiveTenantContext("organization.read"),
-  ]);
+  const tenantContext = await getActiveTenantContext("organization.read");
 
   await getMessagingService().updateInAppNotification({
     action: "read",
     notificationId: formValue(formData, "notificationId"),
     tenantId: tenantContext.organization.id,
-    userId: session.user.id,
+    userId: tenantContext.effectiveUser.id,
   });
 
   redirectWithLocalizedStatus(formData, "status", "notification-read");

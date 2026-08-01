@@ -3,10 +3,10 @@ import path from "node:path";
 import {
   createMailgunEmailProvider,
   createPostmarkEmailProvider,
-  createPreviewEmailProvider,
   createResendEmailProvider,
-  createSmtpEmailProvider,
-} from "./adapters";
+} from "./adapters/http";
+import { createPreviewEmailProvider } from "./adapters/preview";
+import { createSmtpEmailProvider } from "./adapters/smtp";
 import type { EmailAddress, EmailProvider, MessageBrand } from "./types";
 
 export type EmailRuntimeConfiguration = {
@@ -26,11 +26,19 @@ function required(source: Record<string, string | undefined>, key: string) {
 }
 
 function parseAddress(value: string): EmailAddress {
-  const match = value.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
+  const trimmedValue = value.trim();
+  const openingBracket = trimmedValue.lastIndexOf("<");
 
-  return match
-    ? { email: match[2]!.trim(), name: match[1]!.trim() || undefined }
-    : { email: value.trim() };
+  if (openingBracket > 0 && trimmedValue.endsWith(">")) {
+    const email = trimmedValue.slice(openingBracket + 1, -1).trim();
+    const name = trimmedValue.slice(0, openingBracket).trim();
+
+    if (email && !email.includes("<") && !email.includes(">")) {
+      return { email, name: name || undefined };
+    }
+  }
+
+  return { email: trimmedValue };
 }
 
 function numberValue(value: string | undefined, fallback: number) {

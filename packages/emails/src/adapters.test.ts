@@ -11,7 +11,7 @@ import {
   createResendEmailProvider,
 } from "./adapters";
 import { createEmailRuntimeConfiguration } from "./config";
-import { defaultEmailTemplateRenderer } from "./templates";
+import { defaultEmailTemplateRenderer } from "./renderer";
 import type { EmailSendInput } from "./types";
 
 const email: EmailSendInput = {
