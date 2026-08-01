@@ -142,18 +142,20 @@ export async function signUpAction(formData: FormData) {
         password,
       });
 
-      for (const document of legalDocuments) {
-        await security.acceptLegalDocument({
-          contentHash: fingerprintLegalDocument(document),
-          documentId: document!.id,
-          documentSlug: document!.slug,
-          ipAddress: requestContext.ipAddress,
-          locale,
-          userAgent: requestContext.userAgent,
-          userId: user.id,
-          version: document!.version ?? document!.updatedAt,
-        });
-      }
+      await Promise.all(
+        legalDocuments.map((document) =>
+          security.acceptLegalDocument({
+            contentHash: fingerprintLegalDocument(document),
+            documentId: document!.id,
+            documentSlug: document!.slug,
+            ipAddress: requestContext.ipAddress,
+            locale,
+            userAgent: requestContext.userAgent,
+            userId: user.id,
+            version: document!.version ?? document!.updatedAt,
+          }),
+        ),
+      );
 
       const signInResult = await auth.signInWithPassword({
         context,

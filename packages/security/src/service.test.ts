@@ -102,6 +102,37 @@ describe("security service", () => {
       now: () => fixedNow,
       secret: "test-security-secret",
     });
+    const runtime = await getDatabaseRuntime();
+    await runtime.execute(
+      `
+        INSERT INTO auth_users (
+          id, email, normalized_email, display_name, role, locale,
+          created_at, updated_at
+        )
+        VALUES (
+          'user_2', 'other@example.test', 'other@example.test',
+          'Other User', 'user', 'en', $1, $1
+        )
+      `,
+      [fixedNow.toISOString()],
+    );
+    await runtime.execute(
+      `
+        INSERT INTO auth_audit_events (
+          id, user_id, actor_id, event_type, payload, created_at
+        )
+        VALUES
+          (
+            'subject-owned-event', 'user_1', 'user_2',
+            'auth.subject-owned', '{"scope":"subject"}'::jsonb, $1
+          ),
+          (
+            'actor-only-event', 'user_2', 'user_1',
+            'auth.actor-only', '{"email":"other@example.test"}'::jsonb, $1
+          )
+      `,
+      [fixedNow.toISOString()],
+    );
     const document = { slug: "terms", title: "Terms", version: "1" };
     await service.acceptLegalDocument({
       contentHash: fingerprintLegalDocument(document),
@@ -130,7 +161,12 @@ describe("security service", () => {
     expect(exported.sections.identity).toEqual([
       expect.objectContaining({ email: "user@example.test" }),
     ]);
-    expect(JSON.stringify(exported)).not.toContain("password_hash");
+    expect(exported.sections.authAudit).toEqual([
+      expect.objectContaining({ event_type: "auth.subject-owned" }),
+    ]);
+    const serializedExport = JSON.stringify(exported);
+    expect(serializedExport).not.toContain("other@example.test");
+    expect(serializedExport).not.toContain("password_hash");
     expect((await service.listPrivacyRequests("user_1"))[0]?.status).toBe(
       "completed",
     );

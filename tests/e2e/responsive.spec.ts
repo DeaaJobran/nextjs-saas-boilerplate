@@ -17,6 +17,7 @@ async function grantUserAccess(page: import("@playwright/test").Page) {
   await page.getByLabel("Display name").fill("Responsive User");
   await page.getByLabel("Email").fill(`responsive-${suffix}@example.test`);
   await page.getByLabel("Password").fill("StrongPass123");
+  await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/en\/dashboard/);
 }

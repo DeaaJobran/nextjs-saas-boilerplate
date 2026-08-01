@@ -8,6 +8,14 @@ import { headers } from "next/headers";
 
 import { getSecurityService } from "./security";
 
+function getAppProtocol(appBaseUrl: string) {
+  try {
+    return new URL(appBaseUrl).protocol.replace(/:$/u, "");
+  } catch {
+    throw new Error("NEXT_PUBLIC_APP_URL must be a valid absolute URL.");
+  }
+}
+
 export async function protectServerAction(input: {
   identifier: string;
   limit: number;
@@ -16,6 +24,7 @@ export async function protectServerAction(input: {
 }) {
   const headerStore = await headers();
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appProtocol = getAppProtocol(appBaseUrl);
   assertTrustedOrigin({
     allowedOrigins: getAllowedOrigins({
       appBaseUrl,
@@ -23,9 +32,7 @@ export async function protectServerAction(input: {
     }),
     host: headerStore.get("x-forwarded-host") ?? headerStore.get("host"),
     origin: headerStore.get("origin"),
-    protocol:
-      headerStore.get("x-forwarded-proto") ??
-      new URL(appBaseUrl).protocol.replace(/:$/u, ""),
+    protocol: headerStore.get("x-forwarded-proto") ?? appProtocol,
     requireOrigin: process.env.NODE_ENV === "production",
   });
   const ipAddress = getClientAddress(

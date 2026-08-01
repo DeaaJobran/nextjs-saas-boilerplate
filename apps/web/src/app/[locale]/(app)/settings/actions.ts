@@ -277,7 +277,10 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
 }
 
 export async function markNotificationReadAction(formData: FormData) {
-  const tenantContext = await getActiveTenantContext("organization.read");
+  const [, tenantContext] = await Promise.all([
+    requireCurrentSession(),
+    getActiveTenantContext("organization.read"),
+  ]);
 
   await getMessagingService().updateInAppNotification({
     action: "read",

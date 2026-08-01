@@ -438,7 +438,7 @@ export function createSecurityService(options: SecurityServiceOptions = {}) {
           [
             "authAudit",
             `SELECT event_type, payload, created_at
-             FROM auth_audit_events WHERE user_id = $1 OR actor_id = $1`,
+             FROM auth_audit_events WHERE user_id = $1`,
           ],
           [
             "memberships",
