@@ -15,6 +15,7 @@ All notable public changes are tracked here. This project uses semantic version 
 - Signed upload/download flows, ownership and access policies, validation, media metadata and previews, malware scanning hooks, quotas, audit records, and recurring lifecycle cleanup.
 - Queue-backed transactional messaging with React Email templates, preview/SMTP/Resend/Postmark/Mailgun adapters, retryable auth-outbox delivery, delivery and audit logs, localization, and tenant branding.
 - User notification preferences, in-app notifications, push/SMS provider contracts, settings UI, and admin delivery visibility.
+- Redacted structured logging, durable metrics and spans, optional OpenTelemetry OTLP HTTP export, dependency readiness, scheduled uptime checks and retention, API/job correlation, audit aggregation, and an admin observability dashboard.
 
 ## v0.3.0 - 2026-07-06
 

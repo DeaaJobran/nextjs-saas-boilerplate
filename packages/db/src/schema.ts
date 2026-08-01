@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -2763,6 +2764,178 @@ export const messagingAuditEvents = pgTable(
       .where(
         sql`${table.deliveryId} IS NOT NULL AND ${table.eventType} = 'messaging.delivery.sent'`,
       ),
+  ],
+);
+
+export const observabilityLogs = pgTable(
+  "observability_logs",
+  {
+    actorId: text("actor_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
+    attributes: jsonb("attributes").$type<Record<string, unknown>>().notNull(),
+    category: text("category").notNull(),
+    error: jsonb("error").$type<Record<string, unknown>>(),
+    id: text("id").primaryKey(),
+    jobId: text("job_id"),
+    level: text("level").notNull(),
+    message: text("message").notNull(),
+    requestId: text("request_id"),
+    service: text("service").notNull(),
+    spanId: text("span_id"),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    timestamp: timestamp("timestamp", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    traceId: text("trace_id"),
+  },
+  (table) => [
+    index("observability_logs_timestamp_idx").on(table.timestamp),
+    index("observability_logs_level_timestamp_idx").on(
+      table.level,
+      table.timestamp,
+    ),
+    index("observability_logs_tenant_timestamp_idx").on(
+      table.tenantId,
+      table.timestamp,
+    ),
+    index("observability_logs_request_idx").on(table.requestId),
+    index("observability_logs_trace_idx").on(table.traceId),
+  ],
+);
+
+export const observabilityMetricPoints = pgTable(
+  "observability_metric_points",
+  {
+    attributes: jsonb("attributes").$type<Record<string, unknown>>().notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    recordedAt: timestamp("recorded_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    service: text("service").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    unit: text("unit"),
+    value: doublePrecision("value").notNull(),
+  },
+  (table) => [
+    index("observability_metric_points_name_recorded_idx").on(
+      table.name,
+      table.recordedAt,
+    ),
+    index("observability_metric_points_tenant_recorded_idx").on(
+      table.tenantId,
+      table.recordedAt,
+    ),
+  ],
+);
+
+export const observabilitySpans = pgTable(
+  "observability_spans",
+  {
+    attributes: jsonb("attributes").$type<Record<string, unknown>>().notNull(),
+    durationMs: doublePrecision("duration_ms").notNull(),
+    endedAt: timestamp("ended_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    error: jsonb("error").$type<Record<string, unknown>>(),
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    parentSpanId: text("parent_span_id"),
+    service: text("service").notNull(),
+    spanId: text("span_id").notNull(),
+    startedAt: timestamp("started_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    status: text("status").notNull(),
+    tenantId: text("tenant_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    traceId: text("trace_id").notNull(),
+  },
+  (table) => [
+    uniqueIndex("observability_spans_span_unique").on(table.spanId),
+    index("observability_spans_trace_started_idx").on(
+      table.traceId,
+      table.startedAt,
+    ),
+    index("observability_spans_tenant_started_idx").on(
+      table.tenantId,
+      table.startedAt,
+    ),
+  ],
+);
+
+export const uptimeMonitors = pgTable(
+  "uptime_monitors",
+  {
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    expectedStatus: integer("expected_status").notNull(),
+    id: text("id").primaryKey(),
+    intervalSeconds: integer("interval_seconds").notNull(),
+    lastCheckedAt: timestamp("last_checked_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    lastDurationMs: doublePrecision("last_duration_ms"),
+    lastError: text("last_error"),
+    lastStatus: text("last_status"),
+    method: text("method").notNull(),
+    name: text("name").notNull(),
+    nextCheckAt: timestamp("next_check_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    timeoutMs: integer("timeout_ms").notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    url: text("url").notNull(),
+  },
+  (table) => [
+    uniqueIndex("uptime_monitors_url_method_unique").on(
+      table.url,
+      table.method,
+    ),
+    index("uptime_monitors_due_idx").on(table.active, table.nextCheckAt),
+  ],
+);
+
+export const uptimeCheckResults = pgTable(
+  "uptime_check_results",
+  {
+    checkedAt: timestamp("checked_at", {
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    durationMs: doublePrecision("duration_ms").notNull(),
+    error: text("error"),
+    id: text("id").primaryKey(),
+    monitorId: text("monitor_id")
+      .notNull()
+      .references(() => uptimeMonitors.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    statusCode: integer("status_code"),
+  },
+  (table) => [
+    index("uptime_check_results_monitor_checked_idx").on(
+      table.monitorId,
+      table.checkedAt,
+    ),
   ],
 );
 

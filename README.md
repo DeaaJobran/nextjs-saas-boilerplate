@@ -8,7 +8,7 @@ An open-source, production-minded Next.js SaaS boilerplate for developers who wa
 
 Current release: `v0.3.0`.
 
-The project has a working foundation for the web app, database, self-hosted identity, tenant administration, managed marketing content, billing/payment abstractions, local services, and quality gates. It is still not a finished production SaaS starter. Storage provider adapters, email delivery, public API/mobile support, deployment guides, and observability are still roadmap items.
+The project has a working foundation for the web app, database, self-hosted identity, tenant administration, managed marketing content, billing/payment abstractions, observability, local services, and quality gates. It is still not a finished production SaaS starter. Storage provider adapters, email delivery, public API/mobile support, and deployment guides are still roadmap items.
 
 ## Principles
 
@@ -30,6 +30,7 @@ The project has a working foundation for the web app, database, self-hosted iden
 - Billing package with database-backed plans, localized plan copy, multi-currency prices, tenant billing settings, tax settings/rates, usage meters, subscriptions, invoices, payment methods, refunds, entitlements, signed idempotent webhooks, a mock provider adapter, and a Stripe-compatible adapter.
 - Storage package with local, S3, Wasabi, MinIO, and R2 adapters, signed transfers, tenant ownership policies, upload validation, media previews, malware scanning hooks, lifecycle cleanup, quota accounting, audit records, and tests.
 - Messaging package with React Email templates, local preview, SMTP/Resend/Postmark/Mailgun adapters, queued retries, delivery logs, localized tenant branding, preferences, in-app notifications, and push/SMS extension contracts.
+- Observability package with redacted structured logging, database metrics and spans, optional OpenTelemetry export, liveness/readiness endpoints, scheduled uptime checks, retention jobs, audit aggregation, and an admin operations dashboard.
 - Admin and super-admin surfaces for content, users, tenant controls, and impersonation workflows.
 - Jobs package with background job and cron schedule primitives.
 - Local Docker Compose services for PostgreSQL, Redis, MinIO, and Mailpit.
@@ -39,7 +40,6 @@ The project has a working foundation for the web app, database, self-hosted iden
 ## Roadmap Highlights
 
 - Public API, OpenAPI generation, mobile session support, OAuth/OIDC support, SDK path, and API usage tracking.
-- Observability module with structured logs, metrics, tracing, health checks, uptime checks, and operational dashboards.
 - Production deployment examples, VPS hardening, reverse proxy guides, backup/restore, maintenance mode, and rollback strategy.
 - Optional AI module with provider abstraction, token tracking, RAG, pgvector, safety, evaluation, and audit trail.
 
@@ -142,6 +142,7 @@ pnpm build:storybook
 - `packages/emails`: React Email templates, provider adapters, queue-backed delivery, logs, localization, branding, preferences, and in-app/push/SMS contracts.
 - `packages/jobs`: background job and cron primitives.
 - `packages/localization`: locale definitions, direction helpers, and locale-aware formatting.
+- `packages/observability`: structured logging, durable metrics and traces, health/readiness checks, retention and uptime jobs, audit aggregation, and OpenTelemetry export.
 - `packages/storage`: tenant-aware files, provider adapters, signed transfers, validation, media processing, lifecycle cleanup, quota accounting, and audit records.
 - `packages/tenant`: organizations, memberships, invitations, tenant permissions, tenant API keys, quotas, feature flags, audit, and impersonation.
 - `packages/ui`: shared UI primitives, components, styles, and Storybook stories.

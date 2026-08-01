@@ -91,6 +91,65 @@
     "title": "العنوان",
     "type": "النوع"
   },
+  "AdminObservability": {
+    "auditTrail": "تغطية سجل التدقيق",
+    "auditSources": {
+      "api": "واجهة البرمجة",
+      "auth": "المصادقة",
+      "billing": "الفوترة",
+      "messaging": "المراسلة",
+      "storage": "التخزين",
+      "tenant": "مساحات العمل"
+    },
+    "audits": "أحداث التدقيق",
+    "emptyAudits": "لا توجد أحداث تدقيق.",
+    "emptyChecks": "لا توجد فحوصات تبعيات مهيأة.",
+    "emptyLogs": "لا توجد سجلات تشغيلية.",
+    "emptyMonitors": "لا توجد مراقبات إتاحة مهيأة.",
+    "health": "الجاهزية",
+    "healthChecks": "فحوصات صحة التبعيات",
+    "healthStatus": {
+      "degraded": "متدهورة",
+      "healthy": "سليمة",
+      "unhealthy": "غير سليمة"
+    },
+    "logs": "السجلات المنظمة",
+    "logLevels": {
+      "debug": "تصحيح",
+      "error": "خطأ",
+      "fatal": "حرج",
+      "info": "معلومات",
+      "warn": "تحذير"
+    },
+    "monitors": "مراقبات الإتاحة",
+    "pending": "قيد الانتظار",
+    "recentLogs": "السجلات التشغيلية الأخيرة",
+    "summaryBadges": {
+      "audits": "التدقيق",
+      "logs": "السجلات",
+      "monitors": "المراقبات"
+    },
+    "table": {
+      "correlation": "الطلب / التتبع / المهمة",
+      "duration": "المدة",
+      "events": "الأحداث",
+      "level": "المستوى",
+      "message": "الرسالة",
+      "name": "الاسم",
+      "service": "الخدمة",
+      "source": "المصدر",
+      "status": "الحالة",
+      "time": "الوقت"
+    },
+    "uptime": "فحوصات الإتاحة",
+    "uptimeMonitors": {
+      "webApplicationLiveness": "إتاحة تطبيق الويب"
+    },
+    "uptimeStatus": {
+      "down": "متوقفة",
+      "up": "متاحة"
+    }
+  },
   "AdminOverview": {
     "adminBadge": "الإدارة",
     "contactDescription": "محفوظة عبر نموذج التواصل المدار",
@@ -625,6 +684,7 @@
   "Shell": {
     "adminEyebrow": "واجهة الإدارة",
     "adminTitle": "المحتوى وعناصر التحكم التشغيلية",
+    "observabilityRegistry": "المراقبة التشغيلية",
     "applicationNavigation": "تنقل التطبيق",
     "authDescription": "يوفر هذا التخطيط عقدا متجاوبا مستقرا لتدفقات تسجيل الدخول ومفاتيح المرور والتحقق متعدد العوامل والاسترداد.",
     "authTitle": "واجهة مصادقة قابلة لإعادة الاستخدام وجاهزة لوحدة الهوية.",

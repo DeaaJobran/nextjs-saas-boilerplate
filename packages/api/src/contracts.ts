@@ -83,6 +83,16 @@ export const apiRouteCatalog = [
     tags: ["System"],
   },
   {
+    description:
+      "Checks deployment dependencies and returns 503 when unavailable.",
+    id: "getReadiness",
+    method: "GET",
+    path: "/api/v1/readiness",
+    requiredScopes: [],
+    summary: "Readiness check",
+    tags: ["System"],
+  },
+  {
     description: "Returns the generated OpenAPI 3.1 document.",
     id: "getOpenApi",
     method: "GET",

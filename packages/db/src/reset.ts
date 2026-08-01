@@ -77,10 +77,19 @@ const storageRuntimeTables = [
   "storage_providers",
 ] as const;
 
+const observabilityRuntimeTables = [
+  "uptime_check_results",
+  "uptime_monitors",
+  "observability_spans",
+  "observability_metric_points",
+  "observability_logs",
+] as const;
+
 async function lockServiceFoundationTables(client: Queryable) {
   await client.execute(`
     LOCK TABLE
       ${[
+        ...observabilityRuntimeTables,
         ...storageRuntimeTables,
         ...apiRuntimeTables,
         ...billingRuntimeTables,
@@ -98,6 +107,10 @@ export async function resetDatabaseData() {
   await runMigrations(runtime);
   await runtime.transaction(async (transaction) => {
     await lockServiceFoundationTables(transaction);
+
+    for (const tableName of observabilityRuntimeTables) {
+      await transaction.execute(`DELETE FROM ${tableName}`);
+    }
 
     for (const tableName of storageRuntimeTables) {
       await transaction.execute(`DELETE FROM ${tableName}`);
