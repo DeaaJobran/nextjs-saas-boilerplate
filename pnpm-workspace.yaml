@@ -6,12 +6,28 @@ allowBuilds:
   "@parcel/watcher": true
   "@swc/core": true
   esbuild: true
+  protobufjs: false
   sharp: true
   unrs-resolver: true
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@formatjs/icu-messageformat-parser"
+  - "@formatjs/intl-localematcher"
+  - deslop-js
+  - intl-messageformat
+  - lucide-react
+  - node-releases
+  - oxlint-plugin-react-doctor
+  - prettier
+  - react-doctor
+  - string-width
 overrides:
   "@esbuild-kit/core-utils>esbuild": ^0.25.12
   postcss: ^8.5.16
+peerDependencyRules:
+  allowedVersions:
+    eslint: "10"
+    typescript: "6 || 7"
 trustPolicy: no-downgrade
 trustPolicyExclude:
   - eslint-import-resolver-typescript@3.10.1

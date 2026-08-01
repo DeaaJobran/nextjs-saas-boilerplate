@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc6 --noEmit && tsc --noEmit"
   },
   "dependencies": {
     "@nextjs-saas/config": "workspace:*",
@@ -14,9 +14,10 @@
     "react-dom": "19.2.7"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "typescript": "^5"
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2"
   }
 }

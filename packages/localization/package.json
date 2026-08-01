@@ -10,9 +10,10 @@
     "./templates": "./src/templates.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc6 --noEmit && tsc --noEmit"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2"
   }
 }

@@ -10,18 +10,20 @@
   },
   "scripts": {
     "test": "vitest run --root ../.. packages/api/src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc6 --noEmit && tsc --noEmit"
   },
   "dependencies": {
     "@nextjs-saas/auth": "workspace:*",
     "@nextjs-saas/db": "workspace:*",
+    "@nextjs-saas/security": "workspace:*",
     "@nextjs-saas/storage": "workspace:*",
     "@nextjs-saas/tenant": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "typescript": "^5",
+    "@types/node": "^26.1.1",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2",
     "vitest": "^4.1.10"
   }
 }

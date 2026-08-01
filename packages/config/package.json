@@ -11,7 +11,7 @@
     "./seo": "./src/seo.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc6 --noEmit && tsc --noEmit"
   },
   "dependencies": {
     "@nextjs-saas/localization": "workspace:*",
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "next": "16.2.10",
-    "typescript": "^5"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2"
   }
 }

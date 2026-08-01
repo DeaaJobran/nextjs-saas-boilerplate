@@ -95,6 +95,11 @@ describe("tenant service", () => {
     expect(summary.organization.name).toBe("Ada Labs");
     expect(summary.membership.role).toBe("owner");
     expect(summary.membership.permissions).toContain("members.invite");
+    await expect(
+      tenant.listMembershipsForUser("user_owner"),
+    ).resolves.toMatchObject([
+      { organizationId: organization.id, role: "owner" },
+    ]);
     expect(summary.memberCount).toBe(1);
     expect(summary.featureFlags.map((flag) => flag.key)).toEqual([
       "ai",

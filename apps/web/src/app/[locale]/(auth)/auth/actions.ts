@@ -2,6 +2,13 @@
 
 import { AuthError } from "@nextjs-saas/auth";
 import { appRoutes } from "@nextjs-saas/config/app";
+import { withDatabaseTransaction } from "@nextjs-saas/db";
+import { defaultLocale, isLocale } from "@nextjs-saas/localization";
+import {
+  fingerprintLegalDocument,
+  getClientAddress,
+  SecurityError,
+} from "@nextjs-saas/security";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -11,6 +18,9 @@ import {
   requireCurrentSession,
   setAuthCookies,
 } from "../../../../lib/auth";
+import { getContentRepository } from "../../../../lib/content-store";
+import { getSecurityService } from "../../../../lib/security";
+import { protectServerAction } from "../../../../lib/server-action-security";
 
 function formValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -21,10 +31,10 @@ function formValue(formData: FormData, key: string) {
 function authContext() {
   return headers().then((headerStore) => ({
     deviceName: headerStore.get("sec-ch-ua-platform") ?? "Browser session",
-    ipAddress:
-      headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      headerStore.get("x-real-ip") ??
-      undefined,
+    ipAddress: getClientAddress(
+      headerStore,
+      Number(process.env.TRUSTED_PROXY_COUNT ?? 0),
+    ),
     userAgent: headerStore.get("user-agent") ?? undefined,
   }));
 }
@@ -44,7 +54,18 @@ function localizedPath(formData: FormData, path: string) {
 }
 
 function errorCode(error: unknown) {
-  return error instanceof AuthError ? error.code : "unknown";
+  return error instanceof AuthError || error instanceof SecurityError
+    ? error.code
+    : "unknown";
+}
+
+function protectAuthAction(identifier: string) {
+  return protectServerAction({
+    identifier: identifier || "missing-auth-identifier",
+    limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),
+    scope: "auth",
+    windowSeconds: Number(process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 900),
+  });
 }
 
 export async function signInAction(formData: FormData) {
@@ -55,6 +76,7 @@ export async function signInAction(formData: FormData) {
   let redirectTo = localizedPath(formData, appRoutes.dashboard);
 
   try {
+    await protectAuthAction(email);
     const result = await auth.signInWithPassword({
       context: await authContext(),
       email,
@@ -79,25 +101,71 @@ export async function signInAction(formData: FormData) {
 }
 
 export async function signUpAction(formData: FormData) {
-  const auth = getAuthService();
   const email = formValue(formData, "email");
   const password = formValue(formData, "password");
+  const localeValue = formValue(formData, "locale");
+  const locale = isLocale(localeValue) ? localeValue : defaultLocale;
 
   try {
-    await auth.createUserWithPassword({
-      displayName: formValue(formData, "displayName"),
-      email,
-      password,
-    });
+    const requestContext = await protectAuthAction(email);
 
-    const [result] = await Promise.all([
-      auth.signInWithPassword({
-        context: await authContext(),
+    if (formData.get("legalAcceptance") !== "on") {
+      throw new SecurityError(
+        "Terms and privacy acceptance is required.",
+        "legal_acceptance_required",
+        400,
+      );
+    }
+    const repository = await getContentRepository();
+    const legalDocuments = ["terms", "privacy"].map((slug) =>
+      repository.getPage({ kind: "legal", locale, slug }),
+    );
+    if (
+      legalDocuments.some(
+        (document) => !document || document.publishState !== "published",
+      )
+    ) {
+      throw new SecurityError(
+        "Published legal documents are unavailable.",
+        "legal_document_unavailable",
+        500,
+      );
+    }
+    const context = await authContext();
+    const result = await withDatabaseTransaction(async (client) => {
+      const auth = getAuthService(client);
+      const security = getSecurityService(client);
+      const user = await auth.createUserWithPassword({
+        displayName: formValue(formData, "displayName"),
+        email,
+        locale,
+        password,
+      });
+
+      await Promise.all(
+        legalDocuments.map((document) =>
+          security.acceptLegalDocument({
+            contentHash: fingerprintLegalDocument(document),
+            documentId: document!.id,
+            documentSlug: document!.slug,
+            ipAddress: requestContext.ipAddress,
+            locale,
+            userAgent: requestContext.userAgent,
+            userId: user.id,
+            version: document!.version ?? document!.updatedAt,
+          }),
+        ),
+      );
+
+      const signInResult = await auth.signInWithPassword({
+        context,
         email,
         password,
-      }),
-      auth.createEmailVerification({ email }),
-    ]);
+      });
+      await auth.createEmailVerification({ email });
+
+      return signInResult;
+    });
 
     if (result.status === "signed_in") {
       await setAuthCookies(result.session);
@@ -117,8 +185,19 @@ export async function signUpAction(formData: FormData) {
 
 export async function requestPasswordResetAction(formData: FormData) {
   const auth = getAuthService();
+  const email = formValue(formData, "email");
 
-  await auth.createPasswordReset({ email: formValue(formData, "email") });
+  try {
+    await protectAuthAction(email);
+    await auth.createPasswordReset({ email });
+  } catch (error) {
+    redirectWithStatus(
+      localizedPath(formData, appRoutes.forgotPassword),
+      "error",
+      errorCode(error),
+    );
+  }
+
   redirectWithStatus(
     localizedPath(formData, appRoutes.forgotPassword),
     "status",
@@ -131,6 +210,7 @@ export async function resetPasswordAction(formData: FormData) {
   const token = formValue(formData, "token");
 
   try {
+    await protectAuthAction(token);
     await auth.resetPassword({
       password: formValue(formData, "password"),
       token,
@@ -156,6 +236,7 @@ export async function acceptInvitationAction(formData: FormData) {
   const token = formValue(formData, "token");
 
   try {
+    await protectAuthAction(token);
     const user = await auth.acceptInvitation({
       displayName: formValue(formData, "displayName"),
       password,
@@ -185,8 +266,19 @@ export async function acceptInvitationAction(formData: FormData) {
 
 export async function requestMagicLinkAction(formData: FormData) {
   const auth = getAuthService();
+  const email = formValue(formData, "email");
 
-  await auth.createMagicLink({ email: formValue(formData, "email") });
+  try {
+    await protectAuthAction(email);
+    await auth.createMagicLink({ email });
+  } catch (error) {
+    redirectWithStatus(
+      localizedPath(formData, appRoutes.signIn),
+      "error",
+      errorCode(error),
+    );
+  }
+
   redirectWithStatus(
     localizedPath(formData, appRoutes.signIn),
     "status",
@@ -196,11 +288,13 @@ export async function requestMagicLinkAction(formData: FormData) {
 
 export async function signInWithMagicLinkAction(formData: FormData) {
   const auth = getAuthService();
+  const token = formValue(formData, "token");
 
   try {
+    await protectAuthAction(token);
     const result = await auth.signInWithMagicLink({
       context: await authContext(),
-      token: formValue(formData, "token"),
+      token,
     });
 
     await setAuthCookies(result.session);
@@ -217,9 +311,11 @@ export async function signInWithMagicLinkAction(formData: FormData) {
 
 export async function verifyEmailAction(formData: FormData) {
   const auth = getAuthService();
+  const token = formValue(formData, "token");
 
   try {
-    await auth.verifyEmail(formValue(formData, "token"));
+    await protectAuthAction(token);
+    await auth.verifyEmail(token);
   } catch (error) {
     redirectWithStatus(
       localizedPath(formData, appRoutes.settings),
@@ -237,9 +333,11 @@ export async function verifyEmailAction(formData: FormData) {
 
 export async function verifyEmailChangeAction(formData: FormData) {
   const auth = getAuthService();
+  const token = formValue(formData, "token");
 
   try {
-    await auth.verifyEmailChange(formValue(formData, "token"));
+    await protectAuthAction(token);
+    await auth.verifyEmailChange(token);
   } catch (error) {
     redirectWithStatus(
       localizedPath(formData, appRoutes.settings),

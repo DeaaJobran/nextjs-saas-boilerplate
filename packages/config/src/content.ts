@@ -420,6 +420,52 @@ const pages = [
     ],
   },
   {
+    id: "legal-terms-en",
+    kind: "legal",
+    slug: "terms",
+    locale: "en",
+    title: "Terms of Service",
+    version: "2026.08",
+    description: "Versioned terms content placeholder for the boilerplate.",
+    seo: {
+      title: `Terms of Service | ${appConfig.name}`,
+      description: "Versioned terms rendered through the managed page system.",
+    },
+    publishState: "published",
+    publishedAt: updatedAt,
+    updatedAt,
+    sections: [
+      {
+        id: "terms",
+        title: "Terms content source",
+        body: "This starter ships configurable terms and acceptance tracking. Downstream products must replace this content with their own reviewed terms before launch.",
+      },
+    ],
+  },
+  {
+    id: "legal-terms-ar",
+    kind: "legal",
+    slug: "terms",
+    locale: "ar",
+    title: "شروط الخدمة",
+    version: "2026.08",
+    description: "محتوى شروط قابل للإصدار داخل القالب.",
+    seo: {
+      title: `شروط الخدمة | ${appConfig.name}`,
+      description: "شروط بإصدارات تعرض عبر نظام الصفحات المدار.",
+    },
+    publishState: "published",
+    publishedAt: updatedAt,
+    updatedAt,
+    sections: [
+      {
+        id: "terms",
+        title: "مصدر محتوى الشروط",
+        body: "يوفر هذا القالب شروطاً قابلة للضبط وتتبعاً للموافقة. يجب على المنتجات المبنية عليه استبدال هذا النص بشروط مراجعة خاصة بها قبل الإطلاق.",
+      },
+    ],
+  },
+  {
     id: "legal-privacy-en",
     kind: "legal",
     slug: "privacy",

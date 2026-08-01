@@ -19,6 +19,7 @@ import {
   runMigrations,
   verifyApiKeySecret,
 } from "@nextjs-saas/db";
+import { createCorsHeaders as createSecurityCorsHeaders } from "@nextjs-saas/security/origin";
 import { createStorageService } from "@nextjs-saas/storage";
 import {
   createTenantService,
@@ -2115,21 +2116,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
   }
 
   function createCorsHeaders(origin?: string | null) {
-    const normalizedOrigin = origin ?? "";
-    const allowAny = corsOrigins.includes("*");
-    const allowedOrigin =
-      allowAny || corsOrigins.includes(normalizedOrigin)
-        ? normalizedOrigin || "*"
-        : corsOrigins[0];
-
-    return {
-      "access-control-allow-headers":
-        "authorization,content-type,idempotency-key,x-request-id",
-      "access-control-allow-methods": "DELETE,GET,OPTIONS,POST,PUT",
-      "access-control-allow-origin": allowedOrigin,
-      "access-control-max-age": "86400",
-      vary: "Origin",
-    };
+    return createSecurityCorsHeaders({ allowedOrigins: corsOrigins, origin });
   }
 
   function signWebhookPayload(input: {

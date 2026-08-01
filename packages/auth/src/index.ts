@@ -130,6 +130,7 @@ type AuthSessionRow = {
   id: string;
   ip_address: string | null;
   last_seen_at: Date | string;
+  mfa_verified_at: Date | string | null;
   refresh_expires_at: Date | string;
   refresh_token_hash: string;
   revoked_at: Date | string | null;
@@ -163,6 +164,7 @@ type AuthPasskeyRow = {
   public_key: string;
   transports: string[] | string;
   user_id: string;
+  user_verified: boolean;
 };
 
 type AuthMfaFactorRow = {
@@ -218,6 +220,7 @@ export type AuthSession = {
   id: string;
   ipAddress?: string;
   lastSeenAt: string;
+  mfaVerifiedAt?: string;
   refreshExpiresAt: string;
   revokedAt?: string;
   updatedAt: string;
@@ -284,6 +287,7 @@ function toSession(row: AuthSessionRow): AuthSession {
     id: row.id,
     ipAddress: row.ip_address ?? undefined,
     lastSeenAt: toIsoString(row.last_seen_at)!,
+    mfaVerifiedAt: toIsoString(row.mfa_verified_at),
     refreshExpiresAt: toIsoString(row.refresh_expires_at)!,
     revokedAt: toIsoString(row.revoked_at),
     updatedAt: toIsoString(row.updated_at)!,
@@ -665,6 +669,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     client: Queryable,
     userId: string,
     context: AuthContext = {},
+    assurance: { mfaVerified?: boolean } = {},
   ) {
     const sessionToken = randomToken("nss");
     const refreshToken = randomToken("nsr");
@@ -681,11 +686,12 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           user_agent,
           expires_at,
           refresh_expires_at,
+          mfa_verified_at,
           last_seen_at,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $11)
         RETURNING *
       `,
       [
@@ -698,6 +704,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         context.userAgent,
         addSeconds(timestamp, sessionTtlSeconds).toISOString(),
         addSeconds(timestamp, refreshTokenTtlSeconds).toISOString(),
+        assurance.mfaVerified ? timestamp.toISOString() : null,
         timestamp.toISOString(),
       ],
     );
@@ -844,6 +851,70 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     return false;
   }
 
+  async function verifyPasskeyAuthentication(
+    client: Queryable,
+    response: AuthenticationResponseJSON,
+    userId?: string,
+  ) {
+    const passkeyRows = await client.execute<AuthPasskeyRow>(
+      "SELECT * FROM auth_passkeys WHERE credential_id = $1 LIMIT 1",
+      [response.id],
+    );
+    const passkey = passkeyRows[0];
+
+    if (!passkey || (userId && passkey.user_id !== userId)) {
+      throw new AuthError("Passkey not found.", "passkey_not_found");
+    }
+
+    const challenge = await consumePasskeyChallenge(client, {
+      challenge: extractClientDataChallenge(response),
+      kind: "passkey_authentication",
+      userId,
+    });
+    const verification = await verifyAuthenticationResponse({
+      credential: {
+        counter: passkey.counter,
+        id: passkey.credential_id,
+        publicKey: base64UrlToBytes(passkey.public_key),
+        transports: parseJsonValue<string[]>(passkey.transports, []) as never[],
+      },
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: appBaseUrl,
+      expectedRPID: rpId,
+      response,
+    });
+
+    if (!verification.verified) {
+      throw new AuthError(
+        "Passkey verification failed.",
+        "passkey_verification_failed",
+      );
+    }
+
+    await client.execute(
+      `
+        UPDATE auth_passkeys
+        SET counter = $1,
+            backed_up = $2,
+            user_verified = user_verified OR $3,
+            last_used_at = $4
+        WHERE id = $5
+      `,
+      [
+        verification.authenticationInfo.newCounter,
+        verification.authenticationInfo.credentialBackedUp,
+        verification.authenticationInfo.userVerified,
+        now().toISOString(),
+        passkey.id,
+      ],
+    );
+
+    return {
+      passkey,
+      userVerified: verification.authenticationInfo.userVerified,
+    };
+  }
+
   return {
     async acceptInvitation(input: {
       displayName: string;
@@ -892,6 +963,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     async beginPasskeyAuthentication(
       input: {
         email?: string;
+        userId?: string;
         userVerification?: "discouraged" | "preferred" | "required";
       } = {},
     ): Promise<PublicKeyCredentialRequestOptionsJSON> {
@@ -899,9 +971,22 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       const normalizedEmail = input.email
         ? normalizeEmail(input.email)
         : undefined;
-      const passkeys = normalizedEmail
+      const passkeys = input.userId
         ? await client.execute<AuthPasskeyRow>(
             `
+              SELECT p.*
+              FROM auth_passkeys p
+              INNER JOIN auth_users u ON u.id = p.user_id
+              WHERE p.user_id = $1
+                AND u.deleted_at IS NULL
+                AND u.disabled_at IS NULL
+              ORDER BY p.created_at
+            `,
+            [input.userId],
+          )
+        : normalizedEmail
+          ? await client.execute<AuthPasskeyRow>(
+              `
               SELECT p.*
               FROM auth_passkeys p
               INNER JOIN auth_users u ON u.id = p.user_id
@@ -910,9 +995,9 @@ export function createAuthService(options: AuthServiceOptions = {}) {
                 AND u.disabled_at IS NULL
               ORDER BY p.created_at
             `,
-            [normalizedEmail],
-          )
-        : [];
+              [normalizedEmail],
+            )
+          : [];
       const options = await generateAuthenticationOptions({
         allowCredentials:
           passkeys.length > 0
@@ -932,16 +1017,18 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         `
           INSERT INTO auth_challenges (
             id,
+            user_id,
             kind,
             challenge,
             metadata,
             expires_at,
             created_at
           )
-          VALUES ($1, 'passkey_authentication', $2, $3::jsonb, $4, $5)
+          VALUES ($1, $2, 'passkey_authentication', $3, $4::jsonb, $5, $6)
         `,
         [
           randomUUID(),
+          input.userId ?? null,
           options.challenge,
           JSON.stringify({ normalizedEmail }),
           addSeconds(
@@ -974,7 +1061,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         attestationType: "none",
         authenticatorSelection: {
           residentKey: "preferred",
-          userVerification: "preferred",
+          userVerification: "required",
         },
         excludeCredentials: existingPasskeys.map((passkey) => ({
           id: passkey.credential_id,
@@ -1701,6 +1788,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     async enableTotpFactor(input: {
       code: string;
       factorId: string;
+      sessionId?: string;
       userId: string;
     }) {
       const client = await getClient();
@@ -1741,6 +1829,19 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         "UPDATE auth_users SET mfa_required = true, updated_at = $1 WHERE id = $2",
         [timestamp, input.userId],
       );
+      if (input.sessionId) {
+        await client.execute(
+          `
+            UPDATE auth_sessions
+            SET mfa_verified_at = $1,
+                updated_at = $1
+            WHERE id = $2
+              AND user_id = $3
+              AND revoked_at IS NULL
+          `,
+          [timestamp, input.sessionId, input.userId],
+        );
+      }
 
       for (const recoveryCode of recoveryCodes) {
         await client.execute(
@@ -1765,69 +1866,85 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       return { recoveryCodes };
     },
 
+    async verifySessionMfa(input: {
+      code: string;
+      sessionId: string;
+      userId: string;
+    }) {
+      const client = await getClient();
+      const sessionRows = await client.execute<{ id: string }>(
+        `
+          SELECT id
+          FROM auth_sessions
+          WHERE id = $1
+            AND user_id = $2
+            AND revoked_at IS NULL
+            AND expires_at > $3
+          LIMIT 1
+        `,
+        [input.sessionId, input.userId, now().toISOString()],
+      );
+
+      if (!sessionRows[0]) {
+        throw new AuthError("Session not found.", "session_not_found");
+      }
+
+      const factor = await getEnabledTotpFactor(client, input.userId);
+
+      if (!factor) {
+        throw new AuthError("MFA factor not found.", "mfa_factor_not_found");
+      }
+
+      if (!(await verifyMfaCode(client, input.userId, input.code))) {
+        throw new AuthError("Invalid MFA code.", "invalid_mfa_code");
+      }
+
+      const timestamp = now().toISOString();
+      const rows = await client.execute<AuthSessionRow>(
+        `
+          UPDATE auth_sessions
+          SET mfa_verified_at = $1,
+              updated_at = $1
+          WHERE id = $2
+            AND user_id = $3
+            AND revoked_at IS NULL
+            AND expires_at > $1
+          RETURNING *
+        `,
+        [timestamp, input.sessionId, input.userId],
+      );
+      const session = rows[0];
+
+      if (!session) {
+        throw new AuthError(
+          "Session is no longer active.",
+          "session_not_found",
+        );
+      }
+
+      await audit(client, {
+        eventType: "auth.mfa.session_verified",
+        userId: input.userId,
+      });
+
+      return toSession(session);
+    },
+
     async finishPasskeyAuthentication(input: {
       context?: AuthContext;
       response: AuthenticationResponseJSON;
     }) {
       const client = await getClient();
-      const passkeyRows = await client.execute<AuthPasskeyRow>(
-        "SELECT * FROM auth_passkeys WHERE credential_id = $1 LIMIT 1",
-        [input.response.id],
-      );
-      const passkey = passkeyRows[0];
-
-      if (!passkey) {
-        throw new AuthError("Passkey not found.", "passkey_not_found");
-      }
-
-      const challenge = await consumePasskeyChallenge(client, {
-        challenge: extractClientDataChallenge(input.response),
-        kind: "passkey_authentication",
-      });
-
-      const verification = await verifyAuthenticationResponse({
-        credential: {
-          counter: passkey.counter,
-          id: passkey.credential_id,
-          publicKey: base64UrlToBytes(passkey.public_key),
-          transports: parseJsonValue<string[]>(
-            passkey.transports,
-            [],
-          ) as never[],
-        },
-        expectedChallenge: challenge.challenge,
-        expectedOrigin: appBaseUrl,
-        expectedRPID: rpId,
-        response: input.response,
-      });
-
-      if (!verification.verified) {
-        throw new AuthError(
-          "Passkey verification failed.",
-          "passkey_verification_failed",
-        );
-      }
-
-      await client.execute(
-        `
-          UPDATE auth_passkeys
-          SET counter = $1,
-              backed_up = $2,
-              last_used_at = $3
-          WHERE id = $4
-        `,
-        [
-          verification.authenticationInfo.newCounter,
-          verification.authenticationInfo.credentialBackedUp,
-          now().toISOString(),
-          passkey.id,
-        ],
+      const { passkey, userVerified } = await verifyPasskeyAuthentication(
+        client,
+        input.response,
       );
 
       const session = await createSession(
         client,
         passkey.user_id,
         input.context,
+        { mfaVerified: userVerified },
       );
       const user = await findUserById(client, passkey.user_id);
 
@@ -1838,6 +1955,73 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       });
 
       return { session, user: toUser(user!) };
+    },
+
+    async finishPasskeySessionMfa(input: {
+      response: AuthenticationResponseJSON;
+      sessionId: string;
+      userId: string;
+    }) {
+      const client = await getClient();
+      const timestamp = now().toISOString();
+      const sessionRows = await client.execute<{ id: string }>(
+        `
+          SELECT id
+          FROM auth_sessions
+          WHERE id = $1
+            AND user_id = $2
+            AND revoked_at IS NULL
+            AND expires_at > $3
+          LIMIT 1
+        `,
+        [input.sessionId, input.userId, timestamp],
+      );
+
+      if (!sessionRows[0]) {
+        throw new AuthError("Session not found.", "session_not_found");
+      }
+
+      const { userVerified } = await verifyPasskeyAuthentication(
+        client,
+        input.response,
+        input.userId,
+      );
+
+      if (!userVerified) {
+        throw new AuthError(
+          "Passkey user verification is required.",
+          "passkey_user_verification_required",
+        );
+      }
+
+      const rows = await client.execute<AuthSessionRow>(
+        `
+          UPDATE auth_sessions
+          SET mfa_verified_at = $1,
+              updated_at = $1
+          WHERE id = $2
+            AND user_id = $3
+            AND revoked_at IS NULL
+            AND expires_at > $1
+          RETURNING *
+        `,
+        [timestamp, input.sessionId, input.userId],
+      );
+      const session = rows[0];
+
+      if (!session) {
+        throw new AuthError(
+          "Session is no longer active.",
+          "session_not_found",
+        );
+      }
+
+      await audit(client, {
+        eventType: "auth.mfa.passkey_session_verified",
+        userId: input.userId,
+      });
+
+      return toSession(session);
     },
 
     async finishPasskeyRegistration(input: {
@@ -1856,6 +2040,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         expectedChallenge: challenge.challenge,
         expectedOrigin: appBaseUrl,
         expectedRPID: rpId,
+        requireUserVerification: true,
         response: input.response,
       });
 
@@ -1884,9 +2069,10 @@ export function createAuthService(options: AuthServiceOptions = {}) {
             label,
             device_type,
             backed_up,
+            user_verified,
             created_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
+          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
         `,
         [
           randomUUID(),
@@ -1898,6 +2084,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           input.label ?? String(metadata.label ?? "Passkey"),
           verification.registrationInfo.credentialDeviceType,
           verification.registrationInfo.credentialBackedUp,
+          verification.registrationInfo.userVerified,
           timestamp,
         ],
       );
@@ -1915,6 +2102,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           display_name: string;
           email: string;
           locale: string | null;
+          mfa_required: boolean;
           role: AuthRole;
         }
       >(
@@ -1925,6 +2113,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
             u.display_name,
             u.avatar_url,
             u.locale,
+            u.mfa_required,
             u.role
           FROM auth_sessions s
           INNER JOIN auth_users u ON u.id = s.user_id
@@ -1956,6 +2145,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           email: session.email,
           id: session.user_id,
           locale: session.locale ?? undefined,
+          mfaRequired: session.mfa_required,
           role: session.role,
         },
       };
@@ -2015,6 +2205,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         id: passkey.id,
         label: passkey.label,
         lastUsedAt: toIsoString(passkey.last_used_at),
+        userVerified: passkey.user_verified,
       }));
     },
 
@@ -2294,7 +2485,9 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         success: true,
       });
 
-      const session = await createSession(client, user.id, input.context);
+      const session = await createSession(client, user.id, input.context, {
+        mfaVerified: user.mfa_required,
+      });
 
       await audit(client, {
         context: input.context,

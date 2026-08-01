@@ -1,12 +1,18 @@
+import { appRoutes } from "@nextjs-saas/config/app";
 import {
   createTenantService,
   type ImpersonationSession,
   type TenantPermission,
 } from "@nextjs-saas/tenant";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { requireAdminSession } from "./admin-auth";
-import { getOptionalCurrentSession, requireCurrentSession } from "./auth";
+import {
+  getOptionalCurrentSession,
+  requireCurrentSession,
+  satisfiesMfaPolicy,
+} from "./auth";
 
 const activeOrganizationCookieName = "nextjs_saas_active_org";
 const impersonationCookieName = "nextjs_saas_impersonation";
@@ -67,7 +73,10 @@ async function readActiveImpersonation(
   return impersonation;
 }
 
-export async function getActiveTenantContext(permission?: TenantPermission) {
+export async function getActiveTenantContext(
+  permission?: TenantPermission,
+  options: { allowMfaEnrollment?: boolean } = {},
+) {
   const cookieStore = await cookies();
   const impersonationSessionId = cookieStore.get(
     impersonationCookieName,
@@ -121,6 +130,14 @@ export async function getActiveTenantContext(permission?: TenantPermission) {
     permission,
     userId: effectiveUser.id,
   });
+
+  if (
+    !options.allowMfaEnrollment &&
+    (!satisfiesMfaPolicy(session, session.user.role) ||
+      !satisfiesMfaPolicy(session, access.membership.role))
+  ) {
+    redirect(`${appRoutes.settings}?status=mfa-required`);
+  }
 
   return {
     ...access,
