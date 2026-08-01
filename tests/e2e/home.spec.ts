@@ -121,8 +121,16 @@ test("renders mobile application navigation", async ({ page }) => {
 test("exposes deployment health and an admin observability dashboard", async ({
   page,
   request,
-}) => {
-  const origin = "http://localhost:3000";
+}, testInfo) => {
+  const baseUrl = testInfo.project.use.baseURL;
+
+  if (!baseUrl) {
+    throw new Error(
+      "The observability E2E test requires a configured base URL.",
+    );
+  }
+
+  const origin = new URL(baseUrl).origin;
   const liveness = await request.get("/api/v1/health", {
     headers: { origin },
   });
