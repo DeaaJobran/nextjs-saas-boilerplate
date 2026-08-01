@@ -119,6 +119,7 @@ describe("jobs", () => {
         name: "Tenant metrics",
         nextRunAt: now,
         payload: { tenantId: "tenant_1" },
+        queue: "tenant-metrics",
         tenantId: "tenant_1",
       });
 
@@ -128,11 +129,13 @@ describe("jobs", () => {
 
       const claimedJob = await claimNextJob({
         now: new Date("2026-07-06T10:01:00.000Z"),
+        queue: "tenant-metrics",
       });
 
       expect(claimedJob).toMatchObject({
         id: jobIds[0],
         payload: { tenantId: "tenant_1" },
+        queue: "tenant-metrics",
         tenantId: "tenant_1",
         type: "rollup-metrics",
       });

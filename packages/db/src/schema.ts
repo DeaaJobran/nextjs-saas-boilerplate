@@ -393,6 +393,7 @@ export const cronSchedules = pgTable(
       withTimezone: true,
     }).notNull(),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    queue: text("queue").notNull().default("default"),
     tenantId: text("tenant_id"),
     updatedAt: timestamp("updated_at", {
       mode: "string",

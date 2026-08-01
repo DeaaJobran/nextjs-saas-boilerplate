@@ -11,6 +11,8 @@ All notable public changes are tracked here. This project uses semantic version 
 - Local mock payment provider adapter and Stripe-compatible adapter with signed raw-body webhook verification.
 - Tenant billing settings UI, admin billing registry UI, public pricing backed by billing plans/prices, and `/api/billing/webhooks/[provider]`.
 - Billing tests covering checkout, signed/idempotent webhooks, subscription-derived entitlements, usage idempotency, invoices, refunds, currency conversion, and tax calculation.
+- Tenant-aware storage and file management with local, S3, Wasabi, MinIO, and Cloudflare R2 adapters.
+- Signed upload/download flows, ownership and access policies, validation, media metadata and previews, malware scanning hooks, quotas, audit records, and recurring lifecycle cleanup.
 
 ## v0.3.0 - 2026-07-06
 

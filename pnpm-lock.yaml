@@ -307,6 +307,9 @@ importers:
       '@nextjs-saas/db':
         specifier: workspace:*
         version: link:../db
+      '@nextjs-saas/storage':
+        specifier: workspace:*
+        version: link:../storage
     devDependencies:
       tsx:
         specifier: ^4.21.0

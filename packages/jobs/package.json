@@ -12,7 +12,8 @@
     "worker": "tsx src/worker.ts"
   },
   "dependencies": {
-    "@nextjs-saas/db": "workspace:*"
+    "@nextjs-saas/db": "workspace:*",
+    "@nextjs-saas/storage": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.21.0",

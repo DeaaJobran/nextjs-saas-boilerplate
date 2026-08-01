@@ -1,61 +1,19 @@
-import path from "node:path";
-
 import {
-  createLocalStorageAdapter,
+  createStorageRuntimeConfiguration,
   createStorageService,
   verifyLocalStorageSignature,
 } from "@nextjs-saas/storage";
 
-function getStorageProviderId() {
-  return process.env.STORAGE_PROVIDER_ID ?? "local";
-}
-
-function getStorageBaseUrl() {
-  return (
-    process.env.STORAGE_PUBLIC_BASE_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://localhost:3000"
-  );
-}
-
-function getStorageRoot() {
-  return (
-    process.env.STORAGE_LOCAL_ROOT ??
-    path.join(process.cwd(), ".local", "storage")
-  );
-}
-
-function getStorageSigningSecret() {
-  const secret = process.env.STORAGE_SIGNING_SECRET ?? process.env.AUTH_SECRET;
-
-  if (secret) {
-    return secret;
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "STORAGE_SIGNING_SECRET or AUTH_SECRET must be configured.",
-    );
-  }
-
-  return "local-storage-development-secret";
-}
-
 export function createWebStorageAdapter() {
-  return createLocalStorageAdapter({
-    id: getStorageProviderId(),
-    publicBaseUrl: getStorageBaseUrl(),
-    rootDir: getStorageRoot(),
-    signingSecret: getStorageSigningSecret(),
-  });
+  return createStorageRuntimeConfiguration().adapter;
 }
 
 export function getStorageService() {
+  const runtime = createStorageRuntimeConfiguration();
+
   return createStorageService({
-    adapter: createWebStorageAdapter(),
-    provider: {
-      publicBaseUrl: getStorageBaseUrl(),
-    },
+    adapter: runtime.adapter,
+    provider: runtime.provider,
   });
 }
 
@@ -68,10 +26,15 @@ export function isSignedStorageRequest(input: {
   key: string;
   request: Request;
 }) {
+  const runtime = createStorageRuntimeConfiguration();
   const url = new URL(input.request.url);
-  const providerId = url.searchParams.get("provider") ?? getStorageProviderId();
+  const providerId = url.searchParams.get("provider") ?? runtime.adapter.id;
 
-  if (providerId !== getStorageProviderId()) {
+  if (
+    runtime.adapter.kind !== "local" ||
+    !runtime.localSigningSecret ||
+    providerId !== runtime.adapter.id
+  ) {
     return false;
   }
 
@@ -80,7 +43,7 @@ export function isSignedStorageRequest(input: {
     expires: url.searchParams.get("expires"),
     key: input.key,
     providerId,
-    secret: getStorageSigningSecret(),
+    secret: runtime.localSigningSecret,
     signature: url.searchParams.get("signature"),
   });
 }

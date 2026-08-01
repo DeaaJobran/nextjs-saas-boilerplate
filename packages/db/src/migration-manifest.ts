@@ -1599,4 +1599,10 @@ CREATE INDEX IF NOT EXISTS storage_audit_events_file_created_idx
   ON storage_audit_events (file_id, created_at DESC);
 `,
   },
+  {
+    id: "0009_storage_maintenance_queues.sql",
+    sql: String.raw`ALTER TABLE cron_schedules
+  ADD COLUMN IF NOT EXISTS queue text NOT NULL DEFAULT 'default';
+`,
+  },
 ];

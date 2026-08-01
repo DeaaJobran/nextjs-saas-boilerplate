@@ -37,6 +37,7 @@ export type CronSchedule = {
   name: string;
   nextRunAt: string;
   payload: Record<string, unknown>;
+  queue: string;
   tenantId?: string;
   updatedAt: string;
 };
@@ -186,6 +187,7 @@ export async function registerCronSchedule(input: {
   name: string;
   nextRunAt?: Date;
   payload?: Record<string, unknown>;
+  queue?: string;
   tenantId?: string;
 }) {
   assertPositiveInteger(input.intervalSeconds, "Cron schedule interval");
@@ -205,6 +207,7 @@ export async function registerCronSchedule(input: {
         tenant_id,
         name,
         job_type,
+        queue,
         payload,
         interval_seconds,
         enabled,
@@ -212,16 +215,17 @@ export async function registerCronSchedule(input: {
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $9)
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $10)
       ON CONFLICT (id) DO UPDATE SET
         tenant_id = EXCLUDED.tenant_id,
         name = EXCLUDED.name,
         job_type = EXCLUDED.job_type,
+        queue = EXCLUDED.queue,
         payload = EXCLUDED.payload,
         interval_seconds = EXCLUDED.interval_seconds,
         enabled = EXCLUDED.enabled,
         next_run_at = CASE
-          WHEN $10 THEN EXCLUDED.next_run_at
+          WHEN $11 THEN EXCLUDED.next_run_at
           ELSE cron_schedules.next_run_at
         END,
         updated_at = EXCLUDED.updated_at
@@ -231,6 +235,7 @@ export async function registerCronSchedule(input: {
       input.tenantId,
       input.name,
       input.jobType,
+      input.queue ?? "default",
       JSON.stringify(input.payload ?? {}),
       input.intervalSeconds,
       input.enabled ?? true,
@@ -313,10 +318,11 @@ export async function materializeDueCronJobs(now = new Date()) {
       interval_seconds: number;
       job_type: string;
       payload: Record<string, unknown> | string;
+      queue: string;
       tenant_id: string | null;
     }>(
       `
-        SELECT id, tenant_id, job_type, payload, interval_seconds
+        SELECT id, tenant_id, job_type, queue, payload, interval_seconds
         FROM cron_schedules
         WHERE enabled = true
           AND deleted_at IS NULL
@@ -349,11 +355,12 @@ export async function materializeDueCronJobs(now = new Date()) {
             created_at,
             updated_at
           )
-          VALUES ($1, $2, 'default', $3, $4::jsonb, 'queued', 0, 0, 3, $5, $5, $5)
+          VALUES ($1, $2, $3, $4, $5::jsonb, 'queued', 0, 0, 3, $6, $6, $6)
         `,
         [
           jobId,
           schedule.tenant_id,
+          schedule.queue,
           schedule.job_type,
           JSON.stringify(parsePayload(schedule.payload)),
           nowIso,

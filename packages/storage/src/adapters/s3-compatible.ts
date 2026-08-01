@@ -7,7 +7,7 @@ import type {
   StorageSignedUrl,
 } from "../types";
 
-type S3CompatibleAdapterOptions = {
+export type S3CompatibleAdapterOptions = {
   accessKeyId: string;
   bucket: string;
   endpoint?: string;

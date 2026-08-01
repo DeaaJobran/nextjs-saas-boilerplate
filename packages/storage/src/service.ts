@@ -1,5 +1,4 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import path from "node:path";
 
 import {
   getDatabaseRuntime,
@@ -8,6 +7,7 @@ import {
 } from "@nextjs-saas/db";
 
 import { createLocalStorageAdapter } from "./adapters/local";
+import { resolveStorageLocalRoot } from "./config";
 import { assertStorageCondition, StorageError } from "./errors";
 import {
   createDocumentPreview,
@@ -139,9 +139,7 @@ function parseJson<T>(value: T | string | null | undefined, fallback: T): T {
 
 function defaultAdapter() {
   return createLocalStorageAdapter({
-    rootDir:
-      process.env.STORAGE_LOCAL_ROOT ??
-      path.join(process.cwd(), ".local", "storage"),
+    rootDir: resolveStorageLocalRoot(process.env),
     signingSecret: process.env.STORAGE_SIGNING_SECRET,
   });
 }
@@ -1733,12 +1731,14 @@ export function createStorageService(options: StorageServiceOptions = {}) {
       tenant_id: string;
     }>(
       `
-        SELECT byte_size, file_id, object_key, tenant_id
-        FROM storage_upload_intents
-        WHERE status IN ('pending', 'processing')
-          AND expires_at <= $1
+        SELECT intent.byte_size, intent.file_id, intent.object_key, intent.tenant_id
+        FROM storage_upload_intents AS intent
+        INNER JOIN storage_files AS file ON file.id = intent.file_id
+        WHERE intent.status = 'pending'
+          AND intent.expires_at <= $1
+          AND file.provider_id = $2
       `,
-      [timestamp],
+      [timestamp, provider.id],
     );
     let cleaned = 0;
 
@@ -1758,7 +1758,7 @@ export function createStorageService(options: StorageServiceOptions = {}) {
             SET status = 'expired',
                 updated_at = $2
             WHERE file_id = $1
-              AND status IN ('pending', 'processing')
+              AND status = 'pending'
           `,
           [row.file_id, timestamp],
         );
@@ -1769,9 +1769,10 @@ export function createStorageService(options: StorageServiceOptions = {}) {
                 updated_at = $2
             WHERE id = $1
               AND status = 'pending'
+              AND provider_id = $3
             RETURNING id
           `,
-          [row.file_id, timestamp],
+          [row.file_id, timestamp, provider.id],
         );
 
         if (fileRows[0]) {
@@ -1818,6 +1819,7 @@ export function createStorageService(options: StorageServiceOptions = {}) {
         FROM storage_files
         WHERE status = 'pending'
           AND created_at < $1
+          AND provider_id = $2
           AND NOT EXISTS (
             SELECT 1
             FROM storage_upload_intents
@@ -1825,7 +1827,7 @@ export function createStorageService(options: StorageServiceOptions = {}) {
               AND storage_upload_intents.status IN ('pending', 'processing')
           )
       `,
-      [input.olderThan],
+      [input.olderThan, provider.id],
     );
     let cleaned = 0;
 
@@ -1846,9 +1848,10 @@ export function createStorageService(options: StorageServiceOptions = {}) {
                 updated_at = $2
             WHERE id = $1
               AND status = 'pending'
+              AND provider_id = $3
             RETURNING id
           `,
-          [row.id, timestamp],
+          [row.id, timestamp, provider.id],
         );
 
         if (fileRows[0]) {
@@ -1889,8 +1892,9 @@ export function createStorageService(options: StorageServiceOptions = {}) {
         FROM storage_files
         WHERE status = 'deleted'
           AND deleted_at < $1
+          AND provider_id = $2
       `,
-      [input.olderThan],
+      [input.olderThan, provider.id],
     );
     let cleaned = 0;
 
@@ -1912,8 +1916,9 @@ export function createStorageService(options: StorageServiceOptions = {}) {
           DELETE FROM storage_files
           WHERE id = $1
             AND status = 'deleted'
+            AND provider_id = $2
         `,
-        [row.id],
+        [row.id, provider.id],
       );
       cleaned += 1;
     }

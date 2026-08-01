@@ -23,6 +23,16 @@ const envSchema = z.object({
   S3_PORT: z.coerce.number().int().positive().optional(),
   S3_REGION: z.string().trim().min(1).optional(),
   S3_SECRET_ACCESS_KEY: z.string().trim().min(1).optional(),
+  S3_SESSION_TOKEN: z.string().trim().min(1).optional(),
+  STORAGE_LOCAL_ROOT: z.string().trim().min(1).optional(),
+  STORAGE_PROVIDER_ID: z.string().trim().min(1).optional(),
+  STORAGE_PROVIDER_KIND: z
+    .enum(["local", "s3", "wasabi", "minio", "r2"])
+    .default("local"),
+  STORAGE_PROVIDER_NAME: z.string().trim().min(1).optional(),
+  STORAGE_PUBLIC_BASE_URL: z.url().optional(),
+  STORAGE_SIGNING_SECRET: z.string().trim().min(32).optional(),
+  R2_ACCOUNT_ID: z.string().trim().min(1).optional(),
   SMTP_FROM: z.email().optional(),
   SMTP_HOST: z.string().trim().min(1).optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
