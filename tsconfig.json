@@ -35,6 +35,8 @@
       "@nextjs-saas/jobs/*": ["./packages/jobs/src/*"],
       "@nextjs-saas/localization": ["./packages/localization/src/index.ts"],
       "@nextjs-saas/localization/*": ["./packages/localization/src/*"],
+      "@nextjs-saas/observability": ["./packages/observability/src/index.ts"],
+      "@nextjs-saas/observability/*": ["./packages/observability/src/*"],
       "@nextjs-saas/storage": ["./packages/storage/src/index.ts"],
       "@nextjs-saas/storage/*": ["./packages/storage/src/*"],
       "@nextjs-saas/tenant": ["./packages/tenant/src/index.ts"],

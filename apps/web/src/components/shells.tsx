@@ -2,6 +2,7 @@ import { appConfig, appRoutes } from "@nextjs-saas/config/app";
 import type { Locale } from "@nextjs-saas/localization";
 import { Button } from "@nextjs-saas/ui";
 import {
+  ActivityIcon,
   BarChart3Icon,
   BookOpenIcon,
   Building2Icon,
@@ -263,6 +264,12 @@ export async function AdminShell({
           <Link href={appRoutes.adminBilling}>
             <CreditCardIcon aria-hidden="true" className="size-4" />
             {shellT("billingRegistry")}
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={appRoutes.adminObservability}>
+            <ActivityIcon aria-hidden="true" className="size-4" />
+            {shellT("observabilityRegistry")}
           </Link>
         </Button>
         <Button asChild variant="outline">

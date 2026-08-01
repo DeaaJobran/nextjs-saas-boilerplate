@@ -10,6 +10,7 @@ import {
 import { appConfig } from "@nextjs-saas/config/app";
 import { NextResponse } from "next/server";
 
+import { getObservabilityService } from "./observability";
 import { getStorageService } from "./storage";
 
 export function getApiService() {
@@ -69,6 +70,7 @@ export async function handleApiOptions(request: Request) {
 
 export async function handleApiRoute<T>(config: ApiRouteConfig<T>) {
   const service = getApiService();
+  const observability = getObservabilityService();
   const startedAt = Date.now();
   const context = getRequestContext(config.request);
   const requestId = context.requestId ?? randomUUID();
@@ -88,16 +90,27 @@ export async function handleApiRoute<T>(config: ApiRouteConfig<T>) {
       principal = await service.authenticateBearerToken({
         authorizationHeader: config.request.headers.get("authorization"),
       });
+      tenantId ??= principal.tenantId;
 
       if (config.requiredScopes?.length) {
         service.requireScopes(principal, config.requiredScopes);
       }
     }
 
-    const result = await config.handler({
-      context: { ...context, requestId },
-      principal,
-      service,
+    const result = await observability.withSpan({
+      attributes: {
+        "http.request.method": method,
+        "http.route": config.routeId,
+        "request.id": requestId,
+      },
+      name: `api ${config.routeId}`,
+      task: () =>
+        config.handler({
+          context: { ...context, requestId },
+          principal,
+          service,
+        }),
+      tenantId: (result) => result?.tenantId ?? tenantId,
     });
 
     tenantId = result.tenantId;
@@ -112,6 +125,40 @@ export async function handleApiRoute<T>(config: ApiRouteConfig<T>) {
       statusCode: result.status ?? 200,
       tenantId,
     });
+    await Promise.allSettled([
+      observability.recordMetric({
+        attributes: {
+          method,
+          routeId: config.routeId,
+          statusCode: result.status ?? 200,
+        },
+        kind: "counter",
+        name: "api.requests",
+        tenantId,
+        unit: "request",
+        value: 1,
+      }),
+      observability.recordMetric({
+        attributes: { method, routeId: config.routeId },
+        kind: "histogram",
+        name: "api.request.duration",
+        tenantId,
+        unit: "ms",
+        value: Date.now() - startedAt,
+      }),
+      observability.logger.info("API request completed", {
+        attributes: {
+          durationMs: Date.now() - startedAt,
+          method,
+          path,
+          routeId: config.routeId,
+          statusCode: result.status ?? 200,
+        },
+        category: "api",
+        requestId,
+        tenantId,
+      }),
+    ]);
 
     return NextResponse.json(apiSuccess(result.data, result.meta), {
       headers: corsHeaders,
@@ -131,6 +178,48 @@ export async function handleApiRoute<T>(config: ApiRouteConfig<T>) {
       statusCode: failure.status,
       tenantId,
     });
+    await Promise.allSettled([
+      observability.recordMetric({
+        attributes: {
+          errorCode: failure.body.code,
+          method,
+          routeId: config.routeId,
+          statusCode: failure.status,
+        },
+        kind: "counter",
+        name: "api.requests",
+        tenantId,
+        unit: "request",
+        value: 1,
+      }),
+      observability.recordMetric({
+        attributes: {
+          errorCode: failure.body.code,
+          method,
+          routeId: config.routeId,
+          statusCode: failure.status,
+        },
+        kind: "histogram",
+        name: "api.request.duration",
+        tenantId,
+        unit: "ms",
+        value: Date.now() - startedAt,
+      }),
+      observability.logger.error("API request failed", {
+        attributes: {
+          durationMs: Date.now() - startedAt,
+          errorCode: failure.body.code,
+          method,
+          path,
+          routeId: config.routeId,
+          statusCode: failure.status,
+        },
+        category: "api",
+        error,
+        requestId,
+        tenantId,
+      }),
+    ]);
 
     return NextResponse.json(failure.body, {
       headers: corsHeaders,

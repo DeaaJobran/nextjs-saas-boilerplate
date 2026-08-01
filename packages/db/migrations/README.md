@@ -11,6 +11,7 @@ Current runtime migrations:
 - `0008_storage_file_management.sql`: provider-neutral tenant file records, upload intents, access grants, variants, usage accounting, and storage audit events.
 - `0009_storage_maintenance_queues.sql`: provider-specific queue routing for recurring storage maintenance jobs.
 - `0010_emails_notifications_messaging.sql`: notification preferences, in-app notifications, queue-backed message delivery logs, and messaging audit events.
+- `0011_observability_monitoring.sql`: structured logs, metric points, trace spans, uptime monitors, and uptime check history.
 
 `pnpm db:generate` writes Drizzle draft migrations to `packages/db/migrations/generated/`. Treat those files as local review artifacts: inspect the generated SQL, promote the reviewed statements into the next numbered runtime migration, and add the same SQL to the migration manifest before committing.
 

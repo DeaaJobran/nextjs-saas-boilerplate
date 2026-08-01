@@ -35,6 +35,7 @@ export const appRoutes = {
   organizationInvitation: "/organizations/invitations/accept",
   admin: "/admin",
   adminBilling: "/admin/billing",
+  adminObservability: "/admin/observability",
   adminSuper: "/admin/super",
   adminUsers: "/admin/users",
 } as const;

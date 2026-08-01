@@ -488,4 +488,34 @@ describe("database migrations", () => {
       true,
     );
   }, 60_000);
+
+  it("creates observability and uptime-monitoring tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'observability_logs',
+          'observability_metric_points',
+          'observability_spans',
+          'uptime_check_results',
+          'uptime_monitors'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "observability_logs",
+      "observability_metric_points",
+      "observability_spans",
+      "uptime_check_results",
+      "uptime_monitors",
+    ]);
+  }, 60_000);
 });

@@ -1,19 +1,22 @@
-import { apiInfo, handleApiOptions, handleApiRoute } from "@/lib/api";
+import { NextResponse } from "next/server";
+
+import { apiInfo, getApiService, handleApiOptions } from "@/lib/api";
+import { getObservabilityService } from "@/lib/observability";
 
 export function OPTIONS(request: Request) {
   return handleApiOptions(request);
 }
 
 export function GET(request: Request) {
-  return handleApiRoute({
-    handler: () => ({
+  return NextResponse.json(
+    {
       data: {
         ...apiInfo(),
-        status: "ok",
+        ...getObservabilityService().liveness(),
       },
-    }),
-    method: "GET",
-    request,
-    routeId: "getHealth",
-  });
+    },
+    {
+      headers: getApiService().createCorsHeaders(request.headers.get("origin")),
+    },
+  );
 }

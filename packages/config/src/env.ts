@@ -20,6 +20,21 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  OBSERVABILITY_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
+  OBSERVABILITY_UPTIME_INTERVAL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
+  OBSERVABILITY_UPTIME_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+  OTEL_EXPORTER_OTLP_HEADERS: z.string().trim().min(1).optional(),
+  OTEL_SDK_DISABLED: z.stringbool().optional(),
+  OTEL_SERVICE_NAME: z.string().trim().min(1).optional(),
   PGLITE_DATA_DIR: z.string().trim().min(1).optional(),
   POSTGRES_DB: z.string().trim().min(1).optional(),
   POSTGRES_PASSWORD: z.string().trim().min(1).optional(),

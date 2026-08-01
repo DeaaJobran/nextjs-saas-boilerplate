@@ -91,6 +91,62 @@
     "title": "Title",
     "type": "Type"
   },
+  "AdminObservability": {
+    "auditTrail": "Audit coverage",
+    "auditSources": {
+      "api": "API",
+      "auth": "Authentication",
+      "billing": "Billing",
+      "messaging": "Messaging",
+      "storage": "Storage",
+      "tenant": "Tenancy"
+    },
+    "audits": "Audit events",
+    "emptyAudits": "No audit events are available.",
+    "emptyChecks": "No dependency checks are configured.",
+    "emptyLogs": "No operational logs are available.",
+    "emptyMonitors": "No uptime monitors are configured.",
+    "health": "Readiness",
+    "healthChecks": "Dependency health checks",
+    "healthStatus": {
+      "degraded": "Degraded",
+      "healthy": "Healthy",
+      "unhealthy": "Unhealthy"
+    },
+    "logs": "Structured logs",
+    "logLevels": {
+      "debug": "Debug",
+      "error": "Error",
+      "fatal": "Fatal",
+      "info": "Information",
+      "warn": "Warning"
+    },
+    "monitors": "Uptime monitors",
+    "pending": "Pending",
+    "recentLogs": "Recent operational logs",
+    "summaryBadges": {
+      "audits": "Audits",
+      "logs": "Logs",
+      "monitors": "Monitors"
+    },
+    "table": {
+      "correlation": "Request / trace",
+      "duration": "Duration",
+      "events": "Events",
+      "level": "Level",
+      "message": "Message",
+      "name": "Name",
+      "service": "Service",
+      "source": "Source",
+      "status": "Status",
+      "time": "Time"
+    },
+    "uptime": "Uptime checks",
+    "uptimeStatus": {
+      "down": "Down",
+      "up": "Up"
+    }
+  },
   "AdminOverview": {
     "adminBadge": "Admin",
     "contactDescription": "saved through the managed contact form",
@@ -625,6 +681,7 @@
   "Shell": {
     "adminEyebrow": "Admin surface",
     "adminTitle": "Content and operational controls",
+    "observabilityRegistry": "Observability",
     "applicationNavigation": "Application navigation",
     "authDescription": "This layout gives future sign-in, passkey, MFA, and recovery flows a stable responsive contract.",
     "authTitle": "A reusable auth surface ready for the identity module.",

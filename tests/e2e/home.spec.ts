@@ -118,6 +118,42 @@ test("renders mobile application navigation", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("exposes deployment health and an admin observability dashboard", async ({
+  page,
+  request,
+}) => {
+  const origin = "http://localhost:3000";
+  const liveness = await request.get("/api/v1/health", {
+    headers: { origin },
+  });
+  const readiness = await request.get("/api/v1/readiness", {
+    headers: { origin },
+  });
+
+  expect(liveness.status()).toBe(200);
+  expect(liveness.headers()["access-control-allow-origin"]).toBe(origin);
+  expect(await liveness.json()).toMatchObject({
+    data: { checks: [], status: "healthy" },
+  });
+  expect(readiness.status()).toBe(200);
+  expect(readiness.headers()["access-control-allow-origin"]).toBe(origin);
+  expect(await readiness.json()).toMatchObject({
+    data: {
+      checks: [{ name: "database", status: "healthy" }],
+      status: "healthy",
+    },
+  });
+  await grantAdminAccess(page);
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.goto("/en/admin/observability");
+  await expect(page.getByText("Dependency health checks")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "database" })).toBeVisible();
+  await expectNoHorizontalOverflow(page, {
+    route: "/en/admin/observability",
+    viewport: { height: 844, width: 390 },
+  });
+});
+
 test("tenant settings can create a tenant API key", async ({ page }) => {
   const keyName = `E2E key ${Date.now()}`;
 
