@@ -29,6 +29,7 @@ The project has a working foundation for the web app, database, self-hosted iden
 - Tenant package with organizations, memberships, invitations, roles, permissions, tenant API keys, quotas, usage limits, feature flags, audit logs, support impersonation, and tenant tests.
 - Billing package with database-backed plans, localized plan copy, multi-currency prices, tenant billing settings, tax settings/rates, usage meters, subscriptions, invoices, payment methods, refunds, entitlements, signed idempotent webhooks, a mock provider adapter, and a Stripe-compatible adapter.
 - Storage package with local, S3, Wasabi, MinIO, and R2 adapters, signed transfers, tenant ownership policies, upload validation, media previews, malware scanning hooks, lifecycle cleanup, quota accounting, audit records, and tests.
+- Messaging package with React Email templates, local preview, SMTP/Resend/Postmark/Mailgun adapters, queued retries, delivery logs, localized tenant branding, preferences, in-app notifications, and push/SMS extension contracts.
 - Admin and super-admin surfaces for content, users, tenant controls, and impersonation workflows.
 - Jobs package with background job and cron schedule primitives.
 - Local Docker Compose services for PostgreSQL, Redis, MinIO, and Mailpit.
@@ -37,7 +38,6 @@ The project has a working foundation for the web app, database, self-hosted iden
 
 ## Roadmap Highlights
 
-- Email and notification provider adapters with React Email templates and delivery logs.
 - Public API, OpenAPI generation, mobile session support, OAuth/OIDC support, SDK path, and API usage tracking.
 - Observability module with structured logs, metrics, tracing, health checks, uptime checks, and operational dashboards.
 - Production deployment examples, VPS hardening, reverse proxy guides, backup/restore, maintenance mode, and rollback strategy.
@@ -139,6 +139,7 @@ pnpm build:storybook
 - `packages/billing`: billing, payment adapter, currency, tax, usage, entitlement, invoice, refund, and webhook domain.
 - `packages/config`: app configuration, environment validation, SEO, and managed content contracts.
 - `packages/db`: database runtime, schema, migrations, content repository, query helpers, and scripts.
+- `packages/emails`: React Email templates, provider adapters, queue-backed delivery, logs, localization, branding, preferences, and in-app/push/SMS contracts.
 - `packages/jobs`: background job and cron primitives.
 - `packages/localization`: locale definitions, direction helpers, and locale-aware formatting.
 - `packages/storage`: tenant-aware files, provider adapters, signed transfers, validation, media processing, lifecycle cleanup, quota accounting, and audit records.

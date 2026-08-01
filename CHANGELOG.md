@@ -13,6 +13,8 @@ All notable public changes are tracked here. This project uses semantic version 
 - Billing tests covering checkout, signed/idempotent webhooks, subscription-derived entitlements, usage idempotency, invoices, refunds, currency conversion, and tax calculation.
 - Tenant-aware storage and file management with local, S3, Wasabi, MinIO, and Cloudflare R2 adapters.
 - Signed upload/download flows, ownership and access policies, validation, media metadata and previews, malware scanning hooks, quotas, audit records, and recurring lifecycle cleanup.
+- Queue-backed transactional messaging with React Email templates, preview/SMTP/Resend/Postmark/Mailgun adapters, retryable auth-outbox delivery, delivery and audit logs, localization, and tenant branding.
+- User notification preferences, in-app notifications, push/SMS provider contracts, settings UI, and admin delivery visibility.
 
 ## v0.3.0 - 2026-07-06
 

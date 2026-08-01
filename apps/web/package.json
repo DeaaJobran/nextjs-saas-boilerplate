@@ -14,6 +14,7 @@
     "@nextjs-saas/billing": "workspace:*",
     "@nextjs-saas/config": "workspace:*",
     "@nextjs-saas/db": "workspace:*",
+    "@nextjs-saas/emails": "workspace:*",
     "@nextjs-saas/localization": "workspace:*",
     "@nextjs-saas/storage": "workspace:*",
     "@nextjs-saas/tenant": "workspace:*",

@@ -347,6 +347,34 @@ describe("database migrations", () => {
     ]);
   }, 60_000);
 
+  it("creates email, notification, preference, and delivery-log tables", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    const rows = await runtime.execute<{ table_name: string }>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN (
+          'in_app_notifications',
+          'message_deliveries',
+          'messaging_audit_events',
+          'notification_preferences'
+        )
+      ORDER BY table_name
+    `);
+
+    expect(rows.map((row) => row.table_name)).toEqual([
+      "in_app_notifications",
+      "message_deliveries",
+      "messaging_audit_events",
+      "notification_preferences",
+    ]);
+  }, 60_000);
+
   it("seeds content and records versions and audit events for admin changes", async () => {
     databaseRuntimeOpened = true;
 

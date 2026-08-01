@@ -11,6 +11,8 @@ import {
   requireCurrentSession,
 } from "../../../../lib/auth";
 import { getContentRepository } from "../../../../lib/content-store";
+import { getMessagingService } from "../../../../lib/messaging";
+import { getActiveTenantContext } from "../../../../lib/tenant";
 
 const mfaSetupCookieName = "nextjs_saas_mfa_setup";
 
@@ -148,4 +150,45 @@ export async function deleteAccountAction(formData: FormData) {
   });
   await clearAuthCookies();
   redirect(appRoutes.signIn);
+}
+
+export async function updateNotificationPreferencesAction(formData: FormData) {
+  const [session, tenantContext] = await Promise.all([
+    requireCurrentSession(),
+    getActiveTenantContext("organization.read"),
+  ]);
+
+  await getMessagingService().setPreference({
+    actorId: session.user.id,
+    emailEnabled: formData.get("emailEnabled") === "on",
+    eventType: "*",
+    inAppEnabled: formData.get("inAppEnabled") === "on",
+    locale: session.user.locale,
+    pushEnabled: formData.get("pushEnabled") === "on",
+    smsEnabled: formData.get("smsEnabled") === "on",
+    tenantId: tenantContext.organization.id,
+    userId: session.user.id,
+  });
+
+  redirectWithLocalizedStatus(
+    formData,
+    "status",
+    "notification-preferences-updated",
+  );
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const [session, tenantContext] = await Promise.all([
+    requireCurrentSession(),
+    getActiveTenantContext("organization.read"),
+  ]);
+
+  await getMessagingService().updateInAppNotification({
+    action: "read",
+    notificationId: formValue(formData, "notificationId"),
+    tenantId: tenantContext.organization.id,
+    userId: session.user.id,
+  });
+
+  redirectWithLocalizedStatus(formData, "status", "notification-read");
 }

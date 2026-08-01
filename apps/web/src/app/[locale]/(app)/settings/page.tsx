@@ -19,14 +19,18 @@ import { getAuthService, requireCurrentSession } from "../../../../lib/auth";
 import { getContentRepository } from "../../../../lib/content-store";
 import { assertLocale } from "../../../../lib/locale";
 import { formatLocaleDateTime } from "../../../../lib/locale-formatters";
+import { getMessagingService } from "../../../../lib/messaging";
+import { getActiveTenantContext } from "../../../../lib/tenant";
 import {
   deleteAccountAction,
   enableMfaAction,
+  markNotificationReadAction,
   readMfaSetup,
   requestAccountPasswordResetAction,
   requestEmailChangeAction,
   revokeSessionAction,
   startMfaEnrollmentAction,
+  updateNotificationPreferencesAction,
   updateProfileAction,
 } from "./actions";
 
@@ -55,12 +59,34 @@ export default async function SettingsPage({
       ? session.user.locale
       : resolvedLocale;
   const auth = getAuthService();
-  const [sessions, mfaFactors, passkeys, mfaSetup] = await Promise.all([
+  const tenantContext = await getActiveTenantContext("organization.read", {
+    allowMfaEnrollment: true,
+  });
+  const messaging = getMessagingService();
+  const [
+    sessions,
+    mfaFactors,
+    passkeys,
+    mfaSetup,
+    notificationPreferences,
+    notifications,
+  ] = await Promise.all([
     auth.listSessions(session.user.id),
     auth.listMfaFactors(session.user.id),
     auth.listPasskeys(session.user.id),
     readMfaSetup(),
+    messaging.listPreferences({
+      tenantId: tenantContext.organization.id,
+      userId: session.user.id,
+    }),
+    messaging.listInAppNotifications({
+      tenantId: tenantContext.organization.id,
+      userId: session.user.id,
+    }),
   ]);
+  const notificationPreference = notificationPreferences.find(
+    (preference) => preference.eventType === "*",
+  );
 
   return (
     <div className="grid gap-6">
@@ -83,7 +109,11 @@ export default async function SettingsPage({
                       ? t("status.sessionRevoked")
                       : params.status === "invalid-locale"
                         ? t("status.invalidLocale")
-                        : t("status.generic")}
+                        : params.status === "notification-preferences-updated"
+                          ? t("status.notificationPreferencesUpdated")
+                          : params.status === "notification-read"
+                            ? t("status.notificationRead")
+                            : t("status.generic")}
         </p>
       ) : null}
       <Card>
@@ -132,6 +162,100 @@ export default async function SettingsPage({
               <Button type="submit">{t("saveProfile")}</Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("notificationsTitle")}</CardTitle>
+          <p className="text-muted-foreground text-sm">
+            {t("notificationsDescription")}
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <form
+            action={updateNotificationPreferencesAction}
+            aria-label={t("notificationsTitle")}
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <input name="locale" type="hidden" value={resolvedLocale} />
+            {[
+              ["emailEnabled", t("notificationChannels.email"), true],
+              ["inAppEnabled", t("notificationChannels.inApp"), true],
+              ["pushEnabled", t("notificationChannels.push"), true],
+              ["smsEnabled", t("notificationChannels.sms"), false],
+            ].map(([name, label, enabled]) => (
+              <label
+                className="bg-muted/30 flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                key={String(name)}
+              >
+                <input
+                  defaultChecked={
+                    notificationPreference
+                      ? notificationPreference[
+                          name as
+                            | "emailEnabled"
+                            | "inAppEnabled"
+                            | "pushEnabled"
+                            | "smsEnabled"
+                        ]
+                      : Boolean(enabled)
+                  }
+                  name={String(name)}
+                  type="checkbox"
+                />
+                {label}
+              </label>
+            ))}
+            <div className="sm:col-span-2 lg:col-span-4">
+              <Button type="submit">{t("saveNotificationPreferences")}</Button>
+            </div>
+          </form>
+          <DataTable
+            columns={[
+              {
+                cell: (notification) => notification.title,
+                header: t("notificationTable.title"),
+                key: "title",
+              },
+              {
+                cell: (notification) => notification.eventType,
+                header: t("notificationTable.event"),
+                key: "event",
+              },
+              {
+                cell: (notification) =>
+                  formatLocaleDateTime(resolvedLocale, notification.createdAt),
+                header: t("notificationTable.created"),
+                key: "created",
+              },
+              {
+                cell: (notification) =>
+                  notification.readAt ? (
+                    <Badge variant="outline">{t("read")}</Badge>
+                  ) : (
+                    <form action={markNotificationReadAction}>
+                      <input
+                        name="notificationId"
+                        type="hidden"
+                        value={notification.id}
+                      />
+                      <input
+                        name="locale"
+                        type="hidden"
+                        value={resolvedLocale}
+                      />
+                      <Button size="sm" type="submit" variant="outline">
+                        {t("markRead")}
+                      </Button>
+                    </form>
+                  ),
+                header: t("notificationTable.status"),
+                key: "status",
+              },
+            ]}
+            data={notifications}
+            emptyLabel={t("emptyNotifications")}
+          />
         </CardContent>
       </Card>
       <div className="grid gap-6 lg:grid-cols-2">
