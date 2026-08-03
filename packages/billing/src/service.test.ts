@@ -1090,7 +1090,7 @@ describe("billing service", () => {
     const providers = await billing.listPaymentProviders();
 
     expect(providers[0]).toMatchObject({
-      displayName: "Stripe",
+      displayName: "Stripe-compatible",
       provider: "stripe",
       sortOrder: 10,
     });
