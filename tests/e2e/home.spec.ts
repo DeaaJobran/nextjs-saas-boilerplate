@@ -13,6 +13,11 @@ async function grantAdminAccess(page: Page) {
 async function grantUserAccess(page: Page) {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const email = `user-${suffix}@example.test`;
+  const address = Array.from({ length: 3 }, () =>
+    Math.floor(Math.random() * 256),
+  ).join(".");
+
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `10.${address}` });
 
   await page.goto("/en/auth/sign-up");
   await page.getByLabel("Display name").fill("Playwright User");
