@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { BillingPlan, BillingPrice } from "@nextjs-saas/billing";
 import type { Locale } from "@nextjs-saas/localization";
 import {
@@ -161,7 +163,7 @@ function BillingSettingsCard({
               ))}
             </SelectInput>
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Field label={t("settings.currency")}>
               <TextInput
                 defaultValue={settings.default_currency}
@@ -183,6 +185,16 @@ function BillingSettingsCard({
                   {t("taxBehavior.unspecified")}
                 </option>
               </SelectInput>
+            </Field>
+            <Field label={t("settings.gracePeriodDays")}>
+              <TextInput
+                defaultValue={String(settings.grace_period_days)}
+                disabled={!canManage}
+                min={0}
+                name="gracePeriodDays"
+                required
+                type="number"
+              />
             </Field>
           </div>
           <Button disabled={!canManage} type="submit">
@@ -735,20 +747,21 @@ function InvoicesCard({
                 <form action={requestRefundAction} className="grid gap-2">
                   <input name="locale" type="hidden" value={locale} />
                   <input name="invoiceId" type="hidden" value={invoice.id} />
-                  <TextInput
-                    aria-label={t("invoices.paymentId")}
-                    name="providerPaymentId"
-                    placeholder={t("invoices.paymentId")}
-                    required
+                  <input
+                    name="idempotencyKey"
+                    type="hidden"
+                    value={`refund:${invoice.id}:${randomUUID()}`}
                   />
                   <TextInput
                     aria-label={t("invoices.refundAmount")}
+                    max={invoice.refundableAmountMinor}
+                    min={1}
                     name="amountMinor"
                     placeholder={t("invoices.refundAmount")}
                     type="number"
                   />
                   <Button
-                    disabled={!canRefund}
+                    disabled={!canRefund || invoice.refundableAmountMinor < 1}
                     size="sm"
                     type="submit"
                     variant="outline"

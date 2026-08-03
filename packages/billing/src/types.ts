@@ -1,4 +1,4 @@
-export const billingProviders = ["mock", "stripe"] as const;
+export const billingProviders = ["stripe", "mock"] as const;
 export const billingIntervals = ["month", "year", "one_time", "usage"] as const;
 export const billingSubscriptionStatuses = [
   "active",
@@ -111,10 +111,14 @@ export type BillingEntitlementConfig = {
 
 export type PaymentProviderCapabilities = {
   checkout: boolean;
+  coupons: boolean;
+  paymentMethods: boolean;
   portal: boolean;
   refunds: boolean;
   subscriptions: boolean;
   supportedCurrencies: string[];
+  usageReporting: boolean;
+  webhooks: boolean;
 };
 
 export type CheckoutSessionInput = {
@@ -186,8 +190,9 @@ export type CouponResult = {
 };
 
 export type RefundInput = {
-  amountMinor?: number;
+  amountMinor: number;
   currency: string;
+  idempotencyKey: string;
   invoiceId?: string;
   metadata?: Record<string, string>;
   providerPaymentId: string;
@@ -200,6 +205,20 @@ export type RefundResult = {
   currency: string;
   id: string;
   providerPaymentId?: string;
+  status: string;
+};
+
+export type ProviderUsageInput = {
+  idempotencyKey: string;
+  meterKey: string;
+  occurredAt: string;
+  providerCustomerId: string;
+  quantity: number;
+  tenantId: string;
+};
+
+export type ProviderUsageResult = {
+  id: string;
   status: string;
 };
 
@@ -227,6 +246,7 @@ export type PaymentProviderAdapter = {
   createCoupon(input: CouponInput): Promise<CouponResult>;
   createRefund(input: RefundInput): Promise<RefundResult>;
   key: BillingProviderKey;
+  reportUsage(input: ProviderUsageInput): Promise<ProviderUsageResult>;
   updateSubscription(input: SubscriptionUpdateInput): Promise<void>;
   verifyWebhook(input: ProviderWebhookInput): Promise<ProviderWebhookEvent>;
 };
@@ -270,6 +290,7 @@ export type InvoiceChangedEvent = {
   periodStart?: string;
   providerCustomerId?: string;
   providerInvoiceId: string;
+  providerPaymentId?: string;
   providerSubscriptionId?: string;
   status: string;
   subtotalMinor: number;
@@ -308,6 +329,7 @@ export type PaymentMethodChangedEvent = {
 export type RefundChangedEvent = {
   amountMinor: number;
   currency: string;
+  idempotencyKey?: string;
   invoiceProviderId?: string;
   providerPaymentId?: string;
   providerRefundId: string;
