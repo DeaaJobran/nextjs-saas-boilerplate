@@ -16,8 +16,8 @@ export function createRefreshRotationCoordinator() {
 
     const promise = Promise.resolve().then(rotate);
 
-    // The database compare-and-swap is authoritative across processes. This
-    // map only shares an in-flight call and never retains rotated credentials.
+    // This map avoids duplicate work inside one process. The auth service's
+    // browser-bound encrypted result handles waiters on other instances.
     rotations.set(tokenKey, promise);
 
     try {

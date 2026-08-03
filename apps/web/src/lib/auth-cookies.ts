@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { AuthError, authSecurityPolicy } from "@nextjs-saas/auth";
 
@@ -6,6 +6,7 @@ const transientRefreshBackoffSeconds = 5;
 
 export const sessionCookieName = "nextjs_saas_session";
 export const refreshCookieName = "nextjs_saas_refresh";
+export const refreshCoordinatorCookieName = "nextjs_saas_refresh_coordinator";
 export const refreshSuppressionCookieName = "nextjs_saas_refresh_suppressed";
 export const adminSessionCookieName = "nextjs_saas_admin_session";
 
@@ -30,6 +31,18 @@ export function refreshCookieOptions() {
     ...baseAuthCookieOptions(),
     maxAge: authSecurityPolicy.refreshTokenTtlSeconds,
   };
+}
+
+export function createRefreshCoordinator() {
+  return randomBytes(32).toString("base64url");
+}
+
+export function isRefreshCoordinator(value?: string): value is string {
+  return Boolean(value && /^[A-Za-z0-9_-]{43}$/u.test(value));
+}
+
+export function refreshCoordinatorCookieOptions() {
+  return refreshCookieOptions();
 }
 
 export function refreshSuppressionFingerprint(refreshToken: string) {

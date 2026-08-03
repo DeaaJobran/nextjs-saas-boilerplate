@@ -4,8 +4,12 @@ import createMiddleware from "next-intl/middleware";
 
 import { routing } from "./i18n/routing";
 import {
+  createRefreshCoordinator,
+  isRefreshCoordinator,
   refreshCookieName,
   refreshCookieOptions,
+  refreshCoordinatorCookieName,
+  refreshCoordinatorCookieOptions,
   refreshSuppressionCookieName,
   refreshSuppressionCookieOptions,
   refreshSuppressionFingerprint,
@@ -23,6 +27,12 @@ export default async function proxy(request: NextRequest) {
   const response = localizationMiddleware(request);
   const sessionToken = request.cookies.get(sessionCookieName)?.value;
   const refreshToken = request.cookies.get(refreshCookieName)?.value;
+  const coordinatorCookie = request.cookies.get(
+    refreshCoordinatorCookieName,
+  )?.value;
+  const coordinator = isRefreshCoordinator(coordinatorCookie)
+    ? coordinatorCookie
+    : createRefreshCoordinator();
   const refreshSuppression = request.cookies.get(
     refreshSuppressionCookieName,
   )?.value;
@@ -37,15 +47,19 @@ export default async function proxy(request: NextRequest) {
 
   try {
     const rotated = await coordinateRefreshRotation(refreshToken, () =>
-      getAuthService().rotateRefreshToken(refreshToken, {
-        deviceName:
-          request.headers.get("sec-ch-ua-platform") ?? "Browser session",
-        ipAddress: getClientAddress(
-          request.headers,
-          Number(process.env.TRUSTED_PROXY_COUNT ?? 0),
-        ),
-        userAgent: request.headers.get("user-agent") ?? undefined,
-      }),
+      getAuthService().rotateRefreshToken(
+        refreshToken,
+        {
+          deviceName:
+            request.headers.get("sec-ch-ua-platform") ?? "Browser session",
+          ipAddress: getClientAddress(
+            request.headers,
+            Number(process.env.TRUSTED_PROXY_COUNT ?? 0),
+          ),
+          userAgent: request.headers.get("user-agent") ?? undefined,
+        },
+        { coordinator },
+      ),
     );
     const rotatedResponse = response.headers.get("location")
       ? response
@@ -55,6 +69,11 @@ export default async function proxy(request: NextRequest) {
       sessionCookieName,
       rotated.sessionToken,
       sessionCookieOptions(),
+    );
+    rotatedResponse.cookies.set(
+      refreshCoordinatorCookieName,
+      coordinator,
+      refreshCoordinatorCookieOptions(),
     );
     rotatedResponse.cookies.set(
       refreshCookieName,

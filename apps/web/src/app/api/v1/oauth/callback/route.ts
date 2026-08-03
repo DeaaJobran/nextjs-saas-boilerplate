@@ -1,5 +1,6 @@
 import { ApiError } from "@nextjs-saas/api";
 import { completeOAuthCallbackSchema } from "@nextjs-saas/api/contracts";
+import { getClientAddress } from "@nextjs-saas/security";
 
 import { handleApiOptions, handleApiRoute } from "@/lib/api";
 import { enforceOAuthApiRateLimit } from "@/lib/oauth-api-rate-limit";
@@ -36,7 +37,10 @@ export async function POST(request: Request) {
       return {
         data: await service.completeOAuthCallback({
           ...body,
-          ipAddress: context.ipAddress,
+          ipAddress: getClientAddress(
+            request.headers,
+            Number(process.env.TRUSTED_PROXY_COUNT ?? 0),
+          ),
           userAgent: context.userAgent,
         }),
       };

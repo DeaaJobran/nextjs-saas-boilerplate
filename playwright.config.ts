@@ -46,6 +46,7 @@ export default defineConfig({
         "https://mobile.example.test/oauth/callback",
       ]),
       AUTH_OAUTH_GLOBAL_RATE_LIMIT_MAX: "500",
+      AUTH_RATE_LIMIT_MAX: "500",
       AUTH_SECRET: "playwright-auth-secret-with-at-least-32-characters",
       NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3000",
       TRUSTED_PROXY_COUNT: "1",

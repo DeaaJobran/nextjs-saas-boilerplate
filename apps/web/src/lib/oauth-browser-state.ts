@@ -1,9 +1,4 @@
-import {
-  createHash,
-  createHmac,
-  randomUUID,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { authSecurityPolicy } from "@nextjs-saas/auth";
 
@@ -58,13 +53,13 @@ export function oauthStateCookieName(
   state: string,
   secret?: string,
 ) {
-  const providerKey = createHash("sha256")
-    .update(provider)
-    .digest("hex")
-    .slice(0, 12);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(provider)) {
+    throw new Error("OAuth provider identifier is invalid.");
+  }
+
   const attemptKey = oauthStateFingerprint(state, secret).slice(0, 20);
 
-  return `nextjs_saas_oauth_state_${providerKey}_${attemptKey}`;
+  return `nextjs_saas_oauth_state_${provider}_${attemptKey}`;
 }
 
 export function oauthStateCookieOptions(locale: string, provider: string) {

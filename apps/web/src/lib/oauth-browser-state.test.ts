@@ -35,11 +35,14 @@ describe("OAuth browser state", () => {
     expect(isOAuthBrowserId(browserId)).toBe(true);
     expect(isOAuthBrowserId("attacker-controlled")).toBe(false);
     expect(oauthStateCookieName("example", "first-state", secret)).toMatch(
-      /^nextjs_saas_oauth_state_[0-9a-f]{12}_[0-9a-f]{20}$/u,
+      /^nextjs_saas_oauth_state_example_[0-9a-f]{20}$/u,
     );
     expect(oauthStateCookieName("example", "first-state", secret)).not.toBe(
       oauthStateCookieName("example", "second-state", secret),
     );
+    expect(() =>
+      oauthStateCookieName("invalid/provider", "first-state", secret),
+    ).toThrow("provider identifier is invalid");
     expect(oauthStateCookieOptions("ar", "example")).toMatchObject({
       httpOnly: true,
       path: "/ar/auth/oauth/example/callback",

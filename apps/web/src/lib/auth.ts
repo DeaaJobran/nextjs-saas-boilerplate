@@ -14,8 +14,12 @@ import { redirect } from "next/navigation";
 
 import {
   adminSessionCookieName,
+  createRefreshCoordinator,
+  isRefreshCoordinator,
   refreshCookieName,
   refreshCookieOptions,
+  refreshCoordinatorCookieName,
+  refreshCoordinatorCookieOptions,
   refreshSuppressionCookieName,
   refreshSuppressionCookieOptions,
   refreshSuppressionFingerprint,
@@ -86,11 +90,19 @@ export async function assertMfaEnrollmentAllowed(session: SessionContext) {
   }
 }
 
-export async function setAuthCookies(input: {
-  refreshToken: string;
-  sessionToken: string;
-}) {
+export async function setAuthCookies(
+  input: {
+    refreshToken: string;
+    sessionToken: string;
+  },
+  coordinator?: string,
+) {
   const cookieStore = await cookies();
+  const refreshCoordinator = isRefreshCoordinator(coordinator)
+    ? coordinator
+    : isRefreshCoordinator(cookieStore.get(refreshCoordinatorCookieName)?.value)
+      ? cookieStore.get(refreshCoordinatorCookieName)!.value
+      : createRefreshCoordinator();
 
   cookieStore.set(
     sessionCookieName,
@@ -102,6 +114,11 @@ export async function setAuthCookies(input: {
     input.refreshToken,
     refreshCookieOptions(),
   );
+  cookieStore.set(
+    refreshCoordinatorCookieName,
+    refreshCoordinator,
+    refreshCoordinatorCookieOptions(),
+  );
   cookieStore.delete(refreshSuppressionCookieName);
 }
 
@@ -110,6 +127,7 @@ export async function clearAuthCookies() {
 
   cookieStore.delete(sessionCookieName);
   cookieStore.delete(refreshCookieName);
+  cookieStore.delete(refreshCoordinatorCookieName);
   cookieStore.delete(refreshSuppressionCookieName);
   cookieStore.delete(adminSessionCookieName);
 }
@@ -129,6 +147,12 @@ async function refreshApiSession() {
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get(refreshCookieName)?.value;
   const suppression = cookieStore.get(refreshSuppressionCookieName)?.value;
+  const coordinatorCookie = cookieStore.get(
+    refreshCoordinatorCookieName,
+  )?.value;
+  const coordinator = isRefreshCoordinator(coordinatorCookie)
+    ? coordinatorCookie
+    : createRefreshCoordinator();
 
   if (!refreshToken || refreshSuppressionMatches(suppression, refreshToken)) {
     return undefined;
@@ -137,18 +161,22 @@ async function refreshApiSession() {
   try {
     const headerStore = await headers();
     const rotated = await coordinateRefreshRotation(refreshToken, () =>
-      getAuthService().rotateRefreshToken(refreshToken, {
-        deviceName:
-          headerStore.get("sec-ch-ua-platform") ?? "Browser API session",
-        ipAddress: getClientAddress(
-          headerStore,
-          Number(process.env.TRUSTED_PROXY_COUNT ?? 0),
-        ),
-        userAgent: headerStore.get("user-agent") ?? undefined,
-      }),
+      getAuthService().rotateRefreshToken(
+        refreshToken,
+        {
+          deviceName:
+            headerStore.get("sec-ch-ua-platform") ?? "Browser API session",
+          ipAddress: getClientAddress(
+            headerStore,
+            Number(process.env.TRUSTED_PROXY_COUNT ?? 0),
+          ),
+          userAgent: headerStore.get("user-agent") ?? undefined,
+        },
+        { coordinator },
+      ),
     );
 
-    await setAuthCookies(rotated);
+    await setAuthCookies(rotated, coordinator);
 
     return getAuthService().getSession(rotated.sessionToken);
   } catch (error) {

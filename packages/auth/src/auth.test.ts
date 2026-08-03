@@ -145,13 +145,27 @@ describe("auth identity service", () => {
 
     expect(sessionLookup?.user.email).toBe("Ada@Example.test");
 
-    const rotated = await auth.rotateRefreshToken(result.session.refreshToken, {
-      deviceName: "Rotated browser",
-    });
+    const coordinator = "A".repeat(43);
+    const rotated = await auth.rotateRefreshToken(
+      result.session.refreshToken,
+      { deviceName: "Rotated browser" },
+      { coordinator },
+    );
 
     expect(rotated.sessionToken).not.toBe(result.session.sessionToken);
     await expect(
-      auth.rotateRefreshToken(result.session.refreshToken),
+      (await createService()).rotateRefreshToken(
+        result.session.refreshToken,
+        {},
+        { coordinator },
+      ),
+    ).resolves.toEqual(rotated);
+    await expect(
+      auth.rotateRefreshToken(
+        result.session.refreshToken,
+        {},
+        { coordinator: "B".repeat(43) },
+      ),
     ).rejects.toMatchObject({ code: "invalid_refresh_token" });
 
     await auth.revokeSession({ sessionId: rotated.session.id });

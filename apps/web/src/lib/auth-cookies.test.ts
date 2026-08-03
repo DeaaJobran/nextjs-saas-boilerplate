@@ -2,6 +2,9 @@ import { AuthError, authSecurityPolicy } from "@nextjs-saas/auth";
 import { describe, expect, it } from "vitest";
 
 import {
+  createRefreshCoordinator,
+  isRefreshCoordinator,
+  refreshCoordinatorCookieOptions,
   refreshSuppressionCookieOptions,
   refreshSuppressionFingerprint,
   refreshSuppressionMatches,
@@ -9,6 +12,17 @@ import {
 } from "./auth-cookies";
 
 describe("refresh retry suppression", () => {
+  it("creates constrained browser refresh coordinators", () => {
+    const coordinator = createRefreshCoordinator();
+
+    expect(isRefreshCoordinator(coordinator)).toBe(true);
+    expect(isRefreshCoordinator("attacker-controlled")).toBe(false);
+    expect(refreshCoordinatorCookieOptions()).toMatchObject({
+      httpOnly: true,
+      sameSite: "lax",
+    });
+  });
+
   it("suppresses only the refresh token that already failed rotation", () => {
     const fingerprint = refreshSuppressionFingerprint("failed-refresh-token");
 

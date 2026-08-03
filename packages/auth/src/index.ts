@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import {
   getDatabaseRuntime,
@@ -262,6 +262,12 @@ export type AuthSession = {
   updatedAt: string;
   userAgent?: string;
   userId: string;
+};
+
+type RefreshRotationResult = {
+  refreshToken: string;
+  session: AuthSession;
+  sessionToken: string;
 };
 
 export type AuthAuditEvent = {
@@ -589,6 +595,83 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     await runMigrations(runtime);
 
     return runtime.transaction(callback);
+  }
+
+  function refreshRotationResultHash(
+    refreshToken: string,
+    coordinator: string,
+  ) {
+    return createHmac("sha256", authSecret)
+      .update("browser-refresh-rotation\0")
+      .update(refreshToken)
+      .update("\0")
+      .update(coordinator)
+      .digest("base64url");
+  }
+
+  async function findRefreshRotationResult(
+    client: Queryable,
+    refreshToken: string,
+    coordinator: string,
+  ): Promise<RefreshRotationResult | undefined> {
+    const rows = await client.execute<{ target: string | null }>(
+      `
+        SELECT target
+        FROM auth_tokens
+        WHERE kind = 'refresh_rotation_result'
+          AND token_hash = $1
+          AND expires_at > $2
+        LIMIT 1
+      `,
+      [
+        refreshRotationResultHash(refreshToken, coordinator),
+        now().toISOString(),
+      ],
+    );
+    const encryptedResult = rows[0]?.target;
+
+    if (!encryptedResult) {
+      return undefined;
+    }
+
+    return JSON.parse(
+      decryptSecret(encryptedResult, authSecret),
+    ) as RefreshRotationResult;
+  }
+
+  async function saveRefreshRotationResult(
+    client: Queryable,
+    input: {
+      coordinator: string;
+      refreshToken: string;
+      result: RefreshRotationResult;
+    },
+  ) {
+    const timestamp = now();
+
+    await client.execute(
+      "DELETE FROM auth_tokens WHERE kind = 'refresh_rotation_result' AND expires_at <= $1",
+      [timestamp.toISOString()],
+    );
+    await client.execute(
+      `
+        INSERT INTO auth_tokens (
+          id, kind, token_hash, target, metadata, expires_at, created_at
+        )
+        VALUES ($1, 'refresh_rotation_result', $2, $3, $4::jsonb, $5, $6)
+        ON CONFLICT (token_hash) DO UPDATE SET
+          target = EXCLUDED.target,
+          expires_at = EXCLUDED.expires_at
+      `,
+      [
+        randomUUID(),
+        refreshRotationResultHash(input.refreshToken, input.coordinator),
+        encryptSecret(JSON.stringify(input.result), authSecret),
+        JSON.stringify({ purpose: "browser_refresh_rotation" }),
+        addSeconds(timestamp, 5).toISOString(),
+        timestamp.toISOString(),
+      ],
+    );
   }
 
   async function audit(
@@ -2704,77 +2787,133 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       });
     },
 
-    async rotateRefreshToken(refreshToken: string, context: AuthContext = {}) {
-      const client = await getClient();
-      const currentRefreshTokenHash = hashToken(refreshToken);
-      const rows = await client.execute<AuthSessionRow>(
-        `
-          SELECT *
-          FROM auth_sessions
-          WHERE refresh_token_hash = $1
-            AND revoked_at IS NULL
-            AND refresh_expires_at > $2
-          LIMIT 1
-        `,
-        [currentRefreshTokenHash, now().toISOString()],
-      );
-      const session = rows[0];
+    async rotateRefreshToken(
+      refreshToken: string,
+      context: AuthContext = {},
+      rotation: { coordinator?: string } = {},
+    ) {
+      const coordinator =
+        rotation.coordinator &&
+        /^[A-Za-z0-9_-]{43}$/u.test(rotation.coordinator)
+          ? rotation.coordinator
+          : undefined;
+      const result = await withAuthTransaction(async (client) => {
+        if (coordinator) {
+          const completed = await findRefreshRotationResult(
+            client,
+            refreshToken,
+            coordinator,
+          );
 
-      if (!session) {
-        throw new AuthError("Invalid refresh token.", "invalid_refresh_token");
-      }
+          if (completed) {
+            return completed;
+          }
+        }
 
-      const nextSessionToken = randomToken("nss");
-      const nextRefreshToken = randomToken("nsr");
-      const timestamp = now();
-      const updatedRows = await client.execute<AuthSessionRow>(
-        `
-          UPDATE auth_sessions
-          SET token_hash = $1,
-              refresh_token_hash = $2,
-              expires_at = $3,
-              refresh_expires_at = $4,
-              last_seen_at = $5,
-              updated_at = $5,
-              device_name = $6,
-              ip_address = $7,
-              user_agent = $8
-          WHERE id = $9
-            AND refresh_token_hash = $10
-            AND revoked_at IS NULL
-            AND refresh_expires_at > $5
-          RETURNING *
-        `,
-        [
-          hashToken(nextSessionToken),
-          hashToken(nextRefreshToken),
-          addSeconds(timestamp, sessionTtlSeconds).toISOString(),
-          addSeconds(timestamp, refreshTokenTtlSeconds).toISOString(),
-          timestamp.toISOString(),
-          context.deviceName ?? session.device_name,
-          context.ipAddress ?? session.ip_address,
-          context.userAgent ?? session.user_agent,
-          session.id,
-          currentRefreshTokenHash,
-        ],
-      );
-      const updatedSession = updatedRows[0];
+        const currentRefreshTokenHash = hashToken(refreshToken);
+        const rows = await client.execute<AuthSessionRow>(
+          `
+            SELECT *
+            FROM auth_sessions
+            WHERE refresh_token_hash = $1
+              AND revoked_at IS NULL
+              AND refresh_expires_at > $2
+            LIMIT 1
+          `,
+          [currentRefreshTokenHash, now().toISOString()],
+        );
+        const session = rows[0];
 
-      if (!updatedSession) {
-        throw new AuthError("Invalid refresh token.", "invalid_refresh_token");
-      }
+        if (!session) {
+          return undefined;
+        }
 
-      await audit(client, {
-        context,
-        eventType: "auth.session.rotated",
-        userId: session.user_id,
+        const nextSessionToken = randomToken("nss");
+        const nextRefreshToken = randomToken("nsr");
+        const timestamp = now();
+        const updatedRows = await client.execute<AuthSessionRow>(
+          `
+            UPDATE auth_sessions
+            SET token_hash = $1,
+                refresh_token_hash = $2,
+                expires_at = $3,
+                refresh_expires_at = $4,
+                last_seen_at = $5,
+                updated_at = $5,
+                device_name = $6,
+                ip_address = $7,
+                user_agent = $8
+            WHERE id = $9
+              AND refresh_token_hash = $10
+              AND revoked_at IS NULL
+              AND refresh_expires_at > $5
+            RETURNING *
+          `,
+          [
+            hashToken(nextSessionToken),
+            hashToken(nextRefreshToken),
+            addSeconds(timestamp, sessionTtlSeconds).toISOString(),
+            addSeconds(timestamp, refreshTokenTtlSeconds).toISOString(),
+            timestamp.toISOString(),
+            context.deviceName ?? session.device_name,
+            context.ipAddress ?? session.ip_address,
+            context.userAgent ?? session.user_agent,
+            session.id,
+            currentRefreshTokenHash,
+          ],
+        );
+        const updatedSession = updatedRows[0];
+
+        if (!updatedSession) {
+          return coordinator
+            ? findRefreshRotationResult(client, refreshToken, coordinator)
+            : undefined;
+        }
+
+        await audit(client, {
+          context,
+          eventType: "auth.session.rotated",
+          userId: session.user_id,
+        });
+
+        const rotated = {
+          refreshToken: nextRefreshToken,
+          session: toSession(updatedSession),
+          sessionToken: nextSessionToken,
+        };
+
+        if (coordinator) {
+          await saveRefreshRotationResult(client, {
+            coordinator,
+            refreshToken,
+            result: rotated,
+          });
+        }
+
+        return rotated;
       });
 
-      return {
-        refreshToken: nextRefreshToken,
-        session: toSession(updatedSession),
-        sessionToken: nextSessionToken,
-      };
+      if (result) {
+        return result;
+      }
+
+      if (coordinator) {
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+
+          const completed = await findRefreshRotationResult(
+            await getClient(),
+            refreshToken,
+            coordinator,
+          );
+
+          if (completed) {
+            return completed;
+          }
+        }
+      }
+
+      throw new AuthError("Invalid refresh token.", "invalid_refresh_token");
     },
 
     async signInWithMagicLink(input: { context?: AuthContext; token: string }) {
