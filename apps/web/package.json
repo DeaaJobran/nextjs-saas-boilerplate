@@ -22,17 +22,17 @@
     "@nextjs-saas/tenant": "workspace:*",
     "@nextjs-saas/ui": "workspace:*",
     "@simplewebauthn/browser": "^13.3.0",
-    "lucide-react": "^1.24.0",
-    "next": "16.2.10",
-    "next-intl": "^4.13.2",
+    "lucide-react": "^1.28.0",
+    "next": "16.2.12",
+    "next-intl": "^4.13.4",
     "next-themes": "^0.4.6",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5"
+    "typescript": "^7"
   }
 }
