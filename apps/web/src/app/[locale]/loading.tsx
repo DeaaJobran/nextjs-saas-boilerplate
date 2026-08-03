@@ -7,7 +7,11 @@ export default function Loading() {
   const t = useTranslations("Errors");
 
   return (
-    <main className="flex min-h-dvh items-center justify-center p-6">
+    <main
+      className="flex min-h-dvh items-center justify-center p-6"
+      id="main-content"
+      tabIndex={-1}
+    >
       <LoadingState
         description={t("loadingDescription")}
         title={t("loadingTitle")}

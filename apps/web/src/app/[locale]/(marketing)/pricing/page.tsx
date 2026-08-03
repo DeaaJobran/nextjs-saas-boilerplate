@@ -16,6 +16,7 @@ import { Link } from "../../../../i18n/navigation";
 import { getBillingService } from "../../../../lib/billing";
 import { getContentRepository } from "../../../../lib/content-store";
 import { assertLocale } from "../../../../lib/locale";
+import { getPublicManagedPage } from "../../../../lib/public-content";
 
 export async function generateMetadata({
   params,
@@ -25,7 +26,10 @@ export async function generateMetadata({
   const { locale: value } = await params;
   const locale = assertLocale(value);
   const repository = await getContentRepository();
-  const page = repository.getPage({ kind: "pricing", locale });
+  const page = getPublicManagedPage(repository.listPages(locale), {
+    kind: "pricing",
+    locale,
+  });
 
   if (!page) {
     notFound();
@@ -46,7 +50,10 @@ export default async function PricingPage({
     getContentRepository(),
     Promise.resolve(getBillingService()),
   ]);
-  const page = repository.getPage({ kind: "pricing", locale });
+  const page = getPublicManagedPage(repository.listPages(locale), {
+    kind: "pricing",
+    locale,
+  });
 
   if (!page) {
     notFound();
@@ -63,7 +70,11 @@ export default async function PricingPage({
     .filter((plan) => !billingPlanNames.has(plan.name.trim().toLowerCase()));
 
   return (
-    <main className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:px-8">
+    <main
+      className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:px-8"
+      id="main-content"
+      tabIndex={-1}
+    >
       <div className="max-w-3xl space-y-3">
         <p className="text-primary text-sm font-medium">{t("eyebrow")}</p>
         <h1 className="text-4xl font-semibold tracking-tight">{page.title}</h1>

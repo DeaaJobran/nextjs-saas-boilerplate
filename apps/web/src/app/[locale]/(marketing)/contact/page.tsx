@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { ContactForm } from "../../../../components/contact-form";
 import { getContentRepository } from "../../../../lib/content-store";
 import { assertLocale } from "../../../../lib/locale";
+import { getPublicManagedPage } from "../../../../lib/public-content";
 import { submitContactMessageAction } from "./actions";
 
 export async function generateMetadata({
@@ -16,7 +17,10 @@ export async function generateMetadata({
   const { locale: value } = await params;
   const locale = assertLocale(value);
   const repository = await getContentRepository();
-  const page = repository.getPage({ kind: "contact", locale });
+  const page = getPublicManagedPage(repository.listPages(locale), {
+    kind: "contact",
+    locale,
+  });
 
   if (!page) {
     notFound();
@@ -34,14 +38,21 @@ export default async function ContactPage({
   const locale = assertLocale(value);
   const t = await getTranslations({ locale, namespace: "ContactPage" });
   const repository = await getContentRepository();
-  const page = repository.getPage({ kind: "contact", locale });
+  const page = getPublicManagedPage(repository.listPages(locale), {
+    kind: "contact",
+    locale,
+  });
 
   if (!page) {
     notFound();
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-5xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+    <main
+      className="mx-auto grid w-full max-w-5xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8"
+      id="main-content"
+      tabIndex={-1}
+    >
       <section className="space-y-4">
         <p className="text-primary text-sm font-medium">{t("eyebrow")}</p>
         <h1 className="text-4xl font-semibold tracking-tight">{page.title}</h1>

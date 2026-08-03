@@ -4,12 +4,8 @@ import { Button } from "@nextjs-saas/ui";
 import {
   ActivityIcon,
   BarChart3Icon,
-  BookOpenIcon,
-  Building2Icon,
   CreditCardIcon,
   GaugeIcon,
-  LayoutDashboardIcon,
-  SettingsIcon,
   ShieldIcon,
   UsersIcon,
 } from "lucide-react";
@@ -17,27 +13,39 @@ import { getTranslations } from "next-intl/server";
 
 import { Link } from "../i18n/navigation";
 import { getContentRepository } from "../lib/content-store";
+import type { ManagedRoutesByLocale } from "../lib/locale-switch-target";
+import { listCanonicalPublicManagedPages } from "../lib/public-content";
+import { getManagedPageRoute, getPublicRecoveryRoute } from "../lib/seo-routes";
 import { LocaleSwitcher } from "./locale-switcher";
+import {
+  ApplicationNavigation,
+  type ApplicationNavigationItem,
+  MarketingNavigation,
+  type MarketingNavigationItem,
+} from "./navigation";
 import { ThemeToggle } from "./theme-toggle";
 
-const appNav = [
+const applicationNavigation = [
   {
     href: appRoutes.dashboard,
-    icon: LayoutDashboardIcon,
-    labelKey: "dashboard",
+    key: "dashboard",
   },
   {
     href: appRoutes.organizationSettings,
-    icon: Building2Icon,
-    labelKey: "organization",
+    key: "organization",
   },
   {
     href: appRoutes.billingSettings,
-    icon: CreditCardIcon,
-    labelKey: "billing",
+    key: "billing",
   },
-  { href: appRoutes.settings, icon: SettingsIcon, labelKey: "settings" },
-  { href: appRoutes.admin, icon: ShieldIcon, labelKey: "admin" },
+  { href: appRoutes.settings, key: "settings" },
+  { href: appRoutes.admin, key: "admin" },
+] as const;
+
+const managedMarketingNavigation = [
+  { href: appRoutes.marketing, key: "home", kind: "landing" },
+  { href: appRoutes.pricing, key: "pricing", kind: "pricing" },
+  { href: appRoutes.contact, key: "contact", kind: "contact" },
 ] as const;
 
 export async function MarketingShell({
@@ -53,40 +61,64 @@ export async function MarketingShell({
     getContentRepository(),
   ]);
   const availableLocales = repository.listEnabledLocales();
+  const publicManagedPages = listCanonicalPublicManagedPages(
+    repository.listAllPages(),
+  );
+  const publicManagedNavigation = managedMarketingNavigation.filter((item) =>
+    publicManagedPages.some(
+      (page) => page.kind === item.kind && page.locale === locale,
+    ),
+  );
+  const managedRoutesByLocale = Object.fromEntries(
+    availableLocales.map((availableLocale) => [
+      availableLocale,
+      publicManagedPages
+        .filter((page) => page.locale === availableLocale)
+        .map(getManagedPageRoute),
+    ]),
+  ) as ManagedRoutesByLocale;
+  const navigationItems: MarketingNavigationItem[] = [
+    ...publicManagedNavigation.map((item) => ({
+      href: item.href,
+      key: item.key,
+      label: t(item.key),
+    })),
+    { href: appRoutes.apiDocs, key: "api", label: t("api") },
+  ];
+  const hasPublicLandingPage = publicManagedNavigation.some(
+    (item) => item.kind === "landing",
+  );
 
   return (
     <div className="bg-background min-h-dvh">
       <header className="bg-background/90 sticky top-0 z-40 border-b backdrop-blur">
-        <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:px-6 lg:px-8">
-          <Link
-            className="max-w-24 min-w-0 truncate font-semibold sm:max-w-none"
-            href={appRoutes.marketing}
-          >
-            {appConfig.shortName}
-          </Link>
-          <nav
-            aria-label={shellT("mainNavigation")}
-            className="hidden items-center gap-1 md:flex"
-          >
-            <Button asChild variant="ghost">
-              <Link href={appRoutes.marketing}>{t("home")}</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href={appRoutes.pricing}>{t("pricing")}</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href={appRoutes.contact}>{t("contact")}</Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <Link href={appRoutes.apiDocs}>
-                <BookOpenIcon aria-hidden="true" className="size-4" />
-                {t("api")}
-              </Link>
-            </Button>
-          </nav>
+        <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-2 sm:flex-nowrap sm:gap-4 sm:px-6 lg:px-8">
+          {hasPublicLandingPage ? (
+            <Link
+              className="max-w-20 min-w-0 truncate font-semibold sm:max-w-none"
+              href={appRoutes.marketing}
+            >
+              {appConfig.shortName}
+            </Link>
+          ) : (
+            <span className="max-w-20 min-w-0 truncate font-semibold sm:max-w-none">
+              {appConfig.shortName}
+            </span>
+          )}
+          <MarketingNavigation
+            closeLabel={shellT("closeNavigation")}
+            description={shellT("mobileNavigationDescription")}
+            items={navigationItems}
+            menuLabel={shellT("openNavigation")}
+            navigationLabel={shellT("mainNavigation")}
+            title={shellT("mobileNavigationTitle")}
+          />
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeToggle />
-            <LocaleSwitcher availableLocales={availableLocales} />
+            <LocaleSwitcher
+              availableLocales={availableLocales}
+              managedRoutesByLocale={managedRoutesByLocale}
+            />
             <Button asChild size="sm">
               <Link href={appRoutes.signIn}>{t("signIn")}</Link>
             </Button>
@@ -105,17 +137,30 @@ export async function AuthShell({
   children: React.ReactNode;
   locale: Locale;
 }) {
-  const [t, shellT] = await Promise.all([
+  const [t, shellT, repository] = await Promise.all([
     getTranslations({ locale, namespace: "Navigation" }),
     getTranslations({ locale, namespace: "Shell" }),
+    getContentRepository(),
   ]);
+  const recoveryRoute = getPublicRecoveryRoute(
+    repository.listPages(locale),
+    locale,
+  );
 
   return (
-    <main className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)]">
+    <main
+      className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)]"
+      id="main-content"
+      tabIndex={-1}
+    >
       <section className="bg-muted/40 hidden border-e p-10 lg:flex lg:flex-col lg:justify-between">
-        <Link className="font-semibold" href={appRoutes.marketing}>
-          {appConfig.shortName}
-        </Link>
+        {recoveryRoute ? (
+          <Link className="font-semibold" href={recoveryRoute}>
+            {appConfig.shortName}
+          </Link>
+        ) : (
+          <span className="font-semibold">{appConfig.shortName}</span>
+        )}
         <div className="max-w-lg space-y-4">
           <p className="text-primary text-sm font-medium">{t("signIn")}</p>
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -135,12 +180,14 @@ export async function DashboardShell({
   children,
   impersonationNotice,
   locale,
+  showAdmin = false,
   tenantControls,
   title,
 }: {
   children: React.ReactNode;
   impersonationNotice?: string;
   locale: Locale;
+  showAdmin?: boolean;
   tenantControls?: React.ReactNode;
   title: string;
 }) {
@@ -150,6 +197,12 @@ export async function DashboardShell({
     getContentRepository(),
   ]);
   const availableLocales = repository.listEnabledLocales();
+  const navigationItems: ApplicationNavigationItem[] = applicationNavigation
+    .filter((item) => showAdmin || item.key !== "admin")
+    .map((item) => ({
+      ...item,
+      label: t(item.key),
+    }));
 
   return (
     <div className="bg-muted/30 min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -157,27 +210,12 @@ export async function DashboardShell({
         <div className="flex h-16 items-center border-b px-5 font-semibold">
           {appConfig.shortName}
         </div>
-        <nav
-          aria-label={shellT("applicationNavigation")}
-          className="grid gap-1 p-3"
-        >
-          {appNav.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Button
-                asChild
-                className="justify-start"
-                key={item.href}
-                variant="ghost"
-              >
-                <Link href={item.href}>
-                  <Icon aria-hidden="true" className="size-4" />
-                  {t(item.labelKey)}
-                </Link>
-              </Button>
-            );
-          })}
-        </nav>
+        <ApplicationNavigation
+          items={navigationItems}
+          mobileNavigationLabel={shellT("mobileApplicationNavigation")}
+          navigationLabel={shellT("applicationNavigation")}
+          variant="desktop"
+        />
       </aside>
       <div className="min-w-0">
         {impersonationNotice ? (
@@ -196,34 +234,20 @@ export async function DashboardShell({
             <LocaleSwitcher availableLocales={availableLocales} />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
+        <main
+          className="mx-auto w-full max-w-7xl p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8"
+          id="main-content"
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>
-      <nav
-        aria-label={shellT("mobileApplicationNavigation")}
-        className="bg-background/95 fixed inset-x-0 bottom-0 z-40 border-t p-2 backdrop-blur lg:hidden"
-      >
-        <div className="grid grid-cols-5 gap-1">
-          {appNav.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <Button
-                asChild
-                className="h-auto min-h-14 flex-col gap-1 px-2 py-2 text-xs"
-                key={item.href}
-                variant="ghost"
-              >
-                <Link href={item.href}>
-                  <Icon aria-hidden="true" className="size-4" />
-                  {t(item.labelKey)}
-                </Link>
-              </Button>
-            );
-          })}
-        </div>
-      </nav>
+      <ApplicationNavigation
+        items={navigationItems}
+        mobileNavigationLabel={shellT("mobileApplicationNavigation")}
+        navigationLabel={shellT("applicationNavigation")}
+        variant="mobile"
+      />
     </div>
   );
 }
@@ -244,7 +268,7 @@ export async function AdminShell({
   ]);
 
   return (
-    <DashboardShell locale={locale} title={navigationT("admin")}>
+    <DashboardShell locale={locale} showAdmin title={navigationT("admin")}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-primary text-sm font-medium">

@@ -10,18 +10,15 @@ import { checkBotProtection, SecurityError } from "@nextjs-saas/security";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 
+import type { ContactFormState } from "../../../../lib/contact-form-state";
 import {
   readContentSnapshot,
   updateContentSnapshot,
 } from "../../../../lib/content-store";
+import { getPublicManagedPage } from "../../../../lib/public-content";
 import { requirePublicFormAuth } from "../../../../lib/public-form-auth";
 
-export type ContactFormState = {
-  fieldErrors?: Record<string, string>;
-  message?: string;
-  status: "idle" | "error" | "success";
-  values?: Record<string, string>;
-};
+class ContactPageUnavailableError extends Error {}
 
 function readText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -51,17 +48,17 @@ export async function submitContactMessageAction(
     };
   }
 
-  const t = await getTranslations({
-    locale: localeValue,
-    namespace: "ContactValidation",
-  });
-
   let requestContext: Awaited<ReturnType<typeof requirePublicFormAuth>>;
 
   try {
     requestContext = await requirePublicFormAuth(readText(formData, "email"));
   } catch (error) {
     if (error instanceof SecurityError) {
+      const t = await getTranslations({
+        locale: localeValue,
+        namespace: "ContactValidation",
+      });
+
       return {
         fieldErrors: {},
         message: t("rateLimited"),
@@ -72,10 +69,30 @@ export async function submitContactMessageAction(
     throw error;
   }
 
+  const t = await getTranslations({
+    locale: localeValue,
+    namespace: "ContactValidation",
+  });
   const snapshot = await readContentSnapshot();
   const repository = createContentRepository(snapshot);
+
+  if (
+    !repository.isLocaleEnabled(localeValue) ||
+    !getPublicManagedPage(snapshot.pages, {
+      kind: "contact",
+      locale: localeValue,
+    })
+  ) {
+    return {
+      fieldErrors: {},
+      message: t("unavailable"),
+      status: "error",
+    };
+  }
+
   const fields = repository.listContactFields(localeValue);
   const routing = repository.getContactRouting(localeValue);
+
   const values = Object.fromEntries(
     fields.map((field) => [field.id, readText(formData, field.id)]),
   );
@@ -90,6 +107,7 @@ export async function submitContactMessageAction(
   if (!botCheck.allowed) {
     return {
       message: routing.successMessage,
+      resultToken: crypto.randomUUID(),
       status: "success",
     };
   }
@@ -144,9 +162,31 @@ export async function submitContactMessageAction(
     values,
   };
 
-  await updateContentSnapshot((currentSnapshot) =>
-    recordContactSubmission(currentSnapshot, submission),
-  );
+  try {
+    await updateContentSnapshot((currentSnapshot) => {
+      if (
+        !currentSnapshot.localization.enabledLocales.includes(localeValue) ||
+        !getPublicManagedPage(currentSnapshot.pages, {
+          kind: "contact",
+          locale: localeValue,
+        })
+      ) {
+        throw new ContactPageUnavailableError();
+      }
+
+      return recordContactSubmission(currentSnapshot, submission);
+    });
+  } catch (error) {
+    if (error instanceof ContactPageUnavailableError) {
+      return {
+        fieldErrors: {},
+        message: t("unavailable"),
+        status: "error",
+      };
+    }
+
+    throw error;
+  }
 
   for (const locale of locales) {
     revalidatePath(`/${locale}/admin/content`);
@@ -154,6 +194,7 @@ export async function submitContactMessageAction(
 
   return {
     message: routing.successMessage,
+    resultToken: submission.id,
     status: "success",
   };
 }

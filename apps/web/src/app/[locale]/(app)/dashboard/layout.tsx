@@ -1,3 +1,4 @@
+import { authRoleConfig } from "@nextjs-saas/auth";
 import { getTranslations } from "next-intl/server";
 
 import { OrganizationSwitcher } from "../../../../components/organization-switcher";
@@ -37,6 +38,9 @@ export default async function DashboardLayout({
           : undefined
       }
       locale={resolvedLocale}
+      showAdmin={authRoleConfig.privilegedRoles.some(
+        (role) => role === tenantContext.authUser.role,
+      )}
       tenantControls={
         <OrganizationSwitcher
           activeOrganization={tenantContext.organization}

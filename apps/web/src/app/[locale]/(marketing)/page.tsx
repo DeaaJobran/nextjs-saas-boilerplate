@@ -1,3 +1,4 @@
+import { appRoutes } from "@nextjs-saas/config/app";
 import {
   createPageMetadata,
   createSoftwareApplicationJsonLd,
@@ -12,6 +13,7 @@ import { ManagedPageSections } from "../../../components/managed-page";
 import { Link } from "../../../i18n/navigation";
 import { getContentRepository } from "../../../lib/content-store";
 import { assertLocale } from "../../../lib/locale";
+import { getPublicManagedPage } from "../../../lib/public-content";
 
 export async function generateMetadata({
   params,
@@ -21,7 +23,10 @@ export async function generateMetadata({
   const { locale: value } = await params;
   const locale = assertLocale(value);
   const repository = await getContentRepository();
-  const page = repository.getPage({ kind: "landing", locale });
+  const page = getPublicManagedPage(repository.listPages(locale), {
+    kind: "landing",
+    locale,
+  });
 
   if (!page) {
     notFound();
@@ -39,14 +44,20 @@ export default async function HomePage({
   const locale = assertLocale(value);
   const t = await getTranslations({ locale, namespace: "MarketingPage" });
   const repository = await getContentRepository();
-  const page = repository.getPage({ kind: "landing", locale });
+  const pages = repository.listPages(locale);
+  const page = getPublicManagedPage(pages, { kind: "landing", locale });
 
   if (!page) {
     notFound();
   }
+  const primaryCta = page.sections[0]?.cta;
+  const pricingPage = getPublicManagedPage(pages, {
+    kind: "pricing",
+    locale,
+  });
 
   return (
-    <main>
+    <main id="main-content" tabIndex={-1}>
       <section className="mx-auto grid min-h-[calc(100dvh-4rem)] w-full max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)] lg:px-8">
         <div className="max-w-3xl space-y-6">
           <p className="text-primary text-sm font-medium">
@@ -59,12 +70,16 @@ export default async function HomePage({
             {page.sections[0]?.body}
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link href="/dashboard">{page.sections[0]?.cta?.label}</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/pricing">{t("reviewPricing")}</Link>
-            </Button>
+            {primaryCta ? (
+              <Button asChild size="lg">
+                <Link href={primaryCta.href}>{primaryCta.label}</Link>
+              </Button>
+            ) : null}
+            {pricingPage ? (
+              <Button asChild size="lg" variant="outline">
+                <Link href={appRoutes.pricing}>{t("reviewPricing")}</Link>
+              </Button>
+            ) : null}
           </div>
         </div>
         <div className="bg-card grid gap-3 rounded-lg border p-4 shadow-sm">

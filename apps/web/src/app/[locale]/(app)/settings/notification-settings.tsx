@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  EmptyState,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
 
@@ -115,7 +116,13 @@ export async function NotificationSettings({
             },
           ]}
           data={notifications}
-          emptyLabel={t("emptyNotifications")}
+          empty={
+            <EmptyState
+              description={t("emptyNotificationsDescription")}
+              headingLevel="h4"
+              title={t("emptyNotifications")}
+            />
+          }
         />
       </CardContent>
     </Card>

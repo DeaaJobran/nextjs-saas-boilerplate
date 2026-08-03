@@ -353,7 +353,8 @@
     "ariaLabel": "طلب تواصل",
     "company": "الشركة",
     "sending": "جار الإرسال...",
-    "submit": "إرسال"
+    "submit": "إرسال",
+    "successTitle": "تم إرسال الرسالة"
   },
   "ContactPage": {
     "eyebrow": "تواصل مدار"
@@ -373,7 +374,8 @@
     "maxLength": "يجب ألا يتجاوز {field} {max} حرفا.",
     "minLength": "يجب أن يكون {field} {min} حرفا على الأقل.",
     "rateLimited": "عدد محاولات التواصل كبير جدا. حاول لاحقا.",
-    "required": "{field} مطلوب."
+    "required": "{field} مطلوب.",
+    "unavailable": "نموذج التواصل غير متاح حاليا."
   },
   "DashboardPage": {
     "audit": {
@@ -396,7 +398,9 @@
     "disabled": "معطل",
     "enabled": "مفعل",
     "flags": {
+      "configure": "تهيئة المؤسسة",
       "empty": "لا توجد أعلام ميزات مهيأة.",
+      "emptyDescription": "أضف أعلام ميزات المستأجر من إعدادات المؤسسة عندما تحتاج مساحة العمل إلى إطلاقات مضبوطة.",
       "key": "العلم",
       "status": "الحالة"
     },
@@ -408,6 +412,13 @@
     },
     "notConfigured": "غير مهيأ",
     "organizationFallback": "لم تتم إضافة تفاصيل ملف المؤسسة بعد.",
+    "overview": {
+      "category": "المورد",
+      "description": "موارد المستأجر الحالية من ملخص مساحة العمل المباشر.",
+      "empty": "لا تتوفر مقاييس لموارد المستأجر.",
+      "title": "نظرة عامة على موارد مساحة العمل",
+      "value": "العدد"
+    },
     "quotas": {
       "ai": "رموز الذكاء الاصطناعي",
       "storage": "التخزين",
@@ -415,11 +426,14 @@
     }
   },
   "Errors": {
+    "continueBrowsing": "متابعة التصفح",
     "globalTitle": "تعذر عرض هيكل التطبيق.",
     "loadingDescription": "جار تجهيز واجهة التطبيق المطلوبة.",
     "loadingTitle": "جار التحميل",
     "notFoundDescription": "الصفحة المطلوبة غير متاحة لهذه اللغة.",
     "notFoundTitle": "الصفحة غير موجودة",
+    "routeDescription": "حدث خطأ غير متوقع أثناء تحميل هذا المسار. حاول مرة أخرى أو تواصل مع الدعم إذا استمرت المشكلة.",
+    "routeDescriptionWithReference": "حدث خطأ غير متوقع أثناء تحميل هذا المسار. حاول مرة أخرى أو تواصل مع الدعم بالمرجع {reference} إذا استمرت المشكلة.",
     "routeTitle": "تعذر عرض هذا المسار.",
     "returnHome": "العودة للرئيسية",
     "tryAgain": "حاول مرة أخرى"
@@ -608,6 +622,10 @@
     "avatarUrl": "رابط الصورة",
     "confirmPassword": "تأكيد كلمة المرور",
     "confirmPasswordDescription": "مطلوبة لحسابات كلمة المرور؛ يمكن لحسابات مفتاح المرور أو الرابط السحري أو الدخول الاجتماعي تركها فارغة.",
+    "cancel": "إلغاء",
+    "closeDialog": "إغلاق مربع الحوار",
+    "confirmDelete": "حذف الحساب نهائيا",
+    "confirmDeleteDescription": "يلغي هذا الإجراء الجلسات النشطة ويجدول سير عمل بيانات الحساب. راجع النتائج قبل المتابعة.",
     "deleteAccount": "حذف الحساب",
     "deleteDescription": "الحذف يلغي الجلسات النشطة ويضع علامة حذف على الهوية.",
     "deleteTitle": "حذف الحساب",
@@ -624,6 +642,7 @@
     "emptyPasskeys": "لم يتم تسجيل مفاتيح مرور.",
     "emptyLegalAcceptances": "لا توجد موافقات قانونية مسجلة.",
     "emptyNotifications": "لا توجد إشعارات داخل التطبيق.",
+    "emptyNotificationsDescription": "ستظهر هنا إشعارات المنتج والأمان الجديدة عند تسليمها.",
     "emptyPrivacyRequests": "لا توجد طلبات خصوصية مسجلة.",
     "emptySessions": "لا توجد جلسات متاحة.",
     "enableMfa": "تفعيل التحقق المتعدد",
@@ -733,12 +752,21 @@
     "authDescription": "يوفر هذا التخطيط عقدا متجاوبا مستقرا لتدفقات تسجيل الدخول ومفاتيح المرور والتحقق متعدد العوامل والاسترداد.",
     "authTitle": "واجهة مصادقة قابلة لإعادة الاستخدام وجاهزة لوحدة الهوية.",
     "billingRegistry": "سجل الفوترة",
+    "closeNavigation": "إغلاق التنقل",
     "contentRegistry": "سجل المحتوى",
     "identityRegistry": "سجل الهوية",
     "impersonationNotice": "{actor} ينتحل {subject}. كل الإجراءات مسجلة في التدقيق.",
     "mainNavigation": "التنقل الرئيسي",
     "mobileApplicationNavigation": "تنقل التطبيق للجوال",
+    "mobileNavigationDescription": "اختر وجهة عامة مع البقاء في اللغة الحالية.",
+    "mobileNavigationTitle": "استكشف الموقع",
+    "openNavigation": "فتح التنقل الرئيسي",
+    "skipToContent": "تخطي إلى المحتوى الرئيسي",
     "tenantRegistry": "سجل المستأجرين"
+  },
+  "Toast": {
+    "dismiss": "إغلاق الإشعار",
+    "label": "إشعار"
   },
   "SuperAdmin": {
     "activeImpersonations": {
@@ -826,6 +854,8 @@
     "hasAccount": "لديك حساب بالفعل؟",
     "legalAcceptanceError": "وافق على شروط الخدمة وسياسة الخصوصية للمتابعة.",
     "legalAgreement": "أوافق على",
+    "legalUnavailableDescription": "سيعود إنشاء الحساب عند نشر المستندات القانونية المطلوبة.",
+    "legalUnavailableTitle": "إنشاء الحساب غير متاح مؤقتا",
     "password": "كلمة المرور",
     "passwordDescription": "استخدم 12 حرفا على الأقل مع حرف كبير وحرف صغير ورقم.",
     "privacy": "سياسة الخصوصية",

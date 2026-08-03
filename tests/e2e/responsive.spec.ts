@@ -28,6 +28,7 @@ const cases = [
   { height: 900, route: "/en/settings/organization", width: 390 },
   { height: 900, route: "/en/admin/content", width: 1024 },
   { height: 900, route: "/ar", width: 1440 },
+  { height: 375, route: "/en", width: 667 },
 ];
 
 for (const viewport of cases) {

@@ -20,6 +20,7 @@ const impersonationCookieName = "nextjs_saas_impersonation";
 export function getTenantService() {
   return createTenantService({
     appBaseUrl: process.env.NEXT_PUBLIC_APP_URL,
+    invitationPath: appRoutes.organizationInvitation,
   });
 }
 

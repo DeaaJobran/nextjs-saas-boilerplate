@@ -7,6 +7,7 @@ import { getTranslations } from "next-intl/server";
 import { ManagedPageSections } from "../../../../../components/managed-page";
 import { getContentRepository } from "../../../../../lib/content-store";
 import { assertLocale } from "../../../../../lib/locale";
+import { getPublicManagedPage } from "../../../../../lib/public-content";
 
 export async function generateMetadata({
   params,
@@ -16,7 +17,7 @@ export async function generateMetadata({
   const { locale: value, slug } = await params;
   const locale = assertLocale(value);
   const repository = await getContentRepository();
-  const page = repository.getPage({
+  const page = getPublicManagedPage(repository.listPages(locale), {
     kind: "legal",
     locale,
     slug,
@@ -41,7 +42,7 @@ export default async function LegalPage({
     namespace: "PublicationState",
   });
   const repository = await getContentRepository();
-  const page = repository.getPage({
+  const page = getPublicManagedPage(repository.listPages(locale), {
     kind: "legal",
     locale,
     slug,
@@ -52,7 +53,11 @@ export default async function LegalPage({
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-4xl gap-8 px-4 py-12 sm:px-6 lg:px-8">
+    <main
+      className="mx-auto grid w-full max-w-4xl gap-8 px-4 py-12 sm:px-6 lg:px-8"
+      id="main-content"
+      tabIndex={-1}
+    >
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{stateT(page.publishState)}</Badge>

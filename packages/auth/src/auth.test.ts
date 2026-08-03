@@ -19,6 +19,13 @@ import {
 let dataDir: string;
 let openedRuntime = false;
 const fixedNow = new Date("2026-07-06T08:00:00.000Z");
+const testAuthActionRoutes = {
+  acceptInvitation: "/account/invitations/accept",
+  magicLink: "/account/magic-link",
+  resetPassword: "/account/reset-password",
+  verifyEmail: "/account/verify-email",
+  verifyEmailChange: "/account/verify-email-change",
+};
 
 beforeEach(async () => {
   dataDir = await mkdtemp(path.join(os.tmpdir(), "nextjs-saas-auth-"));
@@ -46,6 +53,7 @@ async function createService() {
   openedRuntime = true;
 
   return createAuthService({
+    actionRoutes: testAuthActionRoutes,
     appBaseUrl: "https://app.example.test",
     authSecret: process.env.AUTH_SECRET,
     issuer: "Example SaaS",
@@ -162,7 +170,7 @@ describe("auth identity service", () => {
       email: "grace@example.test",
     });
 
-    expect(verification.link).toContain("/auth/verify-email");
+    expect(verification.link).toContain(testAuthActionRoutes.verifyEmail);
 
     const verifiedUser = await auth.verifyEmail(verification.token);
 
@@ -172,6 +180,7 @@ describe("auth identity service", () => {
       email: "grace@example.test",
     });
 
+    expect(reset?.link).toContain(testAuthActionRoutes.resetPassword);
     await expect(
       auth.resetPassword({
         password: "weak",
@@ -190,6 +199,8 @@ describe("auth identity service", () => {
     ).rejects.toBeInstanceOf(AuthError);
 
     const magicLink = await auth.createMagicLink({ email: user.email });
+
+    expect(magicLink?.link).toContain(testAuthActionRoutes.magicLink);
     const magicResult = await auth.signInWithMagicLink({
       token: magicLink!.token,
     });
@@ -203,13 +214,17 @@ describe("auth identity service", () => {
       email: "grace.next@example.test",
       userId: user.id,
     });
+
+    expect(emailChange.link).toContain(testAuthActionRoutes.verifyEmailChange);
     const notifications = await listAuthNotifications();
 
     expect(
       notifications.some(
         (notification) =>
           notification.kind === "email_change" &&
-          String(notification.link).includes("/auth/verify-email-change"),
+          String(notification.link).includes(
+            testAuthActionRoutes.verifyEmailChange,
+          ),
       ),
     ).toBe(true);
     await expect(auth.verifyEmailChange(emailChange.token)).resolves.toEqual(
@@ -372,14 +387,18 @@ describe("auth identity service", () => {
       notifications.some(
         (notification) =>
           notification.kind === "invitation" &&
-          String(notification.link).includes("/auth/invitations/accept"),
+          String(notification.link).includes(
+            testAuthActionRoutes.acceptInvitation,
+          ),
       ),
     ).toBe(true);
     expect(
       notifications.some(
         (notification) =>
           notification.kind === "password_reset" &&
-          String(notification.link).includes("/auth/reset-password"),
+          String(notification.link).includes(
+            testAuthActionRoutes.resetPassword,
+          ),
       ),
     ).toBe(true);
 

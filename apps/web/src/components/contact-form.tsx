@@ -9,23 +9,14 @@ import {
   Field,
   Textarea,
   TextInput,
+  useToast,
 } from "@nextjs-saas/ui";
 import { SendIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 
-type ContactFormState = {
-  fieldErrors?: Record<string, string>;
-  message?: string;
-  status: "idle" | "error" | "success";
-  values?: Record<string, string>;
-};
-
-type ContactAction = (
-  state: ContactFormState,
-  formData: FormData,
-) => Promise<ContactFormState>;
+import type { ContactFormAction } from "../lib/contact-form-state";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -45,24 +36,37 @@ export function ContactForm({
   locale,
   routing,
 }: {
-  action: ContactAction;
+  action: ContactFormAction;
   fields: ContactField[];
   locale: Locale;
   routing: ContactRouting;
 }) {
   const t = useTranslations("ContactForm");
   const [state, formAction] = useActionState(action, { status: "idle" });
-  const formKey = state.status === "success" ? state.message : "contact-form";
+  const { notify } = useToast();
+  const notifiedResult = useRef<string | undefined>(undefined);
+  const successMessage = state.status === "success" ? state.message : undefined;
+  const resultToken =
+    state.status === "success" ? state.resultToken : undefined;
+  const formKey = resultToken ?? "contact-form";
+
+  useEffect(() => {
+    if (
+      successMessage &&
+      resultToken &&
+      resultToken !== notifiedResult.current
+    ) {
+      notifiedResult.current = resultToken;
+      notify({ description: successMessage, title: t("successTitle") });
+    }
+  }, [notify, resultToken, successMessage, t]);
 
   return (
     <Card>
       <CardContent className="pt-5">
-        {state.status === "success" && state.message ? (
-          <div
-            className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-50"
-            role="status"
-          >
-            {state.message}
+        {successMessage ? (
+          <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-50">
+            {successMessage}
           </div>
         ) : null}
         {state.status === "error" && state.message ? (
@@ -93,8 +97,12 @@ export function ContactForm({
             </div>
           ) : null}
           {fields.map((field) => {
-            const error = state.fieldErrors?.[field.id];
-            const value = state.values?.[field.id];
+            const error =
+              state.status === "error"
+                ? state.fieldErrors?.[field.id]
+                : undefined;
+            const value =
+              state.status === "error" ? state.values?.[field.id] : undefined;
 
             return (
               <Field
