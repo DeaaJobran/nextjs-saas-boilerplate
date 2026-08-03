@@ -1475,6 +1475,7 @@ export const billingPaymentProviders = pgTable(
     mode: text("mode").notNull(),
     provider: text("provider").notNull(),
     secretRef: text("secret_ref"),
+    sortOrder: integer("sort_order").notNull().default(100),
     updatedAt: timestamp("updated_at", {
       mode: "string",
       withTimezone: true,
@@ -1495,6 +1496,7 @@ export const billingTenantSettings = pgTable("billing_tenant_settings", {
     withTimezone: true,
   }).notNull(),
   defaultCurrency: text("default_currency").notNull(),
+  gracePeriodDays: integer("grace_period_days").notNull().default(0),
   paymentProvider: text("payment_provider").notNull(),
   taxBehavior: text("tax_behavior").notNull(),
   tenantId: text("tenant_id")
@@ -1812,6 +1814,7 @@ export const billingInvoices = pgTable(
       }),
     providerCustomerId: text("provider_customer_id"),
     providerInvoiceId: text("provider_invoice_id").notNull(),
+    providerPaymentId: text("provider_payment_id"),
     status: text("status").notNull(),
     subscriptionId: text("subscription_id").references(
       () => billingSubscriptions.id,

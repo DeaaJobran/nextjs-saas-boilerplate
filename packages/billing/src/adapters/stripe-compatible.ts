@@ -40,6 +40,16 @@ function asNumber(value: unknown) {
     : undefined;
 }
 
+function asNumericValue(value: unknown) {
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return asNumber(value);
+}
+
 function asArray(value: unknown) {
   return Array.isArray(value) ? value : [];
 }
@@ -73,11 +83,16 @@ function firstSubscriptionItem(object: JsonRecord) {
 
 function priceFromItem(item: JsonRecord): Partial<BillingPrice> {
   const price = asRecord(item.price);
+  const recurring = asRecord(price.recurring);
+  const usageType = asString(recurring.usage_type);
 
   return {
     providerPriceId: asString(price.id),
-    usageType: (asString(price.recurring) ? "licensed" : "one_time") as
-      BillingUsageType | undefined,
+    usageType: (usageType === "metered"
+      ? "metered"
+      : Object.keys(recurring).length > 0
+        ? "licensed"
+        : "one_time") as BillingUsageType,
   };
 }
 
@@ -87,23 +102,37 @@ function mapInvoiceLines(object: JsonRecord): ProviderInvoiceItem[] {
   return asArray(lines.data).map((rawLine) => {
     const line = asRecord(rawLine);
     const price = asRecord(line.price);
+    const pricing = asRecord(line.pricing);
+    const priceDetails = asRecord(pricing.price_details);
     const amount = asNumber(line.amount) ?? 0;
-    const taxAmounts = asArray(line.tax_amounts);
+    const quantity = asNumber(line.quantity) ?? 1;
+    const taxAmounts = asArray(line.taxes).length
+      ? asArray(line.taxes)
+      : asArray(line.tax_amounts);
     const taxMinor = taxAmounts.reduce(
       (total, rawTax) => total + (asNumber(asRecord(rawTax).amount) ?? 0),
       0,
     );
+    const taxIsInclusive = taxAmounts.some(
+      (rawTax) => asString(asRecord(rawTax).tax_behavior) === "inclusive",
+    );
+    const discountMinor = sumAmountArray(line.discount_amounts);
+    const netAmount = amount - discountMinor;
 
     return {
       description: asString(line.description) ?? asString(price.nickname) ?? "",
-      discountMinor: 0,
-      priceProviderId: asString(price.id),
-      quantity: asNumber(line.quantity) ?? 1,
+      discountMinor,
+      priceProviderId: asString(price.id) ?? asString(priceDetails.price),
+      quantity,
       subtotalMinor: amount,
       taxBreakdown: taxAmounts.map((rawTax) => asRecord(rawTax)),
       taxMinor,
-      totalMinor: amount + taxMinor,
-      unitAmountMinor: asNumber(price.unit_amount) ?? amount,
+      totalMinor: taxIsInclusive ? netAmount : netAmount + taxMinor,
+      unitAmountMinor: Math.round(
+        asNumber(price.unit_amount) ??
+          asNumericValue(pricing.unit_amount_decimal) ??
+          amount / quantity,
+      ),
     };
   });
 }
@@ -113,6 +142,57 @@ function sumAmountArray(value: unknown) {
     (total, rawAmount) => total + (asNumber(asRecord(rawAmount).amount) ?? 0),
     0,
   );
+}
+
+function invoiceSubscriptionDetails(object: JsonRecord) {
+  const parent = asRecord(object.parent);
+
+  return Object.keys(asRecord(parent.subscription_details)).length > 0
+    ? asRecord(parent.subscription_details)
+    : asRecord(object.subscription_details);
+}
+
+function invoiceSubscriptionId(object: JsonRecord) {
+  return (
+    asString(object.subscription) ??
+    asString(invoiceSubscriptionDetails(object).subscription)
+  );
+}
+
+function invoicePaymentIntentId(object: JsonRecord) {
+  const paymentsObject = asRecord(object.payments);
+
+  if (Object.keys(paymentsObject).length === 0) {
+    return asString(object.payment_intent);
+  }
+
+  const refundablePayments = asArray(paymentsObject.data).filter(
+    (rawPayment) => {
+      const invoicePayment = asRecord(rawPayment);
+      const payment = asRecord(invoicePayment.payment);
+
+      return (
+        asString(invoicePayment.status) === "paid" &&
+        asString(payment.type) === "payment_intent" &&
+        Boolean(asString(payment.payment_intent)) &&
+        (asNumber(invoicePayment.amount_paid) ?? 0) > 0
+      );
+    },
+  );
+
+  if (refundablePayments.length !== 1) {
+    return undefined;
+  }
+
+  const invoicePayment = asRecord(refundablePayments[0]);
+
+  if (
+    asNumber(invoicePayment.amount_paid) !== (asNumber(object.amount_paid) ?? 0)
+  ) {
+    return undefined;
+  }
+
+  return asString(asRecord(invoicePayment.payment).payment_intent);
 }
 
 function encodeForm(input: Record<string, unknown>) {
@@ -145,12 +225,19 @@ export function createStripeCompatiblePaymentProviderAdapter(
     return new URL(normalizedPath, normalizedBase);
   }
 
-  async function request<T>(path: string, body: URLSearchParams): Promise<T> {
+  async function request<T>(
+    path: string,
+    body: URLSearchParams,
+    requestOptions: { idempotencyKey?: string } = {},
+  ): Promise<T> {
     const response = await requestFetch(requestUrl(path), {
       body,
       headers: {
         Authorization: `Bearer ${options.secretKey}`,
         "Content-Type": "application/x-www-form-urlencoded",
+        ...(requestOptions.idempotencyKey
+          ? { "Idempotency-Key": requestOptions.idempotencyKey }
+          : {}),
         "Stripe-Version": apiVersion,
       },
       method: "POST",
@@ -185,10 +272,14 @@ export function createStripeCompatiblePaymentProviderAdapter(
   return {
     capabilities: {
       checkout: true,
+      coupons: true,
+      paymentMethods: true,
       portal: true,
       refunds: true,
       subscriptions: true,
       supportedCurrencies: ["USD", "EUR", "SAR", "GBP"],
+      usageReporting: true,
+      webhooks: true,
     },
     async createBillingPortalSession(input) {
       const session = await request<JsonRecord>(
@@ -211,7 +302,8 @@ export function createStripeCompatiblePaymentProviderAdapter(
         customer_email: input.customerEmail,
         "discounts[0][coupon]": input.discount?.providerCouponId,
         "line_items[0][price]": input.price.providerPriceId,
-        "line_items[0][quantity]": input.quantity,
+        "line_items[0][quantity]":
+          input.price.usageType === "metered" ? undefined : input.quantity,
         "metadata[tenantId]": input.tenantId,
         mode: input.mode,
         success_url: input.successUrl,
@@ -222,6 +314,9 @@ export function createStripeCompatiblePaymentProviderAdapter(
         params["subscription_data[trial_period_days]"] =
           input.trialDays && input.trialDays > 0 ? input.trialDays : undefined;
       } else {
+        params["invoice_creation[enabled]"] = true;
+        params["invoice_creation[invoice_data][metadata][tenantId]"] =
+          input.tenantId;
         params["payment_intent_data[metadata][tenantId]"] = input.tenantId;
       }
 
@@ -276,14 +371,22 @@ export function createStripeCompatiblePaymentProviderAdapter(
       };
     },
     async createRefund(input: RefundInput): Promise<RefundResult> {
+      const metadata = Object.fromEntries(
+        Object.entries(input.metadata ?? {}).map(([key, value]) => [
+          `metadata[${key}]`,
+          value,
+        ]),
+      );
       const refund = await request<JsonRecord>(
         "/v1/refunds",
         encodeForm({
+          ...metadata,
           amount: input.amountMinor,
           "metadata[tenantId]": input.tenantId,
           payment_intent: input.providerPaymentId,
           reason: input.reason,
         }),
+        { idempotencyKey: input.idempotencyKey },
       );
 
       return {
@@ -295,6 +398,24 @@ export function createStripeCompatiblePaymentProviderAdapter(
       };
     },
     key: "stripe",
+    async reportUsage(input) {
+      const event = await request<JsonRecord>(
+        "/v1/billing/meter_events",
+        encodeForm({
+          event_name: input.meterKey,
+          identifier: input.idempotencyKey,
+          "payload[stripe_customer_id]": input.providerCustomerId,
+          "payload[value]": input.quantity,
+          timestamp: isoToUnix(input.occurredAt),
+        }),
+        { idempotencyKey: input.idempotencyKey },
+      );
+
+      return {
+        id: asString(event.identifier) ?? input.idempotencyKey,
+        status: "accepted",
+      };
+    },
     async updateSubscription(input) {
       const params: Record<string, unknown> = {
         cancel_at_period_end: input.cancelAtPeriodEnd,
@@ -326,7 +447,13 @@ export function createStripeCompatiblePaymentProviderAdapter(
 
       const stripeEvent = JSON.parse(input.rawBody) as JsonRecord;
       const object = asRecord(asRecord(stripeEvent.data).object);
-      const type = asString(stripeEvent.type) ?? "unknown";
+      const eventId = asString(stripeEvent.id);
+      const type = asString(stripeEvent.type);
+
+      if (!eventId || !type || Object.keys(object).length === 0) {
+        throw new Error("Stripe-compatible webhook payload is invalid.");
+      }
+
       const tenantId = metadataTenantId(object);
       let payload: JsonRecord = object;
 
@@ -345,8 +472,12 @@ export function createStripeCompatiblePaymentProviderAdapter(
         payload = {
           cancelAt: unixToIso(object.cancel_at),
           canceledAt: unixToIso(object.canceled_at),
-          currentPeriodEnd: unixToIso(object.current_period_end),
-          currentPeriodStart: unixToIso(object.current_period_start),
+          currentPeriodEnd: unixToIso(
+            object.current_period_end ?? item.current_period_end,
+          ),
+          currentPeriodStart: unixToIso(
+            object.current_period_start ?? item.current_period_start,
+          ),
           priceProviderId: price.providerPriceId,
           providerCustomerId: asString(object.customer),
           providerSubscriptionItemId: asString(item.id),
@@ -358,6 +489,12 @@ export function createStripeCompatiblePaymentProviderAdapter(
           trialStart: unixToIso(object.trial_start),
         };
       } else if (type.startsWith("invoice.")) {
+        const totalTaxes = asArray(object.total_taxes);
+        const taxMinor = totalTaxes.length
+          ? sumAmountArray(totalTaxes)
+          : (asNumber(object.tax) ?? 0);
+        const subscriptionDetails = invoiceSubscriptionDetails(object);
+
         payload = {
           amountDueMinor: asNumber(object.amount_due) ?? 0,
           amountPaidMinor: asNumber(object.amount_paid) ?? 0,
@@ -372,13 +509,16 @@ export function createStripeCompatiblePaymentProviderAdapter(
           periodStart: unixToIso(object.period_start),
           providerCustomerId: asString(object.customer),
           providerInvoiceId: asString(object.id),
-          providerSubscriptionId: asString(object.subscription),
+          providerPaymentId: invoicePaymentIntentId(object),
+          providerSubscriptionId: invoiceSubscriptionId(object),
           status: asString(object.status) ?? "open",
           subtotalMinor: asNumber(object.subtotal) ?? 0,
-          taxBehavior: "exclusive" satisfies BillingTaxBehavior,
-          taxMinor: asNumber(object.tax) ?? 0,
-          tenantId:
-            tenantId ?? metadataTenantId(asRecord(object.subscription_details)),
+          taxBehavior:
+            (asString(asRecord(totalTaxes[0]).tax_behavior) as
+              BillingTaxBehavior | undefined) ??
+            ("exclusive" satisfies BillingTaxBehavior),
+          taxMinor,
+          tenantId: tenantId ?? metadataTenantId(subscriptionDetails),
           totalMinor: asNumber(object.total) ?? 0,
         };
       } else if (type.startsWith("payment_method.")) {
@@ -399,9 +539,12 @@ export function createStripeCompatiblePaymentProviderAdapter(
           type: asString(object.type) ?? "unknown",
         };
       } else if (type === "refund.created" || type === "refund.updated") {
+        const metadata = asRecord(object.metadata);
+
         payload = {
           amountMinor: asNumber(object.amount) ?? 0,
           currency: currency(object.currency),
+          idempotencyKey: asString(metadata.idempotencyKey),
           providerPaymentId: asString(object.payment_intent),
           providerRefundId: asString(object.id),
           reason: asString(object.reason),
@@ -412,7 +555,7 @@ export function createStripeCompatiblePaymentProviderAdapter(
 
       return {
         createdAt: unixToIso(stripeEvent.created) ?? new Date().toISOString(),
-        id: asString(stripeEvent.id) ?? "",
+        id: eventId,
         payload,
         tenantId: asString(payload.tenantId) ?? metadataTenantId(object),
         type,

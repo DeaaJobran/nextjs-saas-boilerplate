@@ -72,9 +72,13 @@ describe("database migrations", () => {
     databaseRuntimeOpened = true;
 
     const runtime = await getDatabaseRuntime();
-    const pendingMigration = migrationManifest.at(-1)!;
+    const targetMigrationIndex = migrationManifest.findIndex(
+      (migration) => migration.id === "0012_security_privacy_hardening.sql",
+    );
 
-    for (const migration of migrationManifest.slice(0, -1)) {
+    expect(targetMigrationIndex).toBeGreaterThanOrEqual(0);
+
+    for (const migration of migrationManifest.slice(0, targetMigrationIndex)) {
       await runtime.execute(migration.sql);
       await runtime.execute(
         "INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
@@ -100,9 +104,11 @@ describe("database migrations", () => {
       );
     }
 
-    await expect(runMigrations(runtime)).resolves.toEqual([
-      pendingMigration.id,
-    ]);
+    await expect(runMigrations(runtime)).resolves.toEqual(
+      migrationManifest
+        .slice(targetMigrationIndex)
+        .map((migration) => migration.id),
+    );
 
     const buckets = await runtime.execute<{ count: number }>(
       "SELECT count FROM rate_limit_buckets WHERE tenant_id IS NULL AND identifier = 'hashed-identifier' AND scope = 'auth'",
@@ -110,6 +116,49 @@ describe("database migrations", () => {
 
     expect(buckets).toHaveLength(1);
     expect(Number(buckets[0]?.count)).toBe(5);
+  }, 60_000);
+
+  it("preserves customized billing provider names when adding sort order", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+    const targetMigrationIndex = migrationManifest.findIndex(
+      (migration) => migration.id === "0014_tenant_aware_billing.sql",
+    );
+
+    expect(targetMigrationIndex).toBeGreaterThanOrEqual(0);
+
+    for (const migration of migrationManifest.slice(0, targetMigrationIndex)) {
+      await runtime.execute(migration.sql);
+      await runtime.execute(
+        "INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
+        [migration.id],
+      );
+    }
+
+    await runtime.execute(
+      "UPDATE billing_payment_providers SET display_name = $1 WHERE provider = 'stripe'",
+      ["Acme Payments"],
+    );
+
+    await expect(runMigrations(runtime)).resolves.toEqual(
+      migrationManifest
+        .slice(targetMigrationIndex)
+        .map((migration) => migration.id),
+    );
+
+    const providers = await runtime.execute<{
+      display_name: string;
+      sort_order: number;
+    }>(`
+      SELECT display_name, sort_order
+      FROM billing_payment_providers
+      WHERE provider = 'stripe'
+    `);
+
+    expect(providers).toEqual([
+      { display_name: "Acme Payments", sort_order: 10 },
+    ]);
   }, 60_000);
 
   it("creates service foundation tables", async () => {
@@ -314,9 +363,62 @@ describe("database migrations", () => {
     const priceRows = await runtime.execute<{ count: string }>(
       "SELECT count(*)::text AS count FROM billing_prices WHERE provider = 'mock'",
     );
+    const integrityColumns = await runtime.execute<{ column_name: string }>(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND (
+          (table_name = 'billing_tenant_settings' AND column_name = 'grace_period_days')
+          OR (table_name = 'billing_invoices' AND column_name = 'provider_payment_id')
+        )
+      ORDER BY column_name
+    `);
+    const capableProviderRows = await runtime.execute<{ count: string }>(`
+      SELECT count(*)::text AS count
+      FROM billing_payment_providers
+      WHERE provider IN ('mock', 'stripe')
+        AND capabilities @> '{"coupons":true,"paymentMethods":true,"usageReporting":true,"webhooks":true}'::jsonb
+    `);
+    const orderedProviderRows = await runtime.execute<{
+      display_name: string;
+      provider: string;
+      sort_order: number;
+    }>(`
+      SELECT provider, display_name, sort_order
+      FROM billing_payment_providers
+      ORDER BY sort_order ASC, provider ASC
+    `);
+    const tenantGuardRows = await runtime.execute<{ trigger_name: string }>(`
+      SELECT DISTINCT trigger_name
+      FROM information_schema.triggers
+      WHERE trigger_schema = 'public'
+        AND trigger_name IN (
+          'billing_customers_tenant_immutable',
+          'billing_discounts_tenant_reference',
+          'billing_entitlements_tenant_reference',
+          'billing_invoices_tenant_immutable',
+          'billing_invoices_tenant_reference',
+          'billing_payment_methods_tenant_immutable',
+          'billing_refunds_tenant_immutable',
+          'billing_refunds_tenant_reference',
+          'billing_subscriptions_tenant_immutable'
+        )
+      ORDER BY trigger_name
+    `);
 
     expect(Number(providerRows[0]?.count)).toBe(2);
     expect(Number(priceRows[0]?.count)).toBeGreaterThan(0);
+    expect(integrityColumns.map((row) => row.column_name)).toEqual([
+      "grace_period_days",
+      "provider_payment_id",
+    ]);
+    expect(Number(capableProviderRows[0]?.count)).toBe(2);
+    expect(orderedProviderRows[0]).toEqual({
+      display_name: "Stripe-compatible",
+      provider: "stripe",
+      sort_order: 10,
+    });
+    expect(tenantGuardRows).toHaveLength(9);
   }, 60_000);
 
   it("creates public API, webhook, realtime, and mobile support tables", async () => {

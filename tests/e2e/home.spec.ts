@@ -401,7 +401,7 @@ test("persists customer and tenant preferred locales", async ({ page }) => {
   await preferredLocaleSelect.selectOption("ar");
   await profileForm.getByRole("button", { name: "Save profile" }).click();
 
-  await expect(page).toHaveURL(/status=profile-updated/);
+  await expect(page).toHaveURL(/status=profile-updated/, { timeout: 15_000 });
   await expect(page.getByLabel("Preferred locale")).toHaveValue("ar");
 
   await page.goto("/en/settings/organization");

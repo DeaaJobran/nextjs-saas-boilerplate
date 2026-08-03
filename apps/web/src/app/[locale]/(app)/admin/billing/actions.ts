@@ -92,10 +92,14 @@ export async function saveBillingProviderAction(formData: FormData) {
     actorId,
     capabilities: {
       checkout: formData.get("checkout") === "on",
+      coupons: formData.get("coupons") === "on",
+      paymentMethods: formData.get("paymentMethods") === "on",
       portal: formData.get("portal") === "on",
       refunds: formData.get("refunds") === "on",
       subscriptions: formData.get("subscriptions") === "on",
       supportedCurrencies: lines(formValue(formData, "supportedCurrencies")),
+      usageReporting: formData.get("usageReporting") === "on",
+      webhooks: formData.get("webhooks") === "on",
     },
     configuration: {
       apiBaseUrl: formValue(formData, "apiBaseUrl") || undefined,
@@ -106,6 +110,7 @@ export async function saveBillingProviderAction(formData: FormData) {
     mode: formValue(formData, "mode"),
     provider: formValue(formData, "provider"),
     secretRef: formValue(formData, "secretRef") || undefined,
+    sortOrder: integerValue(formData, "sortOrder", { fallback: "100" }),
     webhookSecretRef: formValue(formData, "webhookSecretRef") || undefined,
   });
   revalidateBillingAdmin(formData);

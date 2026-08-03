@@ -41,6 +41,16 @@ function optionalPositiveInteger(formData: FormData, key: string) {
   return value;
 }
 
+function nonNegativeInteger(formData: FormData, key: string, fallback: string) {
+  const value = Number(formValue(formData, key) || fallback);
+
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${key} must be a non-negative integer.`);
+  }
+
+  return value;
+}
+
 function localizedBillingPath(formData: FormData) {
   const locale = formValue(formData, "locale");
 
@@ -138,8 +148,8 @@ export async function requestRefundAction(formData: FormData) {
   await getBillingService().requestRefund({
     actorId: context.effectiveUser.id,
     amountMinor,
+    idempotencyKey: formValue(formData, "idempotencyKey"),
     invoiceId: formValue(formData, "invoiceId"),
-    providerPaymentId: formValue(formData, "providerPaymentId"),
     reason: formValue(formData, "reason") || undefined,
   });
   revalidatePath(localizedBillingPath(formData));
@@ -154,6 +164,7 @@ export async function updateTenantBillingSettingsAction(formData: FormData) {
   await getBillingService().updateTenantBillingSettings({
     actorId: context.effectiveUser.id,
     defaultCurrency: formValue(formData, "defaultCurrency"),
+    gracePeriodDays: nonNegativeInteger(formData, "gracePeriodDays", "0"),
     organizationId: context.organization.id,
     paymentProvider: formValue(formData, "paymentProvider"),
     taxBehavior: formValue(formData, "taxBehavior") as BillingTaxBehavior,
