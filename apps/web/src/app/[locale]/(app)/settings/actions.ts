@@ -248,7 +248,10 @@ export async function deleteAccountAction(formData: FormData) {
   }
 
   await clearAuthCookies();
-  redirect(appRoutes.signIn);
+  const localeValue = formValue(formData, "locale");
+  const locale = isLocale(localeValue) ? localeValue : undefined;
+
+  redirect(locale ? `/${locale}${appRoutes.signIn}` : appRoutes.signIn);
 }
 
 export async function updateNotificationPreferencesAction(formData: FormData) {

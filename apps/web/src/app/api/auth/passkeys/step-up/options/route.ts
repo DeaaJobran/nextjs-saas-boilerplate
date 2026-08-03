@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 
-import { getAuthService, requireCurrentSession } from "@/lib/auth";
+import { getAuthService, requireApiSession } from "@/lib/auth";
 import {
   protectServerAction,
   securityErrorResponse,
 } from "@/lib/server-action-security";
 
 export async function POST() {
-  const session = await requireCurrentSession();
-
   try {
+    const session = await requireApiSession();
+
     await protectServerAction({
       identifier: session.user.id,
       limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),

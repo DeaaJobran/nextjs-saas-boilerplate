@@ -1,4 +1,4 @@
-import type { AuthSession } from "@nextjs-saas/auth";
+import type { AuthAuditEvent, AuthSession } from "@nextjs-saas/auth";
 import { appRoutes } from "@nextjs-saas/config/app";
 import type { Locale } from "@nextjs-saas/localization";
 import type { LegalAcceptance, PrivacyRequest } from "@nextjs-saas/security";
@@ -49,6 +49,32 @@ type PasskeySummary = {
   id: string;
   label: string;
 };
+
+const securityEventMessageKeys = {
+  "auth.account.deleted": "accountDeleted",
+  "auth.email.changed": "emailChanged",
+  "auth.email.verified": "emailVerified",
+  "auth.invitation.accepted": "invitationAccepted",
+  "auth.invitation.created": "invitationCreated",
+  "auth.login.locked": "loginLocked",
+  "auth.magic_link.requested_unknown_user": "magicLinkRequested",
+  "auth.magic_link.signed_in": "magicLinkSignedIn",
+  "auth.mfa.enabled": "mfaEnabled",
+  "auth.mfa.passkey_session_verified": "passkeySessionVerified",
+  "auth.mfa.session_verified": "mfaSessionVerified",
+  "auth.passkey.registered": "passkeyRegistered",
+  "auth.passkey.signed_in": "passkeySignedIn",
+  "auth.password_reset.completed": "passwordResetCompleted",
+  "auth.password_reset.requested_unknown_user": "passwordResetRequested",
+  "auth.password.signed_in": "passwordSignedIn",
+  "auth.profile.updated": "profileUpdated",
+  "auth.session.created": "sessionCreated",
+  "auth.session.revoked": "sessionRevoked",
+  "auth.session.rotated": "sessionRotated",
+  "auth.social.signed_in": "socialSignedIn",
+  "auth.user.admin_created": "adminUserCreated",
+  "auth.user.created": "userCreated",
+} as const;
 
 export async function SettingsFeedback({
   error,
@@ -513,6 +539,71 @@ export async function SessionSettings({
           ]}
           data={sessions}
           emptyLabel={t("emptySessions")}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+export async function SecurityActivitySettings({
+  events,
+  locale,
+}: {
+  events: AuthAuditEvent[];
+  locale: Locale;
+}) {
+  const t = await getTranslations("SettingsPage");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("securityActivityTitle")}</CardTitle>
+        <p className="text-muted-foreground text-sm">
+          {t("securityActivityDescription")}
+        </p>
+      </CardHeader>
+      <CardContent>
+        <DataTable
+          columns={[
+            {
+              cell: (event) => {
+                const messageKey =
+                  securityEventMessageKeys[
+                    event.eventType as keyof typeof securityEventMessageKeys
+                  ];
+
+                return messageKey
+                  ? t(`securityEvents.${messageKey}`)
+                  : t("securityEvents.unknown");
+              },
+              header: t("securityActivityTable.event"),
+              key: "event",
+            },
+            {
+              cell: (event) => event.ipAddress ?? t("privacyUnknown"),
+              header: t("securityActivityTable.address"),
+              key: "address",
+            },
+            {
+              cell: (event) => (
+                <span
+                  className="block max-w-xs truncate"
+                  title={event.userAgent}
+                >
+                  {event.userAgent ?? t("privacyUnknown")}
+                </span>
+              ),
+              header: t("securityActivityTable.device"),
+              key: "device",
+            },
+            {
+              cell: (event) => formatLocaleDateTime(locale, event.createdAt),
+              header: t("securityActivityTable.created"),
+              key: "created",
+            },
+          ]}
+          data={events}
+          emptyLabel={t("emptySecurityActivity")}
         />
       </CardContent>
     </Card>

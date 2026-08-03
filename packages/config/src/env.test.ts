@@ -6,6 +6,7 @@ describe("createEnv", () => {
   it("uses safe defaults for local development", () => {
     expect(createEnv({})).toEqual({
       AUTH_ALLOW_ADMIN_BYPASS: false,
+      BILLING_ALLOW_MOCK_PAYMENTS: false,
       EMAIL_PROVIDER: "preview",
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
       NODE_ENV: "development",
@@ -29,6 +30,26 @@ describe("createEnv", () => {
         AUTH_SECRET: "short-secret",
       }),
     ).toThrow("Invalid environment variables");
+  });
+
+  it("validates billing provider configuration", () => {
+    expect(
+      createEnv({
+        BILLING_ALLOW_MOCK_PAYMENTS: "true",
+        BILLING_MOCK_WEBHOOK_SECRET: "local-billing-webhook-secret",
+        STRIPE_API_BASE_URL: "https://api.stripe.com",
+        STRIPE_API_VERSION: "2025-09-30.clover",
+        STRIPE_SECRET_KEY: "sk_test_example",
+        STRIPE_WEBHOOK_SECRET: "whsec_test_example",
+      }),
+    ).toMatchObject({
+      BILLING_ALLOW_MOCK_PAYMENTS: true,
+      STRIPE_API_BASE_URL: "https://api.stripe.com",
+      STRIPE_API_VERSION: "2025-09-30.clover",
+    });
+    expect(() => createEnv({ BILLING_MOCK_WEBHOOK_SECRET: "short" })).toThrow(
+      "Invalid environment variables",
+    );
   });
 
   it("accepts database runtime configuration", () => {

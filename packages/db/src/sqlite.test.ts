@@ -14,6 +14,41 @@ import {
 import * as sqliteSchema from "./sqlite-schema";
 
 describe("SQLite database foundation", () => {
+  it("rewrites bind parameters without changing SQL literals or comments", async () => {
+    const runtime = await createSqliteRuntime();
+
+    try {
+      await expect(
+        runtime.execute<{
+          bracket$3: string;
+          double$2: string;
+          tick$4: string;
+          literal: string;
+        }>(
+          `
+            SELECT
+              '$1' AS literal,
+              $1 AS "double$2",
+              $2 AS [bracket$3],
+              $3 AS \`tick$4\`
+            /* $4 stays inside a block comment */
+            -- $5 stays inside a line comment
+          `,
+          ["double", "bracket", "tick"],
+        ),
+      ).resolves.toEqual([
+        {
+          bracket$3: "bracket",
+          double$2: "double",
+          tick$4: "tick",
+          literal: "$1",
+        },
+      ]);
+    } finally {
+      await runtime.close();
+    }
+  });
+
   it("migrates, persists, queries through Drizzle, transacts, and resets", async () => {
     const directory = await mkdtemp(
       path.join(os.tmpdir(), "nextjs-saas-sqlite-"),

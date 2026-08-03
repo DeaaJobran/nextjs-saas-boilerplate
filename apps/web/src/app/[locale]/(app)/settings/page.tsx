@@ -18,6 +18,7 @@ import {
   AccountSettings,
   MfaStepUpSettings,
   PrivacySettings,
+  SecurityActivitySettings,
   SecuritySettings,
   SessionSettings,
   SettingsFeedback,
@@ -70,15 +71,21 @@ export default async function SettingsPage({
   const repository = await getContentRepository();
   const availableLocales = repository.listEnabledLocales();
   const security = getSecurityService();
-  const [tenantContext, sessions, legalAcceptances, privacyRequests] =
-    await Promise.all([
-      getActiveTenantContext("organization.read", {
-        allowMfaEnrollment: true,
-      }),
-      auth.listSessions(session.user.id),
-      security.listLegalAcceptances(session.user.id),
-      security.listPrivacyRequests(session.user.id),
-    ]);
+  const [
+    tenantContext,
+    sessions,
+    auditEvents,
+    legalAcceptances,
+    privacyRequests,
+  ] = await Promise.all([
+    getActiveTenantContext("organization.read", {
+      allowMfaEnrollment: true,
+    }),
+    auth.listSessions(session.user.id),
+    auth.listAuditEvents(session.user.id),
+    security.listLegalAcceptances(session.user.id),
+    security.listPrivacyRequests(session.user.id),
+  ]);
 
   return (
     <div className="grid gap-6">
@@ -110,6 +117,7 @@ export default async function SettingsPage({
         />
       </div>
       <SessionSettings locale={resolvedLocale} sessions={sessions} />
+      <SecurityActivitySettings events={auditEvents} locale={resolvedLocale} />
       <AccountDeletionSettings locale={resolvedLocale} />
     </div>
   );

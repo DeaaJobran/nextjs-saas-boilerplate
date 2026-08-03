@@ -39,6 +39,8 @@ Security-sensitive changes require explicit review notes in the pull request:
 
 Billing integrations must verify webhook signatures against the raw request body before processing events. Provider API keys and webhook secrets must stay in environment variables or external secret storage; database provider records store only secret references, capabilities, and non-secret configuration.
 
+Mock payment routes are disabled in production unless `BILLING_ALLOW_MOCK_PAYMENTS=true` is set for an intentional sandbox. Refunds use the provider payment reference persisted from a verified invoice webhook, enforce the remaining paid balance under an invoice lock, and send a tenant-scoped idempotency key to the provider.
+
 ## Runtime Security Defaults
 
 The web app enables a restrictive Content Security Policy, clickjacking and MIME

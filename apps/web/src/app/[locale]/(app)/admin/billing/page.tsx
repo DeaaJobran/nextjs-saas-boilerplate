@@ -103,9 +103,13 @@ function ProviderCard({
   const capabilityFields = [
     ["enabled", t("providers.enabled")],
     ["checkout", t("providers.checkout")],
+    ["coupons", t("providers.coupons")],
+    ["paymentMethods", t("providers.paymentMethods")],
     ["portal", t("providers.portal")],
     ["refunds", t("providers.refunds")],
     ["subscriptions", t("providers.subscriptions")],
+    ["usageReporting", t("providers.usageReporting")],
+    ["webhooks", t("providers.webhooks")],
   ];
 
   return (
@@ -146,6 +150,15 @@ function ProviderCard({
                 )}
                 name="supportedCurrencies"
                 required
+              />
+            </Field>
+            <Field label={t("providers.sortOrder")}>
+              <TextInput
+                defaultValue={provider.sortOrder}
+                min={0}
+                name="sortOrder"
+                required
+                type="number"
               />
             </Field>
             <Field label={t("providers.secretRef")}>

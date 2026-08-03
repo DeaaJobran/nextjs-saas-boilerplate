@@ -3,6 +3,8 @@ import { z } from "zod";
 const envSchema = z.object({
   AUTH_ALLOW_ADMIN_BYPASS: z.stringbool().default(false),
   AUTH_SECRET: z.string().trim().min(32).optional(),
+  BILLING_ALLOW_MOCK_PAYMENTS: z.stringbool().default(false),
+  BILLING_MOCK_WEBHOOK_SECRET: z.string().trim().min(16).optional(),
   DATABASE_URL: z.url().optional(),
   EMAIL_BRAND_ACCENT: z.string().trim().min(1).optional(),
   EMAIL_BRAND_LOGO_URL: z.url().optional(),
@@ -70,6 +72,10 @@ const envSchema = z.object({
   STORAGE_PROVIDER_NAME: z.string().trim().min(1).optional(),
   STORAGE_PUBLIC_BASE_URL: z.url().optional(),
   STORAGE_SIGNING_SECRET: z.string().trim().min(32).optional(),
+  STRIPE_API_BASE_URL: z.url().optional(),
+  STRIPE_API_VERSION: z.string().trim().min(1).optional(),
+  STRIPE_SECRET_KEY: z.string().trim().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().trim().min(16).optional(),
   R2_ACCOUNT_ID: z.string().trim().min(1).optional(),
 });
 

@@ -2,16 +2,12 @@ import {
   createBillingService,
   createMockPaymentProviderAdapter,
   createStripeCompatiblePaymentProviderAdapter,
+  isMockPaymentProviderAllowed,
   type PaymentProviderAdapter,
 } from "@nextjs-saas/billing";
 
 function configuredAdapters(): PaymentProviderAdapter[] {
-  const adapters: PaymentProviderAdapter[] = [
-    createMockPaymentProviderAdapter({
-      baseUrl: process.env.NEXT_PUBLIC_APP_URL,
-      webhookSecret: process.env.BILLING_MOCK_WEBHOOK_SECRET,
-    }),
-  ];
+  const adapters: PaymentProviderAdapter[] = [];
 
   if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
     adapters.push(
@@ -20,6 +16,15 @@ function configuredAdapters(): PaymentProviderAdapter[] {
         apiVersion: process.env.STRIPE_API_VERSION,
         secretKey: process.env.STRIPE_SECRET_KEY,
         webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      }),
+    );
+  }
+
+  if (isMockPaymentProviderAllowed()) {
+    adapters.push(
+      createMockPaymentProviderAdapter({
+        baseUrl: process.env.NEXT_PUBLIC_APP_URL,
+        webhookSecret: process.env.BILLING_MOCK_WEBHOOK_SECRET,
       }),
     );
   }

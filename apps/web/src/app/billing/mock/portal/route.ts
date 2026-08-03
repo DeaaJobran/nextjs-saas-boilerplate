@@ -1,3 +1,4 @@
+import { isMockPaymentProviderAllowed } from "@nextjs-saas/billing";
 import { NextResponse } from "next/server";
 
 function redirectUrl(request: Request, value: string | null) {
@@ -15,6 +16,13 @@ function redirectUrl(request: Request, value: string | null) {
 }
 
 export function GET(request: Request) {
+  if (!isMockPaymentProviderAllowed()) {
+    return NextResponse.json(
+      { error: "mock_payments_disabled" },
+      { status: 404 },
+    );
+  }
+
   const requestUrl = new URL(request.url);
 
   return NextResponse.redirect(

@@ -1,11 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import {
-  DatabaseSync,
-  type SQLInputValue,
-  type StatementSync,
-} from "node:sqlite";
 
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 
@@ -13,6 +8,23 @@ import type { DatabaseRuntime, Queryable } from "./client";
 import * as schema from "./sqlite-schema";
 
 type SqliteMethod = "all" | "get" | "run" | "values";
+
+type SqliteInputValue = bigint | null | number | string | Uint8Array;
+
+type SqliteStatement = {
+  all(...params: SqliteInputValue[]): unknown[];
+  setReturnArrays(enabled: boolean): void;
+};
+
+type SqliteDatabase = {
+  close(): void;
+  exec(sql: string): void;
+  prepare(query: string): SqliteStatement;
+};
+
+type SqliteModule = {
+  DatabaseSync: new (filename: string) => SqliteDatabase;
+};
 
 export type SqliteDatabaseRuntime = DatabaseRuntime & {
   dialect: "sqlite";
@@ -165,7 +177,7 @@ export const sqliteMigrationManifest = [
   },
 ] as const;
 
-function normalizeSqliteParams(params: unknown[]): SQLInputValue[] {
+function normalizeSqliteParams(params: unknown[]): SqliteInputValue[] {
   return params.map((param) => {
     if (param === undefined || param === null) {
       return null;
@@ -192,32 +204,152 @@ function normalizeSqliteParams(params: unknown[]): SQLInputValue[] {
   });
 }
 
-function prepareStatement(database: DatabaseSync, query: string) {
-  return database.prepare(query.replace(/\$(\d+)/g, "?$1"));
+function convertPostgresPlaceholders(query: string) {
+  let converted = "";
+  let index = 0;
+  let state:
+    | "block-comment"
+    | "bracket-identifier"
+    | "double-quote"
+    | "line-comment"
+    | "single-quote"
+    | "sql"
+    | "tick-identifier" = "sql";
+  let blockCommentDepth = 0;
+
+  while (index < query.length) {
+    const character = query[index]!;
+    const nextCharacter = query[index + 1];
+
+    if (state === "line-comment") {
+      converted += character;
+      index += 1;
+
+      if (character === "\n" || character === "\r") {
+        state = "sql";
+      }
+
+      continue;
+    }
+
+    if (state === "block-comment") {
+      if (character === "/" && nextCharacter === "*") {
+        converted += "/*";
+        blockCommentDepth += 1;
+        index += 2;
+        continue;
+      }
+
+      if (character === "*" && nextCharacter === "/") {
+        converted += "*/";
+        blockCommentDepth -= 1;
+        index += 2;
+
+        if (blockCommentDepth === 0) {
+          state = "sql";
+        }
+
+        continue;
+      }
+
+      converted += character;
+      index += 1;
+      continue;
+    }
+
+    if (state !== "sql") {
+      converted += character;
+      index += 1;
+
+      const closingCharacter =
+        state === "single-quote"
+          ? "'"
+          : state === "double-quote"
+            ? '"'
+            : state === "tick-identifier"
+              ? "`"
+              : "]";
+
+      if (character === closingCharacter) {
+        if (nextCharacter === closingCharacter) {
+          converted += nextCharacter;
+          index += 1;
+        } else {
+          state = "sql";
+        }
+      }
+
+      continue;
+    }
+
+    if (character === "-" && nextCharacter === "-") {
+      converted += "--";
+      state = "line-comment";
+      index += 2;
+      continue;
+    }
+
+    if (character === "/" && nextCharacter === "*") {
+      converted += "/*";
+      blockCommentDepth = 1;
+      state = "block-comment";
+      index += 2;
+      continue;
+    }
+
+    const quotedState =
+      character === "'"
+        ? "single-quote"
+        : character === '"'
+          ? "double-quote"
+          : character === "`"
+            ? "tick-identifier"
+            : character === "["
+              ? "bracket-identifier"
+              : undefined;
+
+    if (quotedState) {
+      converted += character;
+      state = quotedState;
+      index += 1;
+      continue;
+    }
+
+    if (character === "$" && /\d/.test(nextCharacter ?? "")) {
+      let parameterEnd = index + 2;
+
+      while (/\d/.test(query[parameterEnd] ?? "")) {
+        parameterEnd += 1;
+      }
+
+      converted += `?${query.slice(index + 1, parameterEnd)}`;
+      index = parameterEnd;
+      continue;
+    }
+
+    converted += character;
+    index += 1;
+  }
+
+  return converted;
+}
+
+function prepareStatement(database: SqliteDatabase, query: string) {
+  return database.prepare(convertPostgresPlaceholders(query));
 }
 
 function executeStatement<T>(
-  statement: StatementSync,
-  params: SQLInputValue[],
+  statement: SqliteStatement,
+  params: SqliteInputValue[],
 ): T[] {
-  if (statement.columns().length === 0) {
-    statement.run(...params);
-    return [];
-  }
-
   return statement.all(...params) as T[];
 }
 
 function executeValuesStatement(
-  statement: StatementSync,
-  params: SQLInputValue[],
+  statement: SqliteStatement,
+  params: SqliteInputValue[],
 ) {
   assertSqliteArrayResultsSupported();
-
-  if (statement.columns().length === 0) {
-    statement.run(...params);
-    return [];
-  }
 
   statement.setReturnArrays(true);
   return statement.all(...params) as unknown as unknown[][];
@@ -241,11 +373,18 @@ async function ensureSqliteParentDirectory(filename: string) {
   await mkdir(path.dirname(path.resolve(filename)), { recursive: true });
 }
 
+async function loadSqliteModule() {
+  const sqliteModuleSpecifier = "node:" + "sqlite";
+
+  return (await import(sqliteModuleSpecifier)) as SqliteModule;
+}
+
 export async function createSqliteRuntime(
   filename = ":memory:",
 ): Promise<SqliteDatabaseRuntime> {
   await ensureSqliteParentDirectory(filename);
 
+  const { DatabaseSync } = await loadSqliteModule();
   const database = new DatabaseSync(filename);
   let closed = false;
   let operationQueue = Promise.resolve();

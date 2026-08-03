@@ -12,8 +12,16 @@ import { getTranslations } from "next-intl/server";
 
 import { PasskeyAuthenticationControl } from "@/components/passkey-controls";
 import { Link } from "@/i18n/navigation";
+import { getContentRepository } from "@/lib/content-store";
+import { assertLocale } from "@/lib/locale";
+import { getOAuthProviders } from "@/lib/oauth";
+import { getPublicManagedPage } from "@/lib/public-content";
 
-import { requestMagicLinkAction, signInAction } from "../actions";
+import {
+  requestMagicLinkAction,
+  signInAction,
+  startOAuthSignInAction,
+} from "../actions";
 
 type SignInSearchParams = {
   email?: string;
@@ -32,6 +40,10 @@ function selectMessage(
 
   if (params.error === "login_locked") {
     return { tone: "error", value: t("errors.loginLocked") };
+  }
+
+  if (params.error === "oauth_failed") {
+    return { tone: "error", value: t("errors.oauthFailed") };
   }
 
   if (params.error) {
@@ -61,9 +73,19 @@ export default async function SignInPage({
   searchParams?: Promise<SignInSearchParams>;
 }) {
   const t = await getTranslations("SignInPage");
-  const { locale } = await routeParams;
+  const { locale: localeValue } = await routeParams;
+  const locale = assertLocale(localeValue);
   const query = (await searchParams) ?? {};
   const message = selectMessage(query, t);
+  const oauthProviders = getOAuthProviders();
+  const repository = await getContentRepository();
+  const legalDocumentsAvailable = ["terms", "privacy"].every((slug) =>
+    getPublicManagedPage(repository.listPages(locale), {
+      kind: "legal",
+      locale,
+      slug,
+    }),
+  );
 
   return (
     <div className="grid w-full max-w-md gap-4">
@@ -137,9 +159,54 @@ export default async function SignInPage({
                 error: t("passkeyError"),
                 signIn: t("passkeySubmit"),
               }}
-              redirectTo={appRoutes.dashboard}
+              redirectTo={`/${locale}${appRoutes.dashboard}`}
             />
           </div>
+          {oauthProviders.length ? (
+            <div className="grid gap-3 border-t pt-5">
+              <p className="text-muted-foreground text-center text-sm">
+                {t("socialDivider")}
+              </p>
+              <form action={startOAuthSignInAction} className="grid gap-3">
+                <input name="locale" type="hidden" value={locale} />
+                {legalDocumentsAvailable ? (
+                  <label className="flex items-start gap-3 text-sm">
+                    <input
+                      className="mt-1 size-4 shrink-0 accent-current"
+                      name="legalAcceptance"
+                      type="checkbox"
+                    />
+                    <span>
+                      {t("socialLegalAgreement")}{" "}
+                      <Link className="underline" href={appRoutes.legalTerms}>
+                        {t("terms")}
+                      </Link>{" "}
+                      {t("and")}{" "}
+                      <Link className="underline" href={appRoutes.legal}>
+                        {t("privacy")}
+                      </Link>
+                    </span>
+                  </label>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    {t("socialLegalUnavailable")}
+                  </p>
+                )}
+                {oauthProviders.map((provider) => (
+                  <Button
+                    className="w-full"
+                    key={provider.provider}
+                    name="provider"
+                    type="submit"
+                    value={provider.provider}
+                    variant="outline"
+                  >
+                    {t("socialSubmit", { provider: provider.displayName })}
+                  </Button>
+                ))}
+              </form>
+            </div>
+          ) : null}
           <div className="text-muted-foreground flex flex-wrap justify-between gap-3 text-sm">
             <Link href={appRoutes.forgotPassword}>{t("forgotPassword")}</Link>
             <Link href={appRoutes.signUp}>{t("createAccount")}</Link>

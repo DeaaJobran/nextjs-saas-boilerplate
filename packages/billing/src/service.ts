@@ -10,7 +10,10 @@ import {
   type TenantPermission,
 } from "@nextjs-saas/tenant";
 
-import { createMockPaymentProviderAdapter } from "./adapters/mock";
+import {
+  createMockPaymentProviderAdapter,
+  isMockPaymentProviderAllowed,
+} from "./adapters/mock";
 import { createStripeCompatiblePaymentProviderAdapter } from "./adapters/stripe-compatible";
 import {
   convertCurrency,
@@ -64,6 +67,7 @@ type ProviderRow = {
   mode: string;
   provider: string;
   secret_ref: string | null;
+  sort_order: number;
   updated_at: Date | string;
   webhook_secret_ref: string | null;
 };
@@ -131,6 +135,29 @@ type SubscriptionRow = {
   updated_at: Date | string;
 };
 
+type CheckoutSessionRow = {
+  amount_minor: number | string;
+  cancel_url: string;
+  currency: string;
+  expires_at: Date | string | null;
+  interval: BillingInterval;
+  interval_count: number;
+  mode: "payment" | "subscription";
+  provider_price_id: string | null;
+  price_id: string;
+  quantity: number;
+  status: string;
+  success_url: string;
+  tenant_id: string;
+  trial_days: number;
+};
+
+type CheckoutDiscountRow = {
+  amount_off_minor: number | string | null;
+  discount_type: string;
+  percent_off_basis_points: number | null;
+};
+
 type InvoiceRow = {
   amount_due_minor: number | string;
   amount_paid_minor: number | string;
@@ -145,6 +172,7 @@ type InvoiceRow = {
   period_start: Date | string | null;
   provider: string;
   provider_invoice_id: string;
+  provider_payment_id: string | null;
   status: string;
   subscription_id: string | null;
   subtotal_minor: number | string;
@@ -169,16 +197,29 @@ type PaymentMethodRow = {
   type: string;
 };
 
+type RefundRow = {
+  amount_minor: number | string;
+  currency: string;
+  invoice_id: string | null;
+  metadata: Record<string, unknown> | string;
+  provider_payment_id: string | null;
+  provider_refund_id: string;
+  status: string;
+  tenant_id: string;
+};
+
 type EntitlementRow = {
   enabled: boolean;
   feature_key: string;
   limit_value: number | string | null;
   source: string;
+  subscription_id: string | null;
   used_value: number | string;
 };
 
 type TenantSettingsRow = {
   default_currency: string;
+  grace_period_days: number;
   payment_provider: string;
   tax_behavior: BillingTaxBehavior;
   tenant_id: string;
@@ -206,6 +247,12 @@ type ExchangeRateRow = {
   base_currency: string;
   quote_currency: string;
   rate_micro_units: number | string;
+};
+
+type UsageMeterRow = {
+  id: string;
+  key: string;
+  metadata: Record<string, unknown> | string;
 };
 
 type CouponRow = {
@@ -289,6 +336,14 @@ function optionalTimestamp(value?: string) {
   return value ? new Date(value).toISOString() : null;
 }
 
+function addDays(value: Date, days: number) {
+  const result = new Date(value);
+
+  result.setUTCDate(result.getUTCDate() + days);
+
+  return result.toISOString();
+}
+
 function webhookBodyHash(rawBody: string) {
   return createHash("sha256").update(rawBody).digest("hex");
 }
@@ -298,9 +353,7 @@ function defaultAppBaseUrl() {
 }
 
 function defaultAdapters() {
-  const adapters: PaymentProviderAdapter[] = [
-    createMockPaymentProviderAdapter(),
-  ];
+  const adapters: PaymentProviderAdapter[] = [];
 
   if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
     adapters.push(
@@ -311,6 +364,10 @@ function defaultAdapters() {
         webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
       }),
     );
+  }
+
+  if (isMockPaymentProviderAllowed()) {
+    adapters.push(createMockPaymentProviderAdapter());
   }
 
   return adapters;
@@ -433,11 +490,36 @@ function providerCapabilities(row: ProviderRow) {
 
   return {
     checkout: capabilities.checkout === true,
+    coupons: capabilities.coupons === true,
+    paymentMethods: capabilities.paymentMethods === true,
     portal: capabilities.portal === true,
     refunds: capabilities.refunds === true,
     subscriptions: capabilities.subscriptions === true,
     supportedCurrencies,
+    usageReporting: capabilities.usageReporting === true,
+    webhooks: capabilities.webhooks === true,
   };
+}
+
+type ProviderCapability = Exclude<
+  keyof PaymentProviderAdapter["capabilities"],
+  "supportedCurrencies"
+>;
+
+function assertProviderCapability(input: {
+  adapter: PaymentProviderAdapter;
+  capability: ProviderCapability;
+  provider: ProviderRow;
+}) {
+  if (
+    !providerCapabilities(input.provider)[input.capability] ||
+    !input.adapter.capabilities[input.capability]
+  ) {
+    throw new BillingError(
+      `Payment provider does not support ${input.capability}.`,
+      "provider_capability_unavailable",
+    );
+  }
 }
 
 function assertSupportedCurrency(input: {
@@ -460,7 +542,7 @@ function assertSupportedCurrency(input: {
 }
 
 function activeSubscriptionStatus(status: string) {
-  return ["active", "trialing", "past_due"].includes(status);
+  return ["active", "trialing"].includes(status);
 }
 
 function checkoutModeForPrice(price: BillingPrice) {
@@ -590,6 +672,43 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     return adapter;
   }
 
+  async function getEnabledAdapter(
+    client: Queryable,
+    providerKey: BillingProviderKey,
+    capability: ProviderCapability,
+  ) {
+    const provider = await getProviderRow(client, providerKey);
+
+    if (!provider.enabled) {
+      throw new BillingError(
+        "Billing provider is disabled.",
+        "provider_disabled",
+      );
+    }
+
+    const adapter = getAdapter(providerKey);
+
+    assertProviderCapability({ adapter, capability, provider });
+
+    return { adapter, provider };
+  }
+
+  async function resolveDefaultProvider(client: Queryable) {
+    const providers = await client.execute<{ provider: string }>(
+      `
+        SELECT provider
+        FROM billing_payment_providers
+        WHERE enabled = true
+        ORDER BY sort_order ASC, provider ASC
+      `,
+    );
+    const enabledAdapter = providers.find((provider) =>
+      adapters.has(provider.provider),
+    );
+
+    return enabledAdapter?.provider ?? adapters.keys().next().value ?? "stripe";
+  }
+
   async function getTenantSettingsRow(
     client: Queryable,
     organizationId: string,
@@ -604,6 +723,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     }
 
     const timestamp = now().toISOString();
+    const defaultProvider = await resolveDefaultProvider(client);
     const insertedRows = await client.execute<TenantSettingsRow>(
       `
         INSERT INTO billing_tenant_settings (
@@ -611,16 +731,64 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           default_currency,
           payment_provider,
           tax_behavior,
+          grace_period_days,
           created_at,
           updated_at
         )
-        VALUES ($1, 'USD', 'mock', 'exclusive', $2, $2)
+        VALUES ($1, 'USD', $2, 'exclusive', 0, $3, $3)
         RETURNING *
       `,
-      [organizationId, timestamp],
+      [organizationId, defaultProvider, timestamp],
     );
 
     return insertedRows[0]!;
+  }
+
+  function resolveTenantScope(input: {
+    entity: string;
+    tenantIds: Array<string | null | undefined>;
+  }) {
+    const tenantIds = input.tenantIds.filter((tenantId): tenantId is string =>
+      Boolean(tenantId),
+    );
+    const uniqueTenantIds = new Set(tenantIds);
+
+    if (uniqueTenantIds.size === 0) {
+      throw new BillingError(
+        `${input.entity} is missing tenant scope.`,
+        "tenant_required",
+      );
+    }
+
+    if (uniqueTenantIds.size > 1) {
+      throw new BillingError(
+        `${input.entity} does not match its established tenant scope.`,
+        "tenant_scope_mismatch",
+      );
+    }
+
+    return tenantIds[0]!;
+  }
+
+  async function customerTenantId(
+    client: Queryable,
+    provider: string,
+    providerCustomerId?: string,
+  ) {
+    if (!providerCustomerId) {
+      return undefined;
+    }
+
+    const rows = await client.execute<{ tenant_id: string }>(
+      `
+        SELECT tenant_id
+        FROM billing_customers
+        WHERE provider = $1 AND provider_customer_id = $2
+      `,
+      [provider, providerCustomerId],
+    );
+
+    return rows[0]?.tenant_id;
   }
 
   async function findPriceById(client: Queryable, priceId: string) {
@@ -744,6 +912,16 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     },
   ) {
     const timestamp = now().toISOString();
+    const establishedTenantId = await customerTenantId(
+      client,
+      input.provider,
+      input.providerCustomerId,
+    );
+
+    resolveTenantScope({
+      entity: "Billing customer",
+      tenantIds: [input.tenantId, establishedTenantId],
+    });
 
     await client.execute(
       `
@@ -759,7 +937,6 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
         ON CONFLICT (provider, provider_customer_id) DO UPDATE SET
-          tenant_id = EXCLUDED.tenant_id,
           email = COALESCE(EXCLUDED.email, billing_customers.email),
           name = COALESCE(EXCLUDED.name, billing_customers.name),
           updated_at = EXCLUDED.updated_at
@@ -781,6 +958,13 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     provider: string,
     payload: SubscriptionChangedEvent,
   ) {
+    if (!payload.tenantId || !payload.providerSubscriptionId) {
+      throw new BillingError(
+        "Subscription event is missing tenant or provider subscription scope.",
+        "tenant_required",
+      );
+    }
+
     const price = await findPriceByProviderId(
       client,
       provider,
@@ -794,7 +978,64 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       );
     }
 
+    if (!Number.isInteger(payload.quantity) || payload.quantity < 1) {
+      throw new BillingError(
+        "Subscription event quantity must be a positive integer.",
+        "invalid_quantity",
+      );
+    }
+
+    const [existingSubscriptions, establishedCustomerTenantId] =
+      await Promise.all([
+        client.execute<{
+          grace_period_ends_at: Date | string | null;
+          tenant_id: string;
+        }>(
+          `
+            SELECT tenant_id, grace_period_ends_at
+            FROM billing_subscriptions
+            WHERE provider = $1 AND provider_subscription_id = $2
+          `,
+          [provider, payload.providerSubscriptionId],
+        ),
+        customerTenantId(client, provider, payload.providerCustomerId),
+      ]);
+    const tenantId = resolveTenantScope({
+      entity: "Subscription event",
+      tenantIds: [
+        payload.tenantId,
+        existingSubscriptions[0]?.tenant_id,
+        establishedCustomerTenantId,
+      ],
+    });
+
+    if (payload.providerCustomerId) {
+      await upsertCustomer(client, {
+        provider,
+        providerCustomerId: payload.providerCustomerId,
+        tenantId,
+      });
+    }
+
     const timestamp = now().toISOString();
+    let gracePeriodEndsAt = optionalTimestamp(payload.gracePeriodEndsAt);
+
+    if (payload.status === "past_due") {
+      const existingGracePeriodEndsAt = toIsoString(
+        existingSubscriptions[0]?.grace_period_ends_at,
+      );
+
+      if (existingGracePeriodEndsAt) {
+        gracePeriodEndsAt = existingGracePeriodEndsAt;
+      } else if (!gracePeriodEndsAt) {
+        const settings = await getTenantSettingsRow(client, tenantId);
+
+        if (settings.grace_period_days > 0) {
+          gracePeriodEndsAt = addDays(now(), settings.grace_period_days);
+        }
+      }
+    }
+
     const rows = await client.execute<{ id: string }>(
       `
         INSERT INTO billing_subscriptions (
@@ -824,7 +1065,6 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           $15, $16, $17, '{}'::jsonb, $18, $18
         )
         ON CONFLICT (provider, provider_subscription_id) DO UPDATE SET
-          tenant_id = EXCLUDED.tenant_id,
           provider_subscription_item_id = EXCLUDED.provider_subscription_item_id,
           provider_customer_id = EXCLUDED.provider_customer_id,
           plan_id = EXCLUDED.plan_id,
@@ -843,7 +1083,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       `,
       [
         randomUUID(),
-        payload.tenantId,
+        tenantId,
         provider,
         payload.providerSubscriptionId,
         payload.providerSubscriptionItemId,
@@ -851,19 +1091,19 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         price.planId,
         price.id,
         payload.status,
-        Math.max(1, payload.quantity),
+        payload.quantity,
         optionalTimestamp(payload.trialStart),
         optionalTimestamp(payload.trialEnd),
         optionalTimestamp(payload.currentPeriodStart),
         optionalTimestamp(payload.currentPeriodEnd),
         optionalTimestamp(payload.cancelAt),
         optionalTimestamp(payload.canceledAt),
-        optionalTimestamp(payload.gracePeriodEndsAt),
+        gracePeriodEndsAt,
         timestamp,
       ],
     );
 
-    await recomputeEntitlements(client, payload.tenantId);
+    await recomputeEntitlements(client, tenantId);
 
     return rows[0]!.id;
   }
@@ -895,13 +1135,33 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       provider,
       payload.providerSubscriptionId,
     );
-    const tenantId = payload.tenantId || subscription?.tenant_id;
+    const [existingInvoices, establishedCustomerTenantId] = await Promise.all([
+      client.execute<{ tenant_id: string }>(
+        `
+          SELECT tenant_id
+          FROM billing_invoices
+          WHERE provider = $1 AND provider_invoice_id = $2
+        `,
+        [provider, payload.providerInvoiceId],
+      ),
+      customerTenantId(client, provider, payload.providerCustomerId),
+    ]);
+    const tenantId = resolveTenantScope({
+      entity: "Invoice event",
+      tenantIds: [
+        payload.tenantId,
+        subscription?.tenant_id,
+        existingInvoices[0]?.tenant_id,
+        establishedCustomerTenantId,
+      ],
+    });
 
-    if (!tenantId) {
-      throw new BillingError(
-        "Invoice event is missing tenant scope.",
-        "tenant_required",
-      );
+    if (payload.providerCustomerId) {
+      await upsertCustomer(client, {
+        provider,
+        providerCustomerId: payload.providerCustomerId,
+        tenantId,
+      });
     }
 
     const timestamp = now().toISOString();
@@ -913,6 +1173,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           provider,
           provider_invoice_id,
           provider_customer_id,
+          provider_payment_id,
           subscription_id,
           status,
           currency,
@@ -935,11 +1196,14 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         )
         VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-          $15, $16, $17, $18, $19, $20, $21, '{}'::jsonb, $22, $22
+          $15, $16, $17, $18, $19, $20, $21, $22, '{}'::jsonb, $23, $23
         )
         ON CONFLICT (provider, provider_invoice_id) DO UPDATE SET
-          tenant_id = EXCLUDED.tenant_id,
           provider_customer_id = EXCLUDED.provider_customer_id,
+          provider_payment_id = COALESCE(
+            EXCLUDED.provider_payment_id,
+            billing_invoices.provider_payment_id
+          ),
           subscription_id = EXCLUDED.subscription_id,
           status = EXCLUDED.status,
           currency = EXCLUDED.currency,
@@ -965,6 +1229,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         provider,
         payload.providerInvoiceId,
         payload.providerCustomerId,
+        payload.providerPaymentId,
         subscription?.id,
         payload.status,
         normalizeCurrency(payload.currency),
@@ -1052,26 +1317,32 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     payload: PaymentMethodChangedEvent,
   ) {
     const timestamp = now().toISOString();
-    const customerRows = payload.providerCustomerId
-      ? await client.execute<{ tenant_id: string }>(
-          `
-            SELECT tenant_id
-            FROM billing_customers
-            WHERE provider = $1
-              AND provider_customer_id = $2
-            ORDER BY updated_at DESC
-            LIMIT 1
-          `,
-          [provider, payload.providerCustomerId],
-        )
-      : [];
-    const tenantId = payload.tenantId ?? customerRows[0]?.tenant_id;
+    const [existingMethods, establishedCustomerTenantId] = await Promise.all([
+      client.execute<{ tenant_id: string }>(
+        `
+          SELECT tenant_id
+          FROM billing_payment_methods
+          WHERE provider = $1 AND provider_payment_method_id = $2
+        `,
+        [provider, payload.providerPaymentMethodId],
+      ),
+      customerTenantId(client, provider, payload.providerCustomerId),
+    ]);
+    const tenantId = resolveTenantScope({
+      entity: "Payment method event",
+      tenantIds: [
+        payload.tenantId,
+        existingMethods[0]?.tenant_id,
+        establishedCustomerTenantId,
+      ],
+    });
 
-    if (!tenantId) {
-      throw new BillingError(
-        "Payment method event is missing tenant scope.",
-        "tenant_required",
-      );
+    if (payload.providerCustomerId) {
+      await upsertCustomer(client, {
+        provider,
+        providerCustomerId: payload.providerCustomerId,
+        tenantId,
+      });
     }
 
     await client.execute(
@@ -1099,7 +1370,6 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           '{}'::jsonb, $14, $14
         )
         ON CONFLICT (provider, provider_payment_method_id) DO UPDATE SET
-          tenant_id = EXCLUDED.tenant_id,
           provider_customer_id = EXCLUDED.provider_customer_id,
           type = EXCLUDED.type,
           brand = EXCLUDED.brand,
@@ -1135,22 +1405,64 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     provider: string,
     payload: RefundChangedEvent,
   ) {
-    const invoiceRows = payload.invoiceProviderId
+    let invoiceRows = payload.invoiceProviderId
       ? await client.execute<{ id: string; tenant_id: string }>(
           "SELECT id, tenant_id FROM billing_invoices WHERE provider = $1 AND provider_invoice_id = $2",
           [provider, payload.invoiceProviderId],
         )
       : [];
-    const tenantId = payload.tenantId || invoiceRows[0]?.tenant_id;
+    const existingRefunds = await client.execute<RefundRow>(
+      `
+        SELECT *
+        FROM billing_refunds
+        WHERE provider = $1 AND provider_refund_id = $2
+      `,
+      [provider, payload.providerRefundId],
+    );
+    const existingRefund = existingRefunds[0];
 
-    if (!tenantId) {
-      throw new BillingError(
-        "Refund event is missing tenant scope.",
-        "tenant_required",
+    if (invoiceRows.length === 0 && existingRefund?.invoice_id) {
+      invoiceRows = await client.execute<{ id: string; tenant_id: string }>(
+        `
+          SELECT id, tenant_id
+          FROM billing_invoices
+          WHERE id = $1 AND provider = $2
+        `,
+        [existingRefund.invoice_id, provider],
       );
     }
 
+    if (invoiceRows.length === 0 && payload.providerPaymentId) {
+      const paymentInvoiceRows = await client.execute<{
+        id: string;
+        tenant_id: string;
+      }>(
+        `
+          SELECT id, tenant_id
+          FROM billing_invoices
+          WHERE provider = $1 AND provider_payment_id = $2
+        `,
+        [provider, payload.providerPaymentId],
+      );
+
+      if (paymentInvoiceRows.length === 1) {
+        invoiceRows = paymentInvoiceRows;
+      }
+    }
+
+    const tenantId = resolveTenantScope({
+      entity: "Refund event",
+      tenantIds: [
+        payload.tenantId,
+        invoiceRows[0]?.tenant_id,
+        existingRefund?.tenant_id,
+      ],
+    });
+
     const timestamp = now().toISOString();
+    const metadata = JSON.stringify(
+      payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {},
+    );
 
     await client.execute(
       `
@@ -1169,15 +1481,18 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '{}'::jsonb, $11, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $12)
         ON CONFLICT (provider, provider_refund_id) DO UPDATE SET
-          tenant_id = EXCLUDED.tenant_id,
-          invoice_id = EXCLUDED.invoice_id,
-          provider_payment_id = EXCLUDED.provider_payment_id,
+          invoice_id = COALESCE(billing_refunds.invoice_id, EXCLUDED.invoice_id),
+          provider_payment_id = COALESCE(
+            billing_refunds.provider_payment_id,
+            EXCLUDED.provider_payment_id
+          ),
           amount_minor = EXCLUDED.amount_minor,
           currency = EXCLUDED.currency,
-          reason = EXCLUDED.reason,
+          reason = COALESCE(EXCLUDED.reason, billing_refunds.reason),
           status = EXCLUDED.status,
+          metadata = billing_refunds.metadata || EXCLUDED.metadata,
           updated_at = EXCLUDED.updated_at
       `,
       [
@@ -1191,6 +1506,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         normalizeCurrency(payload.currency),
         payload.reason,
         payload.status,
+        metadata,
         timestamp,
       ],
     );
@@ -1203,7 +1519,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
   ) {
     const timestamp = now().toISOString();
 
-    await client.execute(
+    const checkoutRows = await client.execute<{ id: string }>(
       `
         UPDATE billing_checkout_sessions
         SET status = 'complete',
@@ -1211,8 +1527,30 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         WHERE provider = $2
           AND provider_session_id = $3
           AND tenant_id = $4
+        RETURNING id
       `,
       [timestamp, provider, payload.providerSessionId, payload.tenantId],
+    );
+
+    if (!checkoutRows[0]) {
+      throw new BillingError(
+        "Checkout event does not match a stored tenant session.",
+        "checkout_session_not_found",
+      );
+    }
+
+    await client.execute(
+      `
+        UPDATE billing_discounts
+        SET status = 'active',
+            starts_at = $1,
+            updated_at = $1
+        WHERE tenant_id = $2
+          AND provider = $3
+          AND status = 'pending_checkout'
+          AND metadata ->> 'checkoutSessionId' = $4
+      `,
+      [timestamp, payload.tenantId, provider, payload.providerSessionId],
     );
 
     if (payload.providerCustomerId) {
@@ -1229,10 +1567,10 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     const subscriptions = await client.execute<SubscriptionRow>(
       `
         SELECT *
-        FROM billing_subscriptions
-        WHERE tenant_id = $1
-          AND (
-            status IN ('active', 'trialing', 'past_due')
+          FROM billing_subscriptions
+          WHERE tenant_id = $1
+            AND (
+            status IN ('active', 'trialing')
             OR grace_period_ends_at > $2
           )
         ORDER BY updated_at DESC
@@ -1338,11 +1676,30 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     provider: string,
     event: ProviderWebhookEvent,
   ) {
+    const scopedPayload = <Payload extends { tenantId?: string }>(
+      payload: Payload,
+    ): Payload => {
+      if (
+        event.tenantId &&
+        payload.tenantId &&
+        event.tenantId !== payload.tenantId
+      ) {
+        throw new BillingError(
+          "Webhook envelope and payload tenant scopes do not match.",
+          "tenant_scope_mismatch",
+        );
+      }
+
+      return payload.tenantId || !event.tenantId
+        ? payload
+        : { ...payload, tenantId: event.tenantId };
+    };
+
     if (event.type === "checkout.session.completed") {
       await markCheckoutCompleted(
         client,
         provider,
-        event.payload as CheckoutCompletedEvent,
+        scopedPayload(event.payload as CheckoutCompletedEvent),
       );
       return;
     }
@@ -1351,7 +1708,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       await upsertSubscriptionFromEvent(
         client,
         provider,
-        event.payload as SubscriptionChangedEvent,
+        scopedPayload(event.payload as SubscriptionChangedEvent),
       );
       return;
     }
@@ -1360,7 +1717,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       await upsertInvoiceFromEvent(
         client,
         provider,
-        event.payload as InvoiceChangedEvent,
+        scopedPayload(event.payload as InvoiceChangedEvent),
       );
       return;
     }
@@ -1369,7 +1726,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       await upsertPaymentMethodFromEvent(
         client,
         provider,
-        event.payload as PaymentMethodChangedEvent,
+        scopedPayload(event.payload as PaymentMethodChangedEvent),
       );
       return;
     }
@@ -1378,7 +1735,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       await upsertRefundFromEvent(
         client,
         provider,
-        event.payload as RefundChangedEvent,
+        scopedPayload(event.payload as RefundChangedEvent),
       );
     }
   }
@@ -1448,7 +1805,13 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         );
       }
 
-      await getAdapter(subscription.provider).updateSubscription({
+      const { adapter } = await getEnabledAdapter(
+        client,
+        subscription.provider,
+        "subscriptions",
+      );
+
+      await adapter.updateSubscription({
         cancelAtPeriodEnd: true,
         providerSubscriptionId: subscription.provider_subscription_id,
       });
@@ -1509,7 +1872,13 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         throw new BillingError("Coupon is required.", "coupon_required");
       }
 
-      await getAdapter(subscription.provider).updateSubscription({
+      const { adapter } = await getEnabledAdapter(
+        client,
+        subscription.provider,
+        "subscriptions",
+      );
+
+      await adapter.updateSubscription({
         providerCouponId: coupon.providerCouponId,
         providerSubscriptionId: subscription.provider_subscription_id,
       });
@@ -1613,16 +1982,33 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         );
       }
 
-      const quantity = input.quantity ?? subscription.quantity;
+      const plan = await findPlanRow(client, price.planId);
 
-      if (!Number.isInteger(quantity) || quantity < 1) {
+      if (!plan) {
+        throw new BillingError("Plan was not found.", "plan_not_found");
+      }
+
+      const requestedQuantity = input.quantity ?? subscription.quantity;
+
+      if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
         throw new BillingError(
           "Subscription quantity must be a positive integer.",
           "invalid_quantity",
         );
       }
 
-      await getAdapter(subscription.provider).updateSubscription({
+      const quantity =
+        plan.seat_based && price.usageType === "licensed"
+          ? requestedQuantity
+          : 1;
+
+      const { adapter } = await getEnabledAdapter(
+        client,
+        subscription.provider,
+        "subscriptions",
+      );
+
+      await adapter.updateSubscription({
         priceProviderId: price.providerPriceId,
         providerSubscriptionId: subscription.provider_subscription_id,
         providerSubscriptionItemId: subscription.provider_subscription_item_id,
@@ -1690,6 +2076,18 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       });
 
       const settings = await getTenantSettingsRow(client, input.organizationId);
+      const { adapter, provider } = await getEnabledAdapter(
+        client,
+        settings.payment_provider,
+        "portal",
+      );
+
+      assertProviderCapability({
+        adapter,
+        capability: "paymentMethods",
+        provider,
+      });
+
       const customerRows = await client.execute<{
         provider_customer_id: string;
       }>(
@@ -1711,7 +2109,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         );
       }
 
-      return getAdapter(settings.payment_provider).createBillingPortalSession({
+      return adapter.createBillingPortalSession({
         appBaseUrl,
         providerCustomerId: customerRows[0].provider_customer_id,
         returnUrl: input.returnUrl,
@@ -1739,14 +2137,11 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       });
 
       const settings = await getTenantSettingsRow(client, input.organizationId);
-      const provider = await getProviderRow(client, settings.payment_provider);
-
-      if (!provider.enabled) {
-        throw new BillingError(
-          "Billing provider is disabled.",
-          "provider_disabled",
-        );
-      }
+      const { adapter, provider } = await getEnabledAdapter(
+        client,
+        settings.payment_provider,
+        "checkout",
+      );
 
       const price = await findPriceById(client, input.priceId);
 
@@ -1768,6 +2163,14 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           })
         : undefined;
 
+      if (coupon) {
+        assertProviderCapability({
+          adapter,
+          capability: "coupons",
+          provider,
+        });
+      }
+
       const planRows = await client.execute<PlanRow>(
         "SELECT * FROM billing_plans WHERE id = $1 AND status = 'active'",
         [price.planId],
@@ -1787,12 +2190,30 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         );
       }
 
-      const quantity = price.usageType === "licensed" ? requestedQuantity : 1;
+      const quantity =
+        plan.seat_based && price.usageType === "licensed"
+          ? requestedQuantity
+          : 1;
       const mode = checkoutModeForPrice(price);
+
+      if (mode === "subscription") {
+        assertProviderCapability({
+          adapter,
+          capability: "subscriptions",
+          provider,
+        });
+      }
+
+      if (price.usageType === "metered") {
+        assertProviderCapability({
+          adapter,
+          capability: "usageReporting",
+          provider,
+        });
+      }
+
       const clientReferenceId = `${input.organizationId}:${randomUUID()}`;
-      const checkout = await getAdapter(
-        settings.payment_provider,
-      ).createCheckoutSession({
+      const checkout = await adapter.createCheckoutSession({
         appBaseUrl,
         cancelUrl: input.cancelUrl,
         clientReferenceId,
@@ -1815,7 +2236,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         quantity,
         successUrl: input.successUrl,
         tenantId: input.organizationId,
-        trialDays: plan.trial_days,
+        trialDays: mode === "subscription" ? plan.trial_days : undefined,
       });
       const timestamp = now().toISOString();
 
@@ -1931,6 +2352,102 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       return getTenantSettingsRow(client, input.organizationId);
     },
 
+    async getPendingCheckoutSession(input: {
+      provider: string;
+      providerSessionId: string;
+    }) {
+      const client = await getClient();
+      const rows = await client.execute<CheckoutSessionRow>(
+        `
+          SELECT
+            billing_checkout_sessions.tenant_id,
+            billing_checkout_sessions.mode,
+            billing_checkout_sessions.status,
+            billing_checkout_sessions.quantity,
+            billing_checkout_sessions.amount_minor,
+            billing_checkout_sessions.currency,
+            billing_checkout_sessions.price_id,
+            billing_checkout_sessions.success_url,
+            billing_checkout_sessions.cancel_url,
+            billing_checkout_sessions.expires_at,
+            billing_prices.provider_price_id,
+            billing_prices.interval,
+            billing_prices.interval_count,
+            billing_plans.trial_days
+          FROM billing_checkout_sessions
+          INNER JOIN billing_prices
+            ON billing_prices.id = billing_checkout_sessions.price_id
+          INNER JOIN billing_plans
+            ON billing_plans.id = billing_checkout_sessions.plan_id
+          WHERE billing_checkout_sessions.provider = $1
+            AND billing_checkout_sessions.provider_session_id = $2
+            AND billing_checkout_sessions.status IN ('open', 'complete')
+        `,
+        [input.provider, input.providerSessionId],
+      );
+      const checkout = rows[0];
+
+      if (
+        !checkout ||
+        (checkout.expires_at &&
+          new Date(checkout.expires_at).getTime() <= now().getTime())
+      ) {
+        throw new BillingError(
+          "Checkout session is missing or expired.",
+          "checkout_session_not_found",
+        );
+      }
+
+      const discountRows = await client.execute<CheckoutDiscountRow>(
+        `
+          SELECT
+            billing_coupons.discount_type,
+            billing_coupons.percent_off_basis_points,
+            billing_coupons.amount_off_minor
+          FROM billing_discounts
+          INNER JOIN billing_coupons
+            ON billing_coupons.id = billing_discounts.coupon_id
+          WHERE billing_discounts.tenant_id = $1
+            AND billing_discounts.provider = $2
+            AND billing_discounts.metadata ->> 'checkoutSessionId' = $3
+          ORDER BY billing_discounts.created_at DESC
+          LIMIT 1
+        `,
+        [checkout.tenant_id, input.provider, input.providerSessionId],
+      );
+      const subtotalMinor = toNumber(checkout.amount_minor);
+      const discount = discountRows[0];
+      const discountMinor = discount
+        ? Math.min(
+            subtotalMinor,
+            discount.discount_type === "percent"
+              ? Math.round(
+                  (subtotalMinor * (discount.percent_off_basis_points ?? 0)) /
+                    10_000,
+                )
+              : toNumber(discount.amount_off_minor),
+          )
+        : 0;
+
+      return {
+        amountMinor: subtotalMinor - discountMinor,
+        cancelUrl: checkout.cancel_url,
+        currency: checkout.currency,
+        discountMinor,
+        interval: checkout.interval,
+        intervalCount: checkout.interval_count,
+        mode: checkout.mode,
+        providerPriceId: checkout.provider_price_id ?? undefined,
+        priceId: checkout.price_id,
+        quantity: checkout.quantity,
+        status: checkout.status,
+        successUrl: checkout.success_url,
+        subtotalMinor,
+        tenantId: checkout.tenant_id,
+        trialDays: checkout.trial_days,
+      };
+    },
+
     async handleWebhook(input: {
       provider: string;
       rawBody: string;
@@ -1938,6 +2455,14 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     }) {
       const client = await getClient();
       const adapter = getAdapter(input.provider);
+      const provider = await getProviderRow(client, input.provider);
+
+      assertProviderCapability({
+        adapter,
+        capability: "webhooks",
+        provider,
+      });
+
       const event = await adapter.verifyWebhook({
         rawBody: input.rawBody,
         signatureHeader: input.signatureHeader,
@@ -1961,7 +2486,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           VALUES ($1, $2, $3, $4, 'processing', $5, $6, $7::jsonb, $8, $9)
           ON CONFLICT (provider, provider_event_id) DO UPDATE SET
             status = 'processing',
-            tenant_id = COALESCE(EXCLUDED.tenant_id, billing_webhook_events.tenant_id),
+            tenant_id = COALESCE(billing_webhook_events.tenant_id, EXCLUDED.tenant_id),
             signature_header = EXCLUDED.signature_header,
             payload = EXCLUDED.payload,
             raw_body_sha256 = EXCLUDED.raw_body_sha256,
@@ -2045,8 +2570,21 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           WHERE tenant_id = $1
             AND feature_key = $2
             AND enabled = true
+            AND (
+              source <> 'subscription'
+              OR subscription_id IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM billing_subscriptions
+                WHERE billing_subscriptions.id = billing_entitlements.subscription_id
+                  AND (
+                    billing_subscriptions.status IN ('active', 'trialing')
+                    OR billing_subscriptions.grace_period_ends_at > $3
+                  )
+              )
+            )
         `,
-        [input.organizationId, input.featureKey],
+        [input.organizationId, input.featureKey, now().toISOString()],
       );
 
       return Boolean(rows[0]);
@@ -2074,6 +2612,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         entitlements,
         taxSettings,
         discounts,
+        refundTotals,
       ] = await Promise.all([
         getTenantSettingsRow(client, input.organizationId),
         client.execute<SubscriptionRow>(
@@ -2110,34 +2649,72 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           `,
           [input.organizationId],
         ),
+        client.execute<{ invoice_id: string; total: string }>(
+          `
+            SELECT invoice_id, sum(amount_minor)::text AS total
+            FROM billing_refunds
+            WHERE tenant_id = $1
+              AND status NOT IN ('failed', 'canceled')
+            GROUP BY invoice_id
+          `,
+          [input.organizationId],
+        ),
       ]);
+      const refundedByInvoice = new Map(
+        refundTotals.map((refund) => [refund.invoice_id, Number(refund.total)]),
+      );
+      const subscriptionsById = new Map(
+        subscriptions.map((subscription) => [subscription.id, subscription]),
+      );
 
       return {
         discounts: discounts.map(toDiscount),
-        entitlements: entitlements.map((entitlement) => ({
-          enabled: entitlement.enabled,
-          featureKey: entitlement.feature_key,
-          limitValue:
-            entitlement.limit_value === null
-              ? undefined
-              : toNumber(entitlement.limit_value),
-          source: entitlement.source,
-          usedValue: toNumber(entitlement.used_value),
-        })),
-        invoices: invoices.map((invoice) => ({
-          amountDueMinor: toNumber(invoice.amount_due_minor),
-          amountPaidMinor: toNumber(invoice.amount_paid_minor),
-          currency: invoice.currency,
-          dueAt: toIsoString(invoice.due_at),
-          hostedInvoiceUrl: invoice.hosted_invoice_url ?? undefined,
-          id: invoice.id,
-          issuedAt: toIsoString(invoice.issued_at),
-          paidAt: toIsoString(invoice.paid_at),
-          provider: invoice.provider,
-          providerInvoiceId: invoice.provider_invoice_id,
-          status: invoice.status,
-          totalMinor: toNumber(invoice.total_minor),
-        })),
+        entitlements: entitlements.map((entitlement) => {
+          const subscription = entitlement.subscription_id
+            ? subscriptionsById.get(entitlement.subscription_id)
+            : undefined;
+          const subscriptionActive = subscription
+            ? activeSubscriptionStatus(subscription.status) ||
+              (subscription.grace_period_ends_at !== null &&
+                new Date(subscription.grace_period_ends_at).getTime() >
+                  now().getTime())
+            : entitlement.subscription_id === null;
+
+          return {
+            enabled: entitlement.enabled && subscriptionActive,
+            featureKey: entitlement.feature_key,
+            limitValue:
+              entitlement.limit_value === null
+                ? undefined
+                : toNumber(entitlement.limit_value),
+            source: entitlement.source,
+            usedValue: toNumber(entitlement.used_value),
+          };
+        }),
+        invoices: invoices.map((invoice) => {
+          const amountPaidMinor = toNumber(invoice.amount_paid_minor);
+
+          return {
+            amountDueMinor: toNumber(invoice.amount_due_minor),
+            amountPaidMinor,
+            currency: invoice.currency,
+            dueAt: toIsoString(invoice.due_at),
+            hostedInvoiceUrl: invoice.hosted_invoice_url ?? undefined,
+            id: invoice.id,
+            issuedAt: toIsoString(invoice.issued_at),
+            paidAt: toIsoString(invoice.paid_at),
+            provider: invoice.provider,
+            providerInvoiceId: invoice.provider_invoice_id,
+            refundableAmountMinor: invoice.provider_payment_id
+              ? Math.max(
+                  0,
+                  amountPaidMinor - (refundedByInvoice.get(invoice.id) ?? 0),
+                )
+              : 0,
+            status: invoice.status,
+            totalMinor: toNumber(invoice.total_minor),
+          };
+        }),
         paymentMethods: paymentMethods.map((method) => ({
           billingEmail: method.billing_email ?? undefined,
           billingName: method.billing_name ?? undefined,
@@ -2156,6 +2733,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           canceledAt: toIsoString(subscription.canceled_at),
           currentPeriodEnd: toIsoString(subscription.current_period_end),
           currentPeriodStart: toIsoString(subscription.current_period_start),
+          gracePeriodEndsAt: toIsoString(subscription.grace_period_ends_at),
           id: subscription.id,
           planId: subscription.plan_id,
           priceId: subscription.price_id,
@@ -2182,7 +2760,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     async listPaymentProviders() {
       const client = await getClient();
       const rows = await client.execute<ProviderRow>(
-        "SELECT * FROM billing_payment_providers ORDER BY provider",
+        "SELECT * FROM billing_payment_providers ORDER BY sort_order ASC, provider ASC",
       );
 
       return rows.map((row) => ({
@@ -2196,6 +2774,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         mode: row.mode,
         provider: row.provider,
         secretRef: row.secret_ref ?? undefined,
+        sortOrder: row.sort_order,
         updatedAt: toIsoString(row.updated_at)!,
         webhookSecretRef: row.webhook_secret_ref ?? undefined,
       }));
@@ -2311,6 +2890,13 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         );
       }
 
+      if (!input.idempotencyKey.trim() || input.idempotencyKey.length > 100) {
+        throw new BillingError(
+          "Usage idempotency key must contain 1-100 characters.",
+          "invalid_idempotency_key",
+        );
+      }
+
       const client = await getClient();
 
       await requireTenantPermission({
@@ -2320,8 +2906,8 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         permission: "billing.usage.manage",
       });
 
-      const meterRows = await client.execute<{ id: string }>(
-        "SELECT id FROM billing_usage_meters WHERE key = $1 AND active = true",
+      const meterRows = await client.execute<UsageMeterRow>(
+        "SELECT id, key, metadata FROM billing_usage_meters WHERE key = $1 AND active = true",
         [input.meterKey],
       );
 
@@ -2330,6 +2916,119 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           "Usage meter not found.",
           "usage_meter_not_found",
         );
+      }
+
+      const existingRows = await client.execute<{ id: string }>(
+        `
+          SELECT id
+          FROM billing_usage_records
+          WHERE tenant_id = $1 AND meter_id = $2 AND idempotency_key = $3
+        `,
+        [input.organizationId, meterRows[0].id, input.idempotencyKey],
+      );
+
+      if (existingRows[0]) {
+        return { status: "duplicate" as const };
+      }
+
+      const occurredAt =
+        optionalTimestamp(input.occurredAt) ?? now().toISOString();
+      const subscriptions = await client.execute<SubscriptionRow>(
+        `
+          SELECT *
+          FROM billing_subscriptions
+          WHERE tenant_id = $1
+            AND (
+              status IN ('active', 'trialing')
+              OR grace_period_ends_at > $2
+            )
+          ORDER BY updated_at DESC
+        `,
+        [input.organizationId, now().toISOString()],
+      );
+      let providerUsage:
+        { eventId: string; provider: string; status: string } | undefined;
+
+      for (const subscription of subscriptions) {
+        const plan = await findPlanRow(client, subscription.plan_id);
+
+        if (!plan?.usage_based) {
+          continue;
+        }
+
+        const priceRows = await client.execute<PriceRow>(
+          `
+            SELECT *
+            FROM billing_prices
+            WHERE plan_id = $1
+              AND provider = $2
+              AND usage_type = 'metered'
+              AND active = true
+          `,
+          [subscription.plan_id, subscription.provider],
+        );
+        const usagePrice = priceRows.find((row) => {
+          const metadata = parseJson<Record<string, unknown>>(row.metadata, {});
+
+          return metadata.meterKey === input.meterKey;
+        });
+
+        if (!usagePrice) {
+          continue;
+        }
+
+        if (!subscription.provider_customer_id) {
+          throw new BillingError(
+            "Usage-based subscription is missing its provider customer.",
+            "provider_customer_required",
+          );
+        }
+
+        const { adapter } = await getEnabledAdapter(
+          client,
+          subscription.provider,
+          "usageReporting",
+        );
+        const meterMetadata = parseJson<Record<string, unknown>>(
+          meterRows[0].metadata,
+          {},
+        );
+        const priceMetadata = parseJson<Record<string, unknown>>(
+          usagePrice.metadata,
+          {},
+        );
+        const providerEventNames =
+          meterMetadata.providerEventNames &&
+          typeof meterMetadata.providerEventNames === "object" &&
+          !Array.isArray(meterMetadata.providerEventNames)
+            ? (meterMetadata.providerEventNames as Record<string, string>)
+            : {};
+        const configuredEventName =
+          providerEventNames[subscription.provider] ??
+          (typeof priceMetadata.providerMeterEventName === "string"
+            ? priceMetadata.providerMeterEventName
+            : undefined) ??
+          meterRows[0].key;
+        const providerIdempotencyKey = createHash("sha256")
+          .update(
+            `${input.organizationId}:${meterRows[0].id}:${input.idempotencyKey}`,
+          )
+          .digest("hex");
+        const result = await adapter.reportUsage({
+          idempotencyKey: providerIdempotencyKey,
+          meterKey: configuredEventName,
+          occurredAt,
+          providerCustomerId: subscription.provider_customer_id,
+          quantity: input.quantity,
+          tenantId: input.organizationId,
+        });
+
+        providerUsage = {
+          eventId: result.id,
+          provider: subscription.provider,
+          status: result.status,
+        };
+        break;
       }
 
       const insertedRows = await client.execute<{ id: string }>(
@@ -2354,8 +3053,11 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           meterRows[0].id,
           input.quantity,
           input.idempotencyKey,
-          optionalTimestamp(input.occurredAt) ?? now().toISOString(),
-          JSON.stringify(input.metadata ?? {}),
+          occurredAt,
+          JSON.stringify({
+            ...(input.metadata ?? {}),
+            ...(providerUsage ? { providerUsage } : {}),
+          }),
           now().toISOString(),
         ],
       );
@@ -2385,96 +3087,228 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     async requestRefund(input: {
       actorId: string;
       amountMinor?: number;
+      idempotencyKey: string;
       invoiceId: string;
-      providerPaymentId: string;
       reason?: string;
     }) {
       const client = await getClient();
-      const invoiceRows = await client.execute<InvoiceRow>(
-        "SELECT * FROM billing_invoices WHERE id = $1",
-        [input.invoiceId],
-      );
-      const invoice = invoiceRows[0];
+      const idempotencyKey = input.idempotencyKey.trim();
 
-      if (!invoice) {
-        throw new BillingError("Invoice not found.", "invoice_not_found");
-      }
-
-      if (
-        input.amountMinor !== undefined &&
-        (!Number.isInteger(input.amountMinor) || input.amountMinor < 1)
-      ) {
+      if (!idempotencyKey || idempotencyKey.length > 255) {
         throw new BillingError(
-          "Refund amount must be a positive integer.",
-          "invalid_refund_amount",
+          "Refund idempotency key must contain 1-255 characters.",
+          "invalid_idempotency_key",
         );
       }
 
-      await requireTenantPermission({
-        actorId: input.actorId,
-        client,
-        organizationId: invoice.tenant_id,
-        permission: "billing.refund",
-      });
+      return withTransaction(client, async (transaction) => {
+        const invoiceRows = await transaction.execute<InvoiceRow>(
+          "SELECT * FROM billing_invoices WHERE id = $1 FOR UPDATE",
+          [input.invoiceId],
+        );
+        const invoice = invoiceRows[0];
 
-      const refund = await getAdapter(invoice.provider).createRefund({
-        amountMinor: input.amountMinor,
-        currency: invoice.currency,
-        invoiceId: invoice.id,
-        providerPaymentId: input.providerPaymentId,
-        reason: input.reason,
-        tenantId: invoice.tenant_id,
-      });
-      const timestamp = now().toISOString();
+        if (!invoice) {
+          throw new BillingError("Invoice not found.", "invoice_not_found");
+        }
 
-      await client.execute(
-        `
-          INSERT INTO billing_refunds (
-            id,
-            tenant_id,
-            invoice_id,
-            provider,
-            provider_refund_id,
-            provider_payment_id,
-            amount_minor,
-            currency,
-            reason,
-            status,
-            metadata,
-            created_at,
-            updated_at,
-            created_by
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '{}'::jsonb, $11, $11, $12)
-          ON CONFLICT (provider, provider_refund_id) DO UPDATE SET
-            status = EXCLUDED.status,
-            updated_at = EXCLUDED.updated_at
-        `,
-        [
-          refund.id,
-          invoice.tenant_id,
-          invoice.id,
+        await requireTenantPermission({
+          actorId: input.actorId,
+          client: transaction,
+          organizationId: invoice.tenant_id,
+          permission: "billing.refund",
+        });
+
+        if (invoice.provider_payment_id) {
+          const paymentInvoiceRows = await transaction.execute<{
+            id: string;
+          }>(
+            `
+              SELECT id
+              FROM billing_invoices
+              WHERE provider = $1 AND provider_payment_id = $2
+              FOR UPDATE
+            `,
+            [invoice.provider, invoice.provider_payment_id],
+          );
+
+          if (
+            paymentInvoiceRows.length !== 1 ||
+            paymentInvoiceRows[0]?.id !== invoice.id
+          ) {
+            throw new BillingError(
+              "Provider payment is not uniquely associated with this invoice.",
+              "ambiguous_provider_payment",
+            );
+          }
+
+          await transaction.execute(
+            `
+              UPDATE billing_refunds
+              SET invoice_id = $1,
+                  updated_at = $2
+              WHERE tenant_id = $3
+                AND provider = $4
+                AND provider_payment_id = $5
+                AND invoice_id IS NULL
+            `,
+            [
+              invoice.id,
+              now().toISOString(),
+              invoice.tenant_id,
+              invoice.provider,
+              invoice.provider_payment_id,
+            ],
+          );
+        }
+
+        const existingRefundRows = await transaction.execute<RefundRow>(
+          `
+            SELECT *
+            FROM billing_refunds
+            WHERE invoice_id = $1
+              AND metadata ->> 'idempotencyKey' = $2
+            LIMIT 1
+          `,
+          [invoice.id, idempotencyKey],
+        );
+        const existingRefund = existingRefundRows[0];
+
+        if (existingRefund) {
+          return {
+            amountMinor: toNumber(existingRefund.amount_minor),
+            currency: existingRefund.currency,
+            id: existingRefund.provider_refund_id,
+            providerPaymentId: existingRefund.provider_payment_id ?? undefined,
+            status: existingRefund.status,
+          };
+        }
+
+        if (!invoice.provider_payment_id) {
+          throw new BillingError(
+            "Invoice is missing its verified provider payment reference.",
+            "provider_payment_required",
+          );
+        }
+
+        const amountPaidMinor = toNumber(invoice.amount_paid_minor);
+        const refundedRows = await transaction.execute<{ total: string }>(
+          `
+            SELECT COALESCE(sum(amount_minor), 0)::text AS total
+            FROM billing_refunds
+            WHERE invoice_id = $1
+              AND status NOT IN ('failed', 'canceled')
+          `,
+          [invoice.id],
+        );
+        const refundableAmountMinor = Math.max(
+          0,
+          amountPaidMinor - Number(refundedRows[0]?.total ?? 0),
+        );
+        const amountMinor = input.amountMinor ?? refundableAmountMinor;
+
+        if (
+          !Number.isInteger(amountMinor) ||
+          amountMinor < 1 ||
+          amountMinor > refundableAmountMinor
+        ) {
+          throw new BillingError(
+            "Refund amount exceeds the invoice's refundable balance.",
+            "invalid_refund_amount",
+          );
+        }
+
+        const { adapter } = await getEnabledAdapter(
+          transaction,
           invoice.provider,
-          refund.id,
-          refund.providerPaymentId ?? input.providerPaymentId,
-          refund.amountMinor,
-          refund.currency,
-          input.reason,
-          refund.status,
-          timestamp,
-          input.actorId,
-        ],
-      );
-      await audit(client, {
-        actorId: input.actorId,
-        eventType: "billing.refund.requested",
-        payload: { amountMinor: refund.amountMinor, invoiceId: invoice.id },
-        subjectId: refund.id,
-        subjectType: "refund",
-        tenantId: invoice.tenant_id,
-      });
+          "refunds",
+        );
+        const providerIdempotencyKey = createHash("sha256")
+          .update(`${invoice.tenant_id}:${invoice.id}:${idempotencyKey}`)
+          .digest("hex");
+        const refund = await adapter.createRefund({
+          amountMinor,
+          currency: invoice.currency,
+          idempotencyKey: providerIdempotencyKey,
+          invoiceId: invoice.id,
+          metadata: { idempotencyKey },
+          providerPaymentId: invoice.provider_payment_id,
+          reason: input.reason,
+          tenantId: invoice.tenant_id,
+        });
 
-      return refund;
+        if (
+          refund.amountMinor !== amountMinor ||
+          normalizeCurrency(refund.currency) !==
+            normalizeCurrency(invoice.currency)
+        ) {
+          throw new BillingError(
+            "Refund provider response does not match the request.",
+            "refund_response_mismatch",
+          );
+        }
+
+        const timestamp = now().toISOString();
+
+        await transaction.execute(
+          `
+            INSERT INTO billing_refunds (
+              id,
+              tenant_id,
+              invoice_id,
+              provider,
+              provider_refund_id,
+              provider_payment_id,
+              amount_minor,
+              currency,
+              reason,
+              status,
+              metadata,
+              created_at,
+              updated_at,
+              created_by
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $12, $13)
+            ON CONFLICT (provider, provider_refund_id) DO UPDATE SET
+              invoice_id = COALESCE(
+                billing_refunds.invoice_id,
+                EXCLUDED.invoice_id
+              ),
+              provider_payment_id = COALESCE(
+                billing_refunds.provider_payment_id,
+                EXCLUDED.provider_payment_id
+              ),
+              status = EXCLUDED.status,
+              metadata = billing_refunds.metadata || EXCLUDED.metadata,
+              updated_at = EXCLUDED.updated_at
+          `,
+          [
+            refund.id,
+            invoice.tenant_id,
+            invoice.id,
+            invoice.provider,
+            refund.id,
+            refund.providerPaymentId ?? invoice.provider_payment_id,
+            refund.amountMinor,
+            refund.currency,
+            input.reason,
+            refund.status,
+            JSON.stringify({ idempotencyKey }),
+            timestamp,
+            input.actorId,
+          ],
+        );
+        await audit(transaction, {
+          actorId: input.actorId,
+          eventType: "billing.refund.requested",
+          payload: { amountMinor: refund.amountMinor, invoiceId: invoice.id },
+          subjectId: refund.id,
+          subjectType: "refund",
+          tenantId: invoice.tenant_id,
+        });
+
+        return refund;
+      });
     },
 
     async requireEntitlement(input: {
@@ -2501,8 +3335,18 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       mode: string;
       provider: string;
       secretRef?: string;
+      sortOrder?: number;
       webhookSecretRef?: string;
     }) {
+      const sortOrder = input.sortOrder ?? 100;
+
+      if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+        throw new BillingError(
+          "Provider sort order must be a non-negative integer.",
+          "invalid_provider_sort_order",
+        );
+      }
+
       const client = await getClient();
       const timestamp = now().toISOString();
 
@@ -2518,11 +3362,12 @@ export function createBillingService(options: BillingServiceOptions = {}) {
             webhook_secret_ref,
             capabilities,
             configuration,
+            sort_order,
             created_at,
             updated_at,
             updated_by
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $10, $11)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $11, $12)
           ON CONFLICT (provider) DO UPDATE SET
             display_name = EXCLUDED.display_name,
             mode = EXCLUDED.mode,
@@ -2531,6 +3376,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
             webhook_secret_ref = EXCLUDED.webhook_secret_ref,
             capabilities = EXCLUDED.capabilities,
             configuration = EXCLUDED.configuration,
+            sort_order = EXCLUDED.sort_order,
             updated_at = EXCLUDED.updated_at,
             updated_by = EXCLUDED.updated_by
         `,
@@ -2544,6 +3390,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           input.webhookSecretRef,
           JSON.stringify(input.capabilities ?? {}),
           JSON.stringify(input.configuration ?? {}),
+          sortOrder,
           timestamp,
           input.actorId,
         ],
@@ -2723,7 +3570,12 @@ export function createBillingService(options: BillingServiceOptions = {}) {
         }
 
         if (!providerCouponId) {
-          const result = await getAdapter(input.provider).createCoupon({
+          const { adapter } = await getEnabledAdapter(
+            client,
+            input.provider,
+            "coupons",
+          );
+          const result = await adapter.createCoupon({
             amountOffMinor: input.amountOffMinor,
             code,
             currency: input.currency
@@ -3054,6 +3906,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
     async updateTenantBillingSettings(input: {
       actorId: string;
       defaultCurrency: string;
+      gracePeriodDays?: number;
       organizationId: string;
       paymentProvider: string;
       taxBehavior: BillingTaxBehavior;
@@ -3068,7 +3921,23 @@ export function createBillingService(options: BillingServiceOptions = {}) {
       });
 
       const currency = normalizeCurrency(input.defaultCurrency);
-      await getProviderRow(client, input.paymentProvider);
+      const gracePeriodDays = input.gracePeriodDays ?? 0;
+
+      if (!Number.isInteger(gracePeriodDays) || gracePeriodDays < 0) {
+        throw new BillingError(
+          "Grace period days must be a non-negative integer.",
+          "invalid_grace_period",
+        );
+      }
+
+      const { provider } = await getEnabledAdapter(
+        client,
+        input.paymentProvider,
+        "checkout",
+      );
+
+      assertSupportedCurrency({ currency, provider });
+
       await client.execute(
         `
           INSERT INTO billing_tenant_settings (
@@ -3076,15 +3945,17 @@ export function createBillingService(options: BillingServiceOptions = {}) {
             default_currency,
             payment_provider,
             tax_behavior,
+            grace_period_days,
             created_at,
             updated_at,
             updated_by
           )
-          VALUES ($1, $2, $3, $4, $5, $5, $6)
+          VALUES ($1, $2, $3, $4, $5, $6, $6, $7)
           ON CONFLICT (tenant_id) DO UPDATE SET
             default_currency = EXCLUDED.default_currency,
             payment_provider = EXCLUDED.payment_provider,
             tax_behavior = EXCLUDED.tax_behavior,
+            grace_period_days = EXCLUDED.grace_period_days,
             updated_at = EXCLUDED.updated_at,
             updated_by = EXCLUDED.updated_by
         `,
@@ -3093,6 +3964,7 @@ export function createBillingService(options: BillingServiceOptions = {}) {
           currency,
           input.paymentProvider,
           input.taxBehavior,
+          gracePeriodDays,
           now().toISOString(),
           input.actorId,
         ],

@@ -22,6 +22,13 @@ const defaultWebhookSecret =
   process.env.BILLING_MOCK_WEBHOOK_SECRET ??
   "local-mock-webhook-secret-change-me";
 
+export function isMockPaymentProviderAllowed() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.BILLING_ALLOW_MOCK_PAYMENTS === "true"
+  );
+}
+
 export function createMockPaymentProviderAdapter(
   options: MockPaymentAdapterOptions = {},
 ): PaymentProviderAdapter & {
@@ -30,16 +37,27 @@ export function createMockPaymentProviderAdapter(
     signatureHeader: string;
   };
 } {
+  if (!isMockPaymentProviderAllowed()) {
+    throw new Error(
+      "Mock payments are disabled in production unless BILLING_ALLOW_MOCK_PAYMENTS=true.",
+    );
+  }
+
   const baseUrl = options.baseUrl ?? "http://localhost:3000";
   const webhookSecret = options.webhookSecret ?? defaultWebhookSecret;
+  const refunds = new Map<string, RefundResult>();
 
   return {
     capabilities: {
       checkout: true,
+      coupons: true,
+      paymentMethods: true,
       portal: true,
       refunds: true,
       subscriptions: true,
       supportedCurrencies: ["USD", "EUR", "SAR"],
+      usageReporting: true,
+      webhooks: true,
     },
     async createBillingPortalSession(input) {
       const id = `mock_portal_${randomUUID()}`;
@@ -65,8 +83,13 @@ export function createMockPaymentProviderAdapter(
       }
       url.searchParams.set("mode", input.mode);
       url.searchParams.set("quantity", String(input.quantity));
+      url.searchParams.set("interval", input.price.interval);
+      url.searchParams.set("intervalCount", String(input.price.intervalCount));
       url.searchParams.set("success", input.successUrl);
       url.searchParams.set("cancel", input.cancelUrl);
+      if (input.trialDays && input.trialDays > 0) {
+        url.searchParams.set("trialDays", String(input.trialDays));
+      }
       if (input.discount) {
         url.searchParams.set("coupon", input.discount.code);
       }
@@ -87,15 +110,31 @@ export function createMockPaymentProviderAdapter(
       };
     },
     async createRefund(input: RefundInput): Promise<RefundResult> {
-      return {
-        amountMinor: input.amountMinor ?? 0,
+      const existing = refunds.get(input.idempotencyKey);
+
+      if (existing) {
+        return existing;
+      }
+
+      const refund = {
+        amountMinor: input.amountMinor,
         currency: input.currency,
         id: `mock_refund_${randomUUID()}`,
         providerPaymentId: input.providerPaymentId,
         status: "succeeded",
       };
+
+      refunds.set(input.idempotencyKey, refund);
+
+      return refund;
     },
     key: "mock",
+    async reportUsage(input) {
+      return {
+        id: `mock_usage_${input.idempotencyKey}`,
+        status: "accepted",
+      };
+    },
     signEvent(event) {
       const payload = JSON.stringify(event);
 
