@@ -77,6 +77,13 @@ const storageRuntimeTables = [
   "storage_providers",
 ] as const;
 
+const messagingRuntimeTables = [
+  "messaging_audit_events",
+  "in_app_notifications",
+  "notification_preferences",
+  "message_deliveries",
+] as const;
+
 const observabilityRuntimeTables = [
   "uptime_check_results",
   "uptime_monitors",
@@ -97,6 +104,7 @@ async function lockServiceFoundationTables(client: Queryable) {
       ${[
         ...securityRuntimeTables,
         ...observabilityRuntimeTables,
+        ...messagingRuntimeTables,
         ...storageRuntimeTables,
         ...apiRuntimeTables,
         ...billingRuntimeTables,
@@ -120,6 +128,10 @@ export async function resetDatabaseData() {
     }
 
     for (const tableName of observabilityRuntimeTables) {
+      await transaction.execute(`DELETE FROM ${tableName}`);
+    }
+
+    for (const tableName of messagingRuntimeTables) {
       await transaction.execute(`DELETE FROM ${tableName}`);
     }
 

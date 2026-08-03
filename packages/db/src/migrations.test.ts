@@ -72,9 +72,13 @@ describe("database migrations", () => {
     databaseRuntimeOpened = true;
 
     const runtime = await getDatabaseRuntime();
-    const pendingMigration = migrationManifest.at(-1)!;
+    const targetMigrationIndex = migrationManifest.findIndex(
+      (migration) => migration.id === "0012_security_privacy_hardening.sql",
+    );
 
-    for (const migration of migrationManifest.slice(0, -1)) {
+    expect(targetMigrationIndex).toBeGreaterThanOrEqual(0);
+
+    for (const migration of migrationManifest.slice(0, targetMigrationIndex)) {
       await runtime.execute(migration.sql);
       await runtime.execute(
         "INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
@@ -100,9 +104,11 @@ describe("database migrations", () => {
       );
     }
 
-    await expect(runMigrations(runtime)).resolves.toEqual([
-      pendingMigration.id,
-    ]);
+    await expect(runMigrations(runtime)).resolves.toEqual(
+      migrationManifest
+        .slice(targetMigrationIndex)
+        .map((migration) => migration.id),
+    );
 
     const buckets = await runtime.execute<{ count: number }>(
       "SELECT count FROM rate_limit_buckets WHERE tenant_id IS NULL AND identifier = 'hashed-identifier' AND scope = 'auth'",

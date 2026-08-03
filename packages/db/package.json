@@ -9,7 +9,10 @@
     "./content": "./src/content-repository.ts",
     "./query": "./src/query-helpers.ts",
     "./reset": "./src/reset.ts",
+    "./rls": "./src/rls.ts",
     "./schema": "./src/schema.ts",
+    "./sqlite": "./src/sqlite.ts",
+    "./sqlite-schema": "./src/sqlite-schema.ts",
     "./transactions": "./src/transactions.ts"
   },
   "scripts": {

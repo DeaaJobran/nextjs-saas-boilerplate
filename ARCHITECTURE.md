@@ -37,9 +37,12 @@ React upgrades must:
 
 - PostgreSQL is the primary production database target.
 - PGlite is supported as a local development and test fallback when `DATABASE_URL` is not configured.
+- `@nextjs-saas/db/sqlite` provides an explicit Node SQLite runtime for lightweight service-foundation modules. Its Drizzle adapter requires Node.js 24 or newer for lossless array-shaped query results. It has its own schema and migration path; it is not a drop-in runtime for application modules that deliberately use PostgreSQL SQL.
 - Runtime migrations are committed as ordered SQL files under `packages/db/migrations` and embedded in `packages/db/src/migration-manifest.ts`.
 - Seed data initializes managed content for localized marketing pages, pricing, contact forms, and legal pages.
 - `docker-compose.yml` provides local PostgreSQL, Redis, MinIO, and Mailpit services.
+
+PostgreSQL migrations install tenant row-level-security policies for strictly tenant-owned rows in a disabled state. Nullable tenant columns and identity/bootstrap tables remain outside RLS so API-key discovery, tenant selection, invitation acceptance, and global workers can operate before a tenant context exists. Deployments may opt in through `configureTenantRowLevelSecurity()` after establishing a privileged migration/worker bypass path. Tenant-scoped requests must set `app.current_tenant_id` transaction-locally through `withTenantRlsTransaction()`; RLS supplements service authorization and never replaces membership or permission checks.
 
 ## App Boundaries
 
