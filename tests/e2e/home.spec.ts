@@ -13,6 +13,11 @@ async function grantAdminAccess(page: Page) {
 async function grantUserAccess(page: Page) {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const email = `user-${suffix}@example.test`;
+  const address = Array.from({ length: 3 }, () =>
+    Math.floor(Math.random() * 256),
+  ).join(".");
+
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `10.${address}` });
 
   await page.goto("/en/auth/sign-up");
   await page.getByLabel("Display name").fill("Playwright User");
@@ -374,6 +379,80 @@ test("supports Arabic RTL routes", async ({ page }) => {
       name: "أساس قوي لبناء منتجات SaaS حديثة.",
     }),
   ).toBeVisible();
+});
+
+test("switches locale while preserving the current public route", async ({
+  page,
+}) => {
+  await page.goto("/en/pricing");
+  await page.getByRole("link", { name: "Switch language to العربية" }).click();
+
+  await expect(page).toHaveURL(/\/ar\/pricing$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "ar");
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+});
+
+test("persists customer and tenant preferred locales", async ({ page }) => {
+  await grantUserAccess(page);
+  await page.goto("/en/settings");
+
+  const preferredLocaleSelect = page.getByLabel("Preferred locale");
+  const profileForm = preferredLocaleSelect.locator("xpath=ancestor::form");
+  await preferredLocaleSelect.selectOption("ar");
+  await profileForm.getByRole("button", { name: "Save profile" }).click();
+
+  await expect(page).toHaveURL(/status=profile-updated/);
+  await expect(page.getByLabel("Preferred locale")).toHaveValue("ar");
+
+  await page.goto("/en/settings/organization");
+  const organizationLocaleSelect = page.getByLabel("Default locale");
+  const organizationForm = organizationLocaleSelect.locator(
+    "xpath=ancestor::form",
+  );
+  await organizationLocaleSelect.selectOption("ar");
+  await organizationForm
+    .getByRole("button", { name: "Save organization" })
+    .click();
+
+  await expect(page).toHaveURL(/status=organization-updated/);
+  await expect(page.getByLabel("Default locale")).toHaveValue("ar");
+});
+
+test("persists admin-controlled locale settings", async ({ page }) => {
+  await grantAdminAccess(page);
+  await page.goto("/en/admin/content");
+
+  const localizationForm = page.getByRole("form", {
+    name: "Localization settings",
+  });
+  const defaultLocaleSelect = localizationForm.getByLabel("Default locale");
+  const originalDefaultLocale = await defaultLocaleSelect.inputValue();
+
+  try {
+    await defaultLocaleSelect.selectOption("ar");
+    await localizationForm
+      .getByRole("button", { name: "Save localization settings" })
+      .click();
+
+    await expect(page).toHaveURL(/saved=localization/);
+    await expect(
+      page
+        .getByRole("form", { name: "Localization settings" })
+        .getByLabel("Default locale"),
+    ).toHaveValue("ar");
+  } finally {
+    await page.goto("/en/admin/content");
+    const restoreForm = page.getByRole("form", {
+      name: "Localization settings",
+    });
+    await restoreForm
+      .getByLabel("Default locale")
+      .selectOption(originalDefaultLocale);
+    await restoreForm
+      .getByRole("button", { name: "Save localization settings" })
+      .click();
+    await expect(page).toHaveURL(/saved=localization/);
+  }
 });
 
 test("keeps Arabic RTL core layouts within the viewport", async ({ page }) => {

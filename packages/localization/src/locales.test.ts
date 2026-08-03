@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatCurrency,
+  formatDate,
+  formatNumber,
   formatPlural,
   getDirectionalValue,
   getLocaleTypographyClassName,
@@ -9,6 +11,7 @@ import {
   isLocale,
   renderLocalizedEmailTemplate,
   renderLocalizedInvoiceTemplate,
+  selectPluralMessage,
 } from ".";
 
 describe("localization primitives", () => {
@@ -23,8 +26,22 @@ describe("localization primitives", () => {
     expect(getTextDirection("ar")).toBe("rtl");
   });
 
-  it("formats values with locale-aware APIs", () => {
+  it("formats dates, numbers, and currencies with locale-aware APIs", () => {
     expect(formatCurrency("en", 12, "USD")).toContain("$");
+    expect(
+      formatDate("ar", "2026-08-03T00:00:00.000Z", {
+        dateStyle: "medium",
+        numberingSystem: "arab",
+        timeZone: "UTC",
+      }),
+    ).toMatch(/[٠-٩]/);
+    expect(formatNumber("ar", 12_345.6, { numberingSystem: "arab" })).toMatch(
+      /[٠-٩]/,
+    );
+    expect(
+      formatCurrency("ar", 125, "SAR", { numberingSystem: "arab" }),
+    ).toMatch(/[٠-٩]/);
+    expect(formatDate("en", "not-a-date")).toBe("");
   });
 
   it("selects directional and typography helpers per locale", () => {
@@ -48,6 +65,22 @@ describe("localization primitives", () => {
         other: "{count} files",
       }),
     ).toBe("2 files");
+
+    const arabicCategories = {
+      few: "few",
+      many: "many",
+      one: "one",
+      other: "other",
+      two: "two",
+      zero: "zero",
+    };
+
+    expect(selectPluralMessage("ar", 0, arabicCategories)).toBe("zero");
+    expect(selectPluralMessage("ar", 1, arabicCategories)).toBe("one");
+    expect(selectPluralMessage("ar", 2, arabicCategories)).toBe("two");
+    expect(selectPluralMessage("ar", 3, arabicCategories)).toBe("few");
+    expect(selectPluralMessage("ar", 11, arabicCategories)).toBe("many");
+    expect(selectPluralMessage("ar", 100, arabicCategories)).toBe("other");
   });
 
   it("renders localized email templates", () => {
@@ -71,6 +104,7 @@ describe("localization primitives", () => {
 
     expect(email.subject).toBe("مرحبا Deaa");
     expect(email.text).toContain("42");
+    expect(email.direction).toBe("rtl");
   });
 
   it("renders an empty string when localized template text is missing", () => {
@@ -84,7 +118,7 @@ describe("localization primitives", () => {
   });
 
   it("renders localized invoice/PDF template labels", () => {
-    const invoice = renderLocalizedInvoiceTemplate("en", {
+    const invoice = renderLocalizedInvoiceTemplate("ar", {
       billToLabel: { ar: "إلى", en: "Bill to" },
       dueDateLabel: { ar: "تاريخ الاستحقاق", en: "Due date" },
       invoiceNumberLabel: { ar: "رقم الفاتورة", en: "Invoice number" },
@@ -98,7 +132,8 @@ describe("localization primitives", () => {
       totalLabel: { ar: "الإجمالي", en: "Total" },
     });
 
-    expect(invoice.title).toBe("Invoice");
-    expect(invoice.lineItemDescriptionLabel).toBe("Description");
+    expect(invoice.direction).toBe("rtl");
+    expect(invoice.title).toBe("فاتورة");
+    expect(invoice.lineItemDescriptionLabel).toBe("الوصف");
   });
 });
