@@ -8,7 +8,11 @@ const documentationSections = [
   },
   {
     title: "Architecture",
-    body: "The current foundation includes web, docs, auth, config, database, jobs, localization, tenant, and UI packages.",
+    body: "The workspace includes web and docs apps plus API, auth, billing, config, database, email, jobs, localization, observability, security, storage, tenant, and UI packages.",
+  },
+  {
+    title: "Extension points",
+    body: "Package guides document auth action routes, payment and OAuth adapters, localization, storage providers, messaging providers, and operational hooks.",
   },
   {
     title: "Upgrade notes",
@@ -29,7 +33,7 @@ export default function DocsHome() {
           as tracked project documentation.
         </p>
       </section>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {documentationSections.map((section) => (
           <Card key={section.title}>
             <CardHeader>
