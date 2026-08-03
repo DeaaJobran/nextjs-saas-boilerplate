@@ -54,6 +54,7 @@ export type OAuthProviderAdapter = {
   };
   provider: string;
   scopes: string[];
+  tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post";
   tokenEndpoint: string;
   userInfoEndpoint: string;
 };
@@ -69,6 +70,7 @@ export type ApiServiceOptions = {
   mobileUploadTtlSeconds?: number;
   now?: () => Date;
   oauthAdapters?: OAuthProviderAdapter[];
+  oauthRedirectUris?: string[];
   storage?: ReturnType<typeof createStorageService>;
 };
 
@@ -527,9 +529,11 @@ function toApiError(error: unknown) {
   }
 
   if (error instanceof AuthError) {
-    const status = ["invalid_credentials", "invalid_refresh_token"].includes(
-      error.code,
-    )
+    const status = [
+      "invalid_credentials",
+      "invalid_refresh_token",
+      "mfa_required",
+    ].includes(error.code)
       ? 401
       : 400;
 
@@ -604,6 +608,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
   const oauthAdapters = new Map(
     (options.oauthAdapters ?? []).map((adapter) => [adapter.provider, adapter]),
   );
+  const oauthRedirectUris = new Set(options.oauthRedirectUris ?? []);
 
   async function getClient() {
     if (options.client) {
@@ -2178,6 +2183,7 @@ export function createApiService(options: ApiServiceOptions = {}) {
   }
 
   async function createOAuthAuthorizationUrl(input: {
+    codeChallenge: string;
     metadata?: Record<string, unknown>;
     provider: string;
     redirectUri: string;
@@ -2192,8 +2198,17 @@ export function createApiService(options: ApiServiceOptions = {}) {
       );
     }
 
+    if (!oauthRedirectUris.has(input.redirectUri)) {
+      throw new ApiError(
+        "OAuth redirect URI is not allowed.",
+        "oauth_redirect_uri_not_allowed",
+        400,
+      );
+    }
+
     return getAuth().createOAuthAuthorizationUrl({
       adapter,
+      codeChallenge: input.codeChallenge,
       metadata: input.metadata,
       redirectUri: input.redirectUri,
     });
@@ -2201,15 +2216,19 @@ export function createApiService(options: ApiServiceOptions = {}) {
 
   async function completeOAuthCallback(input: {
     code: string;
+    codeVerifier: string;
     device?: {
       appVersion?: string;
       deviceFingerprint?: string;
       deviceName: string;
       platform: string;
     };
+    ipAddress?: string;
+    mfaCode?: string;
     provider: string;
     redirectUri: string;
     state: string;
+    userAgent?: string;
   }) {
     const adapter = oauthAdapters.get(input.provider);
 
@@ -2221,12 +2240,25 @@ export function createApiService(options: ApiServiceOptions = {}) {
       );
     }
 
+    if (!oauthRedirectUris.has(input.redirectUri)) {
+      throw new ApiError(
+        "OAuth redirect URI is not allowed.",
+        "oauth_redirect_uri_not_allowed",
+        400,
+      );
+    }
+
     const result = await getAuth().completeOAuthCallback({
       adapter,
       code: input.code,
+      codeVerifier: input.codeVerifier,
       context: {
         deviceName: input.device?.deviceName,
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent,
       },
+      enforceMfa: true,
+      mfaCode: input.mfaCode,
       redirectUri: input.redirectUri,
       state: input.state,
     });

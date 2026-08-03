@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 import {
   getDatabaseRuntime,
+  type Queryable,
   resetDatabaseRuntimeForTests,
 } from "@nextjs-saas/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -143,13 +145,27 @@ describe("auth identity service", () => {
 
     expect(sessionLookup?.user.email).toBe("Ada@Example.test");
 
-    const rotated = await auth.rotateRefreshToken(result.session.refreshToken, {
-      deviceName: "Rotated browser",
-    });
+    const coordinator = "A".repeat(43);
+    const rotated = await auth.rotateRefreshToken(
+      result.session.refreshToken,
+      { deviceName: "Rotated browser" },
+      { coordinator },
+    );
 
     expect(rotated.sessionToken).not.toBe(result.session.sessionToken);
     await expect(
-      auth.rotateRefreshToken(result.session.refreshToken),
+      (await createService()).rotateRefreshToken(
+        result.session.refreshToken,
+        {},
+        { coordinator },
+      ),
+    ).resolves.toEqual(rotated);
+    await expect(
+      auth.rotateRefreshToken(
+        result.session.refreshToken,
+        {},
+        { coordinator: "B".repeat(43) },
+      ),
     ).rejects.toMatchObject({ code: "invalid_refresh_token" });
 
     await auth.revokeSession({ sessionId: rotated.session.id });
@@ -157,6 +173,24 @@ describe("auth identity service", () => {
     await expect(
       auth.getSession(rotated.sessionToken),
     ).resolves.toBeUndefined();
+
+    const auditEvents = await auth.listAuditEvents(user.id);
+
+    expect(auditEvents.map((event) => event.eventType)).toEqual(
+      expect.arrayContaining([
+        "auth.password.signed_in",
+        "auth.session.rotated",
+        "auth.session.revoked",
+      ]),
+    );
+    expect(
+      auditEvents.find(
+        (event) => event.eventType === "auth.password.signed_in",
+      ),
+    ).toMatchObject({ ipAddress: "127.0.0.1", userAgent: "vitest" });
+    await expect(auth.listAuditEvents(user.id, 0)).rejects.toMatchObject({
+      code: "invalid_audit_limit",
+    });
   }, 45_000);
 
   it("handles email verification, password reset, and magic-link sign-in", async () => {
@@ -524,6 +558,26 @@ describe("auth identity service", () => {
           }),
           { status: 200 },
         ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "unverified-provider-access-token",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            avatar_url: "https://example.test/unverified.png",
+            email: "unverified@example.test",
+            id: "provider-user-2",
+            name: "Unverified User",
+          }),
+          { status: 200 },
+        ),
       );
 
     vi.stubGlobal("fetch", fetchMock);
@@ -548,11 +602,25 @@ describe("auth identity service", () => {
     };
     const authorization = await auth.createOAuthAuthorizationUrl({
       adapter,
+      metadata: { legalAcceptances: [{ documentSlug: "terms" }] },
       redirectUri: "https://app.example.test/auth/social/example/callback",
     });
+
+    await expect(
+      auth.completeOAuthCallback({
+        adapter,
+        code: "authorization-code",
+        redirectUri:
+          "https://attacker.example.test/auth/social/example/callback",
+        state: authorization.state,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_oauth_state" });
+
     const callback = await auth.completeOAuthCallback({
       adapter,
+      allowUserProvisioning: true,
       code: "authorization-code",
+      provisioningLocale: "en",
       redirectUri: "https://app.example.test/auth/social/example/callback",
       state: authorization.state,
     });
@@ -561,7 +629,19 @@ describe("auth identity service", () => {
       new URL(authorization.url).searchParams.get("code_challenge"),
     ).toBeTruthy();
     expect(callback.user.email).toBe("oauth@example.test");
+    expect(callback.user.locale).toBe("en");
+    expect(callback.provisioned).toBe(true);
+    expect(callback.authorizationMetadata.legalAcceptances).toEqual([
+      { documentSlug: "terms" },
+    ]);
     expect(callback.session.sessionToken).toMatch(/^nss_/);
+    const tokenRequest = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const tokenBody = tokenRequest.body as URLSearchParams;
+
+    expect(tokenRequest.headers).toMatchObject({
+      authorization: expect.stringMatching(/^Basic /u),
+    });
+    expect(tokenBody.get("client_secret")).toBeNull();
 
     await auth.createUserWithPassword({
       displayName: "Conflicting User",
@@ -582,6 +662,250 @@ describe("auth identity service", () => {
         state: conflictingAuthorization.state,
       }),
     ).rejects.toMatchObject({ code: "account_already_linked" });
+
+    const unverifiedAuthorization = await auth.createOAuthAuthorizationUrl({
+      adapter,
+      redirectUri: "https://app.example.test/auth/social/example/callback",
+    });
+    const runtime = await getDatabaseRuntime();
+    const consumedStates = await runtime.execute<{ id: string }>(
+      "SELECT id FROM auth_oauth_states WHERE consumed_at IS NOT NULL",
+    );
+
+    expect(consumedStates).toEqual([]);
+    const unverifiedAdapter = {
+      ...adapter,
+      mapProfile(profile: Record<string, unknown>) {
+        return {
+          avatarUrl: String(profile.avatar_url),
+          displayName: String(profile.name),
+          email: String(profile.email),
+          emailVerified: false,
+          providerAccountId: String(profile.id),
+        };
+      },
+    };
+
+    await expect(
+      auth.completeOAuthCallback({
+        adapter: unverifiedAdapter,
+        code: "authorization-code",
+        redirectUri: "https://app.example.test/auth/social/example/callback",
+        state: unverifiedAuthorization.state,
+      }),
+    ).rejects.toMatchObject({ code: "oauth_email_unverified" });
+    await expect(auth.listUsers()).resolves.not.toContainEqual(
+      expect.objectContaining({ email: "unverified@example.test" }),
+    );
+  }, 45_000);
+
+  it("keeps OAuth provider requests outside the account transaction", async () => {
+    openedRuntime = true;
+    const runtime = await getDatabaseRuntime();
+    let transactionActive = false;
+    const transactionalClient = {
+      execute: runtime.execute.bind(runtime),
+      transaction<T>(callback: (client: Queryable) => Promise<T>) {
+        return runtime.transaction(async (client) => {
+          transactionActive = true;
+
+          try {
+            return await callback(client);
+          } finally {
+            transactionActive = false;
+          }
+        });
+      },
+    };
+    const fetchMock = vi.fn(async (request: string | URL | Request) => {
+      expect(transactionActive).toBe(false);
+
+      return String(request).endsWith("/token")
+        ? new Response(JSON.stringify({ access_token: "provider-token" }))
+        : new Response(
+            JSON.stringify({
+              email: "transaction@example.test",
+              email_verified: true,
+              id: "transaction-user",
+              name: "Transaction User",
+            }),
+          );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const auth = createAuthService({
+      actionRoutes: testAuthActionRoutes,
+      appBaseUrl: "https://app.example.test",
+      authSecret: process.env.AUTH_SECRET,
+      client: transactionalClient,
+      now: () => fixedNow,
+    });
+    const adapter = {
+      authorizationEndpoint: "https://provider.example.test/authorize",
+      clientId: "transaction-client",
+      clientSecret: "transaction-secret",
+      mapProfile(profile: Record<string, unknown>) {
+        return {
+          displayName: String(profile.name),
+          email: String(profile.email),
+          emailVerified: profile.email_verified === true,
+          providerAccountId: String(profile.id),
+        };
+      },
+      provider: "transaction-example",
+      scopes: ["openid", "email"],
+      tokenEndpoint: "https://provider.example.test/token",
+      userInfoEndpoint: "https://provider.example.test/userinfo",
+    };
+    const redirectUri =
+      "https://app.example.test/auth/social/transaction-example/callback";
+    const authorization = await auth.createOAuthAuthorizationUrl({
+      adapter,
+      redirectUri,
+    });
+
+    const result = await auth.completeOAuthCallback({
+      adapter,
+      allowUserProvisioning: true,
+      code: "authorization-code",
+      redirectUri,
+      state: authorization.state,
+    });
+
+    expect(result.user.email).toBe("transaction@example.test");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(transactionActive).toBe(false);
+  }, 45_000);
+
+  it("requires client-held PKCE and explicit social-user provisioning", async () => {
+    const auth = await createService();
+    const verifier = "mobile_verifier_value_with_43_characters_total_123";
+    const codeChallenge = createHash("sha256")
+      .update(verifier)
+      .digest("base64url");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "restricted-token" }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            email: "restricted@example.test",
+            email_verified: true,
+            id: "restricted-user",
+            name: "Restricted User",
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "mobile-token" }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            email: "mobile@example.test",
+            email_verified: true,
+            id: "mobile-user",
+            name: "Mobile User",
+          }),
+          { status: 200 },
+        ),
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const adapter = {
+      authorizationEndpoint: "https://provider.example.test/authorize",
+      clientId: "mobile-client",
+      clientSecret: "mobile-secret",
+      mapProfile(profile: Record<string, unknown>) {
+        return {
+          displayName: String(profile.name),
+          email: String(profile.email),
+          emailVerified: profile.email_verified === true,
+          providerAccountId: String(profile.id),
+        };
+      },
+      provider: "mobile-example",
+      scopes: ["openid", "email"],
+      tokenEndpoint: "https://provider.example.test/token",
+      tokenEndpointAuthMethod: "client_secret_post" as const,
+      userInfoEndpoint: "https://provider.example.test/userinfo",
+    };
+    const redirectUri = "com.example.app://oauth/callback";
+    const missingVerifierAuthorization = await auth.createOAuthAuthorizationUrl(
+      {
+        adapter,
+        codeChallenge,
+        redirectUri,
+      },
+    );
+
+    await expect(
+      auth.completeOAuthCallback({
+        adapter,
+        code: "missing-verifier-code",
+        redirectUri,
+        state: missingVerifierAuthorization.state,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_oauth_code_verifier" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(
+      auth.claimOAuthCallback({
+        adapter,
+        codeVerifier: verifier,
+        redirectUri,
+        state: missingVerifierAuthorization.state,
+      }),
+    ).resolves.toMatchObject({ codeVerifier: verifier });
+
+    const restrictedAuthorization = await auth.createOAuthAuthorizationUrl({
+      adapter,
+      codeChallenge,
+      redirectUri,
+    });
+
+    await expect(
+      auth.completeOAuthCallback({
+        adapter,
+        code: "restricted-code",
+        codeVerifier: verifier,
+        redirectUri,
+        state: restrictedAuthorization.state,
+      }),
+    ).rejects.toMatchObject({ code: "oauth_provisioning_required" });
+
+    const allowedAuthorization = await auth.createOAuthAuthorizationUrl({
+      adapter,
+      codeChallenge,
+      redirectUri,
+    });
+    const allowed = await auth.completeOAuthCallback({
+      adapter,
+      allowUserProvisioning: true,
+      code: "allowed-code",
+      codeVerifier: verifier,
+      provisioningLocale: "ar",
+      redirectUri,
+      state: allowedAuthorization.state,
+    });
+    const tokenRequest = fetchMock.mock.calls[2]?.[1] as RequestInit;
+    const tokenBody = tokenRequest.body as URLSearchParams;
+
+    expect(
+      new URL(allowedAuthorization.url).searchParams.get("code_challenge"),
+    ).toBe(codeChallenge);
+    expect(tokenBody.get("code_verifier")).toBe(verifier);
+    expect(tokenBody.get("client_id")).toBe("mobile-client");
+    expect(tokenBody.get("client_secret")).toBe("mobile-secret");
+    expect(allowed.user.locale).toBe("ar");
   }, 45_000);
 
   it("exposes page and API authorization helpers", () => {

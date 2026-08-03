@@ -118,6 +118,49 @@ describe("database migrations", () => {
     expect(Number(buckets[0]?.count)).toBe(5);
   }, 60_000);
 
+  it("preserves customized billing provider names when adding sort order", async () => {
+    databaseRuntimeOpened = true;
+
+    const runtime = await getDatabaseRuntime();
+    const targetMigrationIndex = migrationManifest.findIndex(
+      (migration) => migration.id === "0014_tenant_aware_billing.sql",
+    );
+
+    expect(targetMigrationIndex).toBeGreaterThanOrEqual(0);
+
+    for (const migration of migrationManifest.slice(0, targetMigrationIndex)) {
+      await runtime.execute(migration.sql);
+      await runtime.execute(
+        "INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
+        [migration.id],
+      );
+    }
+
+    await runtime.execute(
+      "UPDATE billing_payment_providers SET display_name = $1 WHERE provider = 'stripe'",
+      ["Acme Payments"],
+    );
+
+    await expect(runMigrations(runtime)).resolves.toEqual(
+      migrationManifest
+        .slice(targetMigrationIndex)
+        .map((migration) => migration.id),
+    );
+
+    const providers = await runtime.execute<{
+      display_name: string;
+      sort_order: number;
+    }>(`
+      SELECT display_name, sort_order
+      FROM billing_payment_providers
+      WHERE provider = 'stripe'
+    `);
+
+    expect(providers).toEqual([
+      { display_name: "Acme Payments", sort_order: 10 },
+    ]);
+  }, 60_000);
+
   it("creates service foundation tables", async () => {
     databaseRuntimeOpened = true;
 
@@ -371,7 +414,7 @@ describe("database migrations", () => {
     ]);
     expect(Number(capableProviderRows[0]?.count)).toBe(2);
     expect(orderedProviderRows[0]).toEqual({
-      display_name: "Stripe",
+      display_name: "Stripe-compatible",
       provider: "stripe",
       sort_order: 10,
     });

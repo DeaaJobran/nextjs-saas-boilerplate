@@ -650,6 +650,7 @@
     "emptyNotificationsDescription": "New product and security notifications will appear here when they are delivered.",
     "emptyPrivacyRequests": "No privacy requests are recorded.",
     "emptySessions": "No sessions are available.",
+    "emptySecurityActivity": "No authentication or security activity is available.",
     "enableMfa": "Enable MFA",
     "enabled": "enabled",
     "mfaCode": "Authenticator code",
@@ -720,6 +721,40 @@
     "saveNotificationPreferences": "Save notification preferences",
     "markRead": "Mark as read",
     "securityDescription": "Manage MFA, passkeys, and destructive account controls.",
+    "securityActivityDescription": "Review recent sign-ins, session changes, and other identity security events.",
+    "securityActivityTable": {
+      "address": "IP address",
+      "created": "Created",
+      "device": "Device",
+      "event": "Event"
+    },
+    "securityActivityTitle": "Security activity",
+    "securityEvents": {
+      "accountDeleted": "Account deleted",
+      "adminUserCreated": "Account created by an administrator",
+      "emailChanged": "Email address changed",
+      "emailVerified": "Email address verified",
+      "invitationAccepted": "Invitation accepted",
+      "invitationCreated": "Invitation created",
+      "loginLocked": "Sign-in temporarily locked",
+      "magicLinkRequested": "Magic link requested",
+      "magicLinkSignedIn": "Signed in with a magic link",
+      "mfaEnabled": "Multi-factor authentication enabled",
+      "mfaSessionVerified": "Session verified with multi-factor authentication",
+      "passkeyRegistered": "Passkey registered",
+      "passkeySessionVerified": "Session verified with a passkey",
+      "passkeySignedIn": "Signed in with a passkey",
+      "passwordResetCompleted": "Password reset completed",
+      "passwordResetRequested": "Password reset requested",
+      "passwordSignedIn": "Signed in with a password",
+      "profileUpdated": "Profile updated",
+      "sessionCreated": "Session created",
+      "sessionRevoked": "Session revoked",
+      "sessionRotated": "Session credentials refreshed",
+      "socialSignedIn": "Signed in with a social provider",
+      "unknown": "Security event",
+      "userCreated": "Account created"
+    },
     "securityTitle": "Security controls",
     "sendPasswordReset": "Send password reset",
     "sessionsDescription": "Review active and revoked device sessions.",
@@ -766,6 +801,7 @@
     "mobileNavigationDescription": "Choose a public destination without leaving the current locale.",
     "mobileNavigationTitle": "Explore the site",
     "openNavigation": "Open main navigation",
+    "signOut": "Sign out",
     "skipToContent": "Skip to main content",
     "tenantRegistry": "Tenant registry"
   },
@@ -822,13 +858,15 @@
     }
   },
   "SignInPage": {
+    "and": "and",
     "createAccount": "Create account",
-    "description": "Sign in with password, magic link, or passkey.",
+    "description": "Sign in with a password, magic link, passkey, or an available social provider.",
     "email": "Email",
     "errors": {
       "generic": "Sign-in failed. Check the details and try again.",
       "invalidCredentials": "The email or password is incorrect.",
-      "loginLocked": "Too many failed attempts. Try again later."
+      "loginLocked": "Too many failed attempts. Try again later.",
+      "oauthFailed": "Social sign-in failed. Try again or choose another sign-in method."
     },
     "forgotPassword": "Forgot password?",
     "magicEmail": "Magic-link email",
@@ -838,12 +876,18 @@
     "passkeyError": "Passkey sign-in failed. Try again or use your password.",
     "passkeySubmit": "Sign in with passkey",
     "sendMagicLink": "Send magic link",
+    "socialDivider": "Or continue with",
+    "socialLegalAgreement": "If this creates a new account, I agree to the",
+    "socialLegalUnavailable": "Existing linked accounts can continue. New social accounts are unavailable until the required legal documents are published.",
+    "socialSubmit": "Continue with {provider}",
     "status": {
       "magicLinkSent": "If an account exists, a magic link has been issued.",
       "mfaRequired": "Enter your authenticator or recovery code to continue.",
       "passwordReset": "Password updated. Sign in with the new password."
     },
     "submit": "Sign in",
+    "privacy": "privacy policy",
+    "terms": "terms of service",
     "title": "Sign in to {appName}"
   },
   "SignUpPage": {

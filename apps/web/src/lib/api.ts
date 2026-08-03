@@ -8,8 +8,10 @@ import {
   createApiService,
 } from "@nextjs-saas/api";
 import { appConfig } from "@nextjs-saas/config/app";
+import { parseOAuthMobileRedirectUris } from "@nextjs-saas/config/auth";
 import { NextResponse } from "next/server";
 
+import { getOAuthProviders } from "./oauth";
 import { getObservabilityService } from "./observability";
 import { getStorageService } from "./storage";
 
@@ -17,6 +19,10 @@ export function getApiService() {
   return createApiService({
     appBaseUrl: process.env.NEXT_PUBLIC_APP_URL,
     authSecret: process.env.AUTH_SECRET,
+    oauthAdapters: getOAuthProviders().map((provider) => provider.adapter),
+    oauthRedirectUris: parseOAuthMobileRedirectUris(
+      process.env.AUTH_OAUTH_MOBILE_REDIRECT_URIS,
+    ),
     storage: getStorageService(),
   });
 }

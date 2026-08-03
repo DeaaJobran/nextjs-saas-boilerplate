@@ -13,6 +13,11 @@ async function grantAdminAccess(page: Page) {
 async function grantUserAccess(page: Page) {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const email = `user-${suffix}@example.test`;
+  const address = Array.from({ length: 3 }, () =>
+    Math.floor(Math.random() * 256),
+  ).join(".");
+
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `10.${address}` });
 
   await page.goto("/en/auth/sign-up");
   await page.getByLabel("Display name").fill("Playwright User");
@@ -98,6 +103,9 @@ test("renders dashboard, settings, and admin shells", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Profile settings" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Security activity" }),
+  ).toBeVisible();
 
   await grantAdminAccess(page);
   await page.goto("/en/admin/content");
@@ -107,6 +115,139 @@ test("renders dashboard, settings, and admin shells", async ({ page }) => {
   await expect(
     page.getByRole("cell", { name: "landing" }).first(),
   ).toBeVisible();
+});
+
+test("rotates the browser refresh token when the session cookie expires", async ({
+  page,
+}) => {
+  await grantUserAccess(page);
+  const cookiesBefore = await page.context().cookies();
+  const refreshBefore = cookiesBefore.find(
+    (cookie) => cookie.name === "nextjs_saas_refresh",
+  );
+
+  expect(refreshBefore?.value).toBeTruthy();
+  await page.context().clearCookies({ name: "nextjs_saas_session" });
+  await page.goto("/en/dashboard");
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+
+  const cookiesAfter = await page.context().cookies();
+  const sessionAfter = cookiesAfter.find(
+    (cookie) => cookie.name === "nextjs_saas_session",
+  );
+  const refreshAfter = cookiesAfter.find(
+    (cookie) => cookie.name === "nextjs_saas_refresh",
+  );
+
+  expect(sessionAfter?.value).toBeTruthy();
+  expect(refreshAfter?.value).toBeTruthy();
+  expect(refreshAfter?.value).not.toBe(refreshBefore?.value);
+});
+
+test("signs out from the application shell and revokes browser access", async ({
+  page,
+}) => {
+  await grantUserAccess(page);
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/en\/auth\/sign-in/);
+
+  const authCookies = (await page.context().cookies()).filter((cookie) =>
+    ["nextjs_saas_session", "nextjs_saas_refresh"].includes(cookie.name),
+  );
+
+  expect(authCookies).toEqual([]);
+  await page.goto("/en/dashboard");
+  await expect(page).toHaveURL(/\/auth\/sign-in/);
+});
+
+test("returns an API authorization error for protected identity routes", async ({
+  request,
+}) => {
+  const response = await request.post("/api/auth/passkeys/register/options", {
+    data: "{",
+    headers: { "content-type": "application/json" },
+  });
+
+  expect(response.status()).toBe(401);
+  await expect(response.json()).resolves.toEqual({
+    error: {
+      code: "unauthorized",
+      message: "Authentication is required.",
+    },
+  });
+});
+
+test("rate limits public OAuth authorization by client and provider", async ({
+  request,
+}) => {
+  const statuses: number[] = [];
+
+  for (let attempt = 0; attempt < 11; attempt += 1) {
+    const response = await request.post("/api/v1/oauth/authorize", {
+      data: {
+        codeChallenge: "A".repeat(43),
+        provider: "playwright",
+        redirectUri: "https://mobile.example.test/oauth/callback",
+      },
+    });
+
+    statuses.push(response.status());
+  }
+
+  expect(statuses.slice(0, 10)).toEqual(Array(10).fill(200));
+  expect(statuses[10]).toBe(429);
+});
+
+test("binds an OAuth callback to the browser that initiated sign-in", async ({
+  browser,
+  page,
+}) => {
+  await page.route("https://identity.example.test/**", (route) =>
+    route.fulfill({ body: "Identity provider fixture", status: 200 }),
+  );
+  await page.goto("/en/auth/sign-in");
+  await page
+    .getByRole("button", { name: "Continue with Playwright Identity" })
+    .click();
+  await expect(page).toHaveURL(
+    /^https:\/\/identity\.example\.test\/authorize/u,
+  );
+
+  const state = new URL(page.url()).searchParams.get("state");
+  const stateCookie = (await page.context().cookies()).find((cookie) =>
+    cookie.name.startsWith("nextjs_saas_oauth_state_"),
+  );
+
+  expect(state).toBeTruthy();
+  expect(stateCookie).toMatchObject({
+    httpOnly: true,
+    path: "/en/auth/oauth/playwright/callback",
+    sameSite: "Lax",
+  });
+
+  if (!state) {
+    throw new Error("OAuth authorization did not include a state value.");
+  }
+
+  const otherContext = await browser.newContext();
+  const otherPage = await otherContext.newPage();
+
+  try {
+    await otherPage.goto(
+      `/en/auth/oauth/playwright/callback?code=transferred-code&state=${encodeURIComponent(state)}`,
+    );
+    await expect(otherPage).toHaveURL(
+      /\/en\/auth\/sign-in\?error=oauth_failed/u,
+    );
+    expect(
+      (await otherContext.cookies()).some(
+        (cookie) => cookie.name === "nextjs_saas_session",
+      ),
+    ).toBe(false);
+  } finally {
+    await otherContext.close();
+  }
 });
 
 test("renders mobile application navigation", async ({ page }) => {
@@ -224,6 +365,7 @@ test("super admin can start an audited impersonation session", async ({
   await page.getByRole("button", { name: "End impersonation" }).click();
   await expect(page).toHaveURL(
     /\/en\/admin\/super\?status=impersonation-ended/,
+    { timeout: 15_000 },
   );
 });
 

@@ -2,24 +2,26 @@ import { NextResponse } from "next/server";
 
 import { getAuthService, setAuthCookies } from "@/lib/auth";
 import {
+  parseJsonRequest,
+  parsePasskeyAuthenticationVerificationRequest,
   protectServerAction,
   securityErrorResponse,
 } from "@/lib/server-action-security";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as {
-    response: { id?: string };
-  };
-
   try {
+    const body = await parseJsonRequest(
+      request,
+      parsePasskeyAuthenticationVerificationRequest,
+    );
     await protectServerAction({
-      identifier: body.response.id?.trim() || "missing-passkey-credential",
+      identifier: body.response.id,
       limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),
       scope: "passkey-authentication",
       windowSeconds: Number(process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 900),
     });
     const result = await getAuthService().finishPasskeyAuthentication({
-      response: body.response as never,
+      response: body.response,
     });
 
     await setAuthCookies(result.session);

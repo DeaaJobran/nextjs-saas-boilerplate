@@ -2053,8 +2053,7 @@ WHERE provider IN ('mock', 'stripe');
   ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 100;
 
 UPDATE billing_payment_providers
-SET display_name = 'Stripe',
-    sort_order = 10,
+SET sort_order = 10,
     updated_at = now()
 WHERE provider = 'stripe';
 
