@@ -2,7 +2,9 @@ import "./globals.css";
 
 import { appConfig } from "@nextjs-saas/config/app";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans_Arabic } from "next/font/google";
+
+import { getDocsHomeContent } from "../content";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,10 +16,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const notoArabic = Noto_Sans_Arabic({
+  variable: "--font-arabic",
+  subsets: ["arabic"],
+});
+
+const content = getDocsHomeContent();
+
 export const metadata: Metadata = {
-  title: `${appConfig.name} Docs`,
-  description:
-    "Public setup guides, module references, and upgrade notes for the SaaS boilerplate.",
+  description: content.metadataDescription,
+  title: `${appConfig.name} ${content.title}`,
 };
 
 export default function RootLayout({
@@ -26,8 +34,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html className={`${geistSans.variable} ${geistMono.variable}`} lang="en">
-      <body className="min-h-dvh bg-background font-sans text-foreground">
+    <html
+      className={`${geistSans.variable} ${geistMono.variable} ${notoArabic.variable}`}
+      dir={content.direction}
+      lang={content.locale}
+    >
+      <body className="min-h-dvh bg-background font-locale text-foreground">
         {children}
       </body>
     </html>

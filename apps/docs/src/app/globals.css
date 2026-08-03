@@ -2,3 +2,12 @@
 
 @source "../**/*.{ts,tsx}";
 @source "../../../../packages/ui/src/**/*.{ts,tsx}";
+
+:root {
+  --font-locale-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+[dir="rtl"] {
+  --font-locale-family:
+    var(--font-arabic), var(--font-geist-sans), system-ui, sans-serif;
+}
