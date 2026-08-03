@@ -13,7 +13,6 @@ import { getTranslations } from "next-intl/server";
 
 import { Link } from "../i18n/navigation";
 import { getContentRepository } from "../lib/content-store";
-import type { ManagedRoutesByLocale } from "../lib/locale-switch-target";
 import { listCanonicalPublicManagedPages } from "../lib/public-content";
 import { getManagedPageRoute, getPublicRecoveryRoute } from "../lib/seo-routes";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -72,11 +71,13 @@ export async function MarketingShell({
   const managedRoutesByLocale = Object.fromEntries(
     availableLocales.map((availableLocale) => [
       availableLocale,
-      publicManagedPages
-        .filter((page) => page.locale === availableLocale)
-        .map(getManagedPageRoute),
+      [] as string[],
     ]),
-  ) as ManagedRoutesByLocale;
+  ) as Partial<Record<Locale, string[]>>;
+
+  for (const page of publicManagedPages) {
+    managedRoutesByLocale[page.locale]?.push(getManagedPageRoute(page));
+  }
   const navigationItems: MarketingNavigationItem[] = [
     ...publicManagedNavigation.map((item) => ({
       href: item.href,
