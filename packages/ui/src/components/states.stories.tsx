@@ -19,7 +19,7 @@ export function States() {
         title="Loading content"
       />
       <ErrorState
-        action={{ label: "Retry" }}
+        action={{ href: "/", label: "Return home" }}
         description="Use this when the user needs a recovery action."
         title="Unable to load"
       />

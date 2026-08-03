@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
+
 import { AuthShell } from "../../../components/shells";
 import { assertLocale } from "../../../lib/locale";
+
+export const metadata: Metadata = {
+  robots: {
+    follow: false,
+    index: false,
+  },
+};
 
 export default async function AuthLayout({
   children,

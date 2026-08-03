@@ -20,7 +20,17 @@ const ToastContext = React.createContext<ToastContextValue | undefined>(
   undefined,
 );
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({
+  children,
+  dismissLabel = "Dismiss notification",
+  label = "Notification",
+  swipeDirection = "right",
+}: {
+  children: React.ReactNode;
+  dismissLabel?: string;
+  label?: string;
+  swipeDirection?: "left" | "right";
+}) {
   const [messages, setMessages] = React.useState<ToastMessage[]>([]);
 
   const notify = React.useCallback((message: Omit<ToastMessage, "id">) => {
@@ -34,11 +44,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastContext.Provider value={value}>
-      <ToastPrimitive.Provider swipeDirection="right">
+      <ToastPrimitive.Provider label={label} swipeDirection={swipeDirection}>
         {children}
         {messages.map((message) => (
           <ToastPrimitive.Root
             className="bg-popover text-popover-foreground relative grid w-full gap-1 rounded-lg border p-4 pe-10 shadow-lg"
+            data-slot="toast"
             duration={4000}
             key={message.id}
             onOpenChange={(open) => {
@@ -59,7 +70,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             ) : null}
             <ToastPrimitive.Close className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring absolute end-2 top-2 inline-flex size-8 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none">
               <XIcon aria-hidden="true" className="size-4" />
-              <span className="sr-only">Dismiss notification</span>
+              <span className="sr-only">{dismissLabel}</span>
             </ToastPrimitive.Close>
           </ToastPrimitive.Root>
         ))}
@@ -67,6 +78,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           className={cn(
             "fixed end-0 bottom-0 z-50 flex max-h-screen w-full flex-col gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-sm",
           )}
+          data-slot="toast-viewport"
+          data-swipe-direction={swipeDirection}
         />
       </ToastPrimitive.Provider>
     </ToastContext.Provider>

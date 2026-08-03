@@ -60,6 +60,20 @@ test("renders the localized marketing page", async ({ page }) => {
   await expect(
     page.getByRole("link", { exact: true, name: "Pricing" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "View dashboard" }).first(),
+  ).toHaveAttribute("href", "/en/dashboard");
+  await expect(
+    page.getByRole("link", { name: "Review pricing" }),
+  ).toHaveAttribute("href", "/en/pricing");
+
+  await page.goto("/en/auth/sign-up");
+  await expect(
+    page.getByRole("link", { name: "terms of service" }),
+  ).toHaveAttribute("href", "/en/legal/terms");
+  await expect(
+    page.getByRole("link", { name: "privacy policy" }),
+  ).toHaveAttribute("href", "/en/legal/privacy");
 });
 
 test("renders dashboard, settings, and admin shells", async ({ page }) => {
@@ -111,7 +125,10 @@ test("renders mobile application navigation", async ({ page }) => {
     mobileNav.getByRole("link", { name: "Organization" }),
   ).toBeVisible();
   await expect(mobileNav.getByRole("link", { name: "Settings" })).toBeVisible();
-  await expect(mobileNav.getByRole("link", { name: "Admin" })).toBeVisible();
+  await expect(mobileNav.getByRole("link", { name: "Admin" })).toHaveCount(0);
+  await expect(
+    mobileNav.getByRole("link", { name: "Dashboard" }),
+  ).toHaveAttribute("aria-current", "page");
 
   await mobileNav.getByRole("link", { name: "Settings" }).click();
   await expect(
@@ -265,6 +282,7 @@ test("admin-managed content can create, update, and render a legal page", async 
   await grantAdminAccess(page);
   await page.goto("/en/admin/content");
   await createForm.getByLabel("Type").selectOption("legal");
+  await createForm.getByLabel("Publish state").selectOption("published");
   await createForm.getByLabel("Slug").fill(slug);
   await createForm.getByLabel("Title").fill(initialTitle);
   await createForm
@@ -290,6 +308,7 @@ test("contact submissions are validated, saved, and visible in admin", async ({
   page,
 }) => {
   const email = `contact-${Date.now()}@example.com`;
+  const repeatedEmail = `contact-repeat-${Date.now()}@example.com`;
   const contactForm = page.getByRole("form", { name: "Contact request" });
 
   await page.goto("/en/contact");
@@ -300,18 +319,44 @@ test("contact submissions are validated, saved, and visible in admin", async ({
     .fill("Please review this saved contact request from Playwright.");
   await contactForm.getByRole("button", { name: "Submit" }).click();
 
-  await expect(page.getByRole("status")).toContainText("saved for review");
+  await expect(
+    page
+      .locator('[role="status"]')
+      .filter({ hasText: "saved for review" })
+      .first(),
+  ).toBeVisible();
+  await expect(page.locator('[data-slot="toast"]')).toContainText(
+    "Message sent",
+  );
+  await expect(contactForm.getByLabel("Name")).toHaveValue("");
+  await expect(contactForm.getByLabel("Email")).toHaveValue("");
+  await expect(contactForm.getByLabel("Message")).toHaveValue("");
+
+  await contactForm.getByLabel("Name").fill("Repeat Reviewer");
+  await contactForm.getByLabel("Email").fill(repeatedEmail);
+  await contactForm
+    .getByLabel("Message")
+    .fill("Please save this second contact request as a separate result.");
+  await contactForm.getByRole("button", { name: "Submit" }).click();
+
+  await expect(contactForm.getByLabel("Name")).toHaveValue("");
+  await expect(contactForm.getByLabel("Email")).toHaveValue("");
+  await expect(contactForm.getByLabel("Message")).toHaveValue("");
 
   await grantAdminAccess(page);
   await page.goto("/en/admin/content");
   await expect(page.getByRole("cell", { name: email })).toBeVisible();
+  await expect(page.getByRole("cell", { name: repeatedEmail })).toBeVisible();
 });
 
-test("admin-managed pricing plans render on the pricing page", async ({
+test("published pricing content renders and draft pricing navigation stays hidden", async ({
   page,
 }) => {
   const planName = `E2E Plan ${Date.now()}`;
   const pricingForm = page.getByRole("form", { name: "Pricing plans" });
+  const managedPageForm = page.getByRole("form", {
+    name: "Edit managed page",
+  });
 
   await grantAdminAccess(page);
   await page.goto("/en/admin/content?selected=pricing-en");
@@ -321,6 +366,25 @@ test("admin-managed pricing plans render on the pricing page", async ({
   await expect(page).toHaveURL(/saved=pricing/);
   await page.goto("/en/pricing");
   await expect(page.getByRole("heading", { name: planName })).toBeVisible();
+
+  try {
+    await page.goto("/en/admin/content?selected=pricing-en");
+    await managedPageForm.getByLabel("Publish state").selectOption("draft");
+    await managedPageForm.getByRole("button", { name: "Save page" }).click();
+    await expect(page).toHaveURL(/saved=page/);
+
+    await page.goto("/en/contact");
+    await expect(
+      page
+        .getByRole("navigation", { name: "Main navigation" })
+        .getByRole("link", { name: "Pricing", exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    await page.goto("/en/admin/content?selected=pricing-en");
+    await managedPageForm.getByLabel("Publish state").selectOption("published");
+    await managedPageForm.getByRole("button", { name: "Save page" }).click();
+    await expect(page).toHaveURL(/saved=page/);
+  }
 });
 
 test("admin-managed contact fields render on the contact page", async ({
@@ -345,4 +409,161 @@ test("admin-managed contact fields render on the contact page", async ({
       .getByLabel(fieldLabel)
       .first(),
   ).toBeVisible();
+});
+
+test("keeps public navigation reachable and active on small screens", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 667, width: 375 });
+  await page.goto("/en/pricing");
+
+  await page.getByRole("button", { name: "Open main navigation" }).click();
+  const dialog = page.getByRole("dialog", { name: "Explore the site" });
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Pricing" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await dialog.getByRole("link", { name: "Contact" }).click();
+  await expect(page).toHaveURL(/\/en\/contact/);
+  await expectNoHorizontalOverflow(page, {
+    route: "/en/contact",
+    viewport: { height: 667, width: 375 },
+  });
+});
+
+test("provides a keyboard skip link and persistent localized themes", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.goto("/en");
+  await page.keyboard.press("Tab");
+
+  const skipLink = page.getByRole("link", { name: "Skip to main content" });
+  await expect(skipLink).toBeFocused();
+  await skipLink.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(
+    page.getByRole("button", { name: "Switch to light mode" }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("theme")))
+    .toBe("dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  await page.goto("/ar");
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator('[data-slot="toast-viewport"]')).toHaveAttribute(
+    "data-swipe-direction",
+    "left",
+  );
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("theme")))
+    .toBe("dark");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.getByRole("button", { name: "التبديل إلى الوضع الفاتح" }).click();
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+});
+
+test("renders live accessible charts, empty states, and confirmation dialogs", async ({
+  page,
+}) => {
+  await grantUserAccess(page);
+  await page.goto("/en/dashboard");
+
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    /noindex/,
+  );
+
+  await expect(
+    page.getByRole("img", { name: /Workspace resource overview/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Workspace resource overview" }),
+  ).toBeAttached();
+  const zeroValueBars = page.locator(
+    '[data-slot="metric-bar"][data-value="0"]',
+  );
+  await expect(zeroValueBars).toHaveCount(2);
+  await expect(zeroValueBars.first()).toHaveAttribute("style", /width:\s*0%/);
+
+  await page.goto("/en/settings");
+  await expect(
+    page.getByRole("heading", {
+      name: "No in-app notifications are available.",
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Delete account", exact: true })
+    .click();
+
+  const dialog = page.getByRole("dialog", {
+    name: "Permanently delete account",
+  });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).not.toBeVisible();
+});
+
+test("publishes crawlable metadata without exposing private routes", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/en");
+
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    "content",
+    /Next\.js SaaS Boilerplate/,
+  );
+  const jsonLd = await page
+    .locator('script[type="application/ld+json"]')
+    .textContent();
+  expect(jsonLd).toContain('"@type":"SoftwareApplication"');
+
+  const [sitemapResponse, robotsResponse] = await Promise.all([
+    request.get("/sitemap.xml"),
+    request.get("/robots.txt"),
+  ]);
+  const sitemap = await sitemapResponse.text();
+  const robots = await robotsResponse.text();
+
+  expect(sitemapResponse.ok()).toBe(true);
+  expect(sitemap).toContain("/en/pricing");
+  expect(sitemap).not.toContain("/en/dashboard");
+  expect(sitemap).not.toContain("/en/settings");
+  expect(sitemap).not.toContain("/en/admin");
+  expect(robotsResponse.ok()).toBe(true);
+  expect(robots).toContain("Disallow: /en/dashboard");
+  expect(robots).toContain("Disallow: /ar/dashboard");
+  expect(robots).not.toContain("Disallow: /*/dashboard");
+  expect(robots).toContain("Disallow: /api/");
+});
+
+test("renders localized route states and no-indexes authentication", async ({
+  page,
+}) => {
+  await page.goto("/en/legal/does-not-exist");
+  await expect(
+    page.getByRole("heading", { name: "Page not found" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return home" })).toHaveAttribute(
+    "href",
+    "/en",
+  );
+
+  await page.goto("/en/auth/sign-in");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    /noindex/,
+  );
 });

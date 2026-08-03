@@ -1,3 +1,4 @@
+import { appRoutes } from "@nextjs-saas/config/app";
 import {
   Badge,
   Card,
@@ -5,6 +6,8 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  EmptyState,
+  MetricBarChart,
 } from "@nextjs-saas/ui";
 import { getTranslations } from "next-intl/server";
 
@@ -72,6 +75,25 @@ export default async function DashboardPage({
           </Card>
         ))}
       </section>
+      <MetricBarChart
+        categoryLabel={t("overview.category")}
+        data={[
+          { label: t("cards.members.label"), value: summary.memberCount },
+          {
+            label: t("cards.invitations.label"),
+            value: summary.invitationCount,
+          },
+          {
+            label: t("cards.apiKeys.label"),
+            value: summary.activeApiKeyCount,
+          },
+        ]}
+        description={t("overview.description")}
+        emptyLabel={t("overview.empty")}
+        formatValue={formatNumber}
+        title={t("overview.title")}
+        valueLabel={t("overview.value")}
+      />
       <DataTable
         columns={[
           { key: "key", header: t("flags.key"), cell: (row) => row.key },
@@ -86,7 +108,16 @@ export default async function DashboardPage({
           },
         ]}
         data={summary.featureFlags}
-        emptyLabel={t("flags.empty")}
+        empty={
+          <EmptyState
+            action={{
+              href: `/${resolvedLocale}${appRoutes.organizationSettings}`,
+              label: t("flags.configure"),
+            }}
+            description={t("flags.emptyDescription")}
+            title={t("flags.empty")}
+          />
+        }
       />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

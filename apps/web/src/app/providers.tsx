@@ -3,7 +3,17 @@
 import { ToastProvider } from "@nextjs-saas/ui";
 import { ThemeProvider } from "next-themes";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  direction,
+  toastDismissLabel,
+  toastLabel,
+}: {
+  children: React.ReactNode;
+  direction: "ltr" | "rtl";
+  toastDismissLabel: string;
+  toastLabel: string;
+}) {
   return (
     <ThemeProvider
       attribute="class"
@@ -11,7 +21,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
       enableSystem
     >
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider
+        dismissLabel={toastDismissLabel}
+        label={toastLabel}
+        swipeDirection={direction === "rtl" ? "left" : "right"}
+      >
+        {children}
+      </ToastProvider>
     </ThemeProvider>
   );
 }

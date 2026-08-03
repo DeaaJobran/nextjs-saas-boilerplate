@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -44,7 +45,7 @@ export function Feedback() {
           <DialogTrigger asChild>
             <Button type="button">Open dialog</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent closeLabel="Close dialog">
             <DialogHeader>
               <DialogTitle>Confirm workspace change</DialogTitle>
               <DialogDescription>
@@ -52,12 +53,12 @@ export function Feedback() {
                 and responsive width for mobile screens.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-wrap justify-end gap-2 pt-2">
+            <DialogFooter>
               <Button type="button" variant="outline">
                 Cancel
               </Button>
               <Button type="button">Confirm</Button>
-            </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
         <ToastDemo />
