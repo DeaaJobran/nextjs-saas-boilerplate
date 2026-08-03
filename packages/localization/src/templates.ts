@@ -1,4 +1,9 @@
-import { defaultLocale, type Locale } from "./locales";
+import {
+  defaultLocale,
+  getTextDirection,
+  type Locale,
+  type TextDirection,
+} from "./locales";
 
 export type TemplateValue = Date | boolean | null | number | string | undefined;
 export type TemplateValues = Record<string, TemplateValue>;
@@ -11,6 +16,7 @@ export type LocalizedEmailTemplate = {
 };
 
 export type RenderedLocalizedEmail = {
+  direction: TextDirection;
   html?: string;
   locale: Locale;
   subject: string;
@@ -34,6 +40,7 @@ export type LocalizedInvoiceTemplate = {
 
 export type RenderedLocalizedInvoiceTemplate = {
   billToLabel: string;
+  direction: TextDirection;
   dueDateLabel: string;
   footer?: string;
   invoiceNumberLabel: string;
@@ -79,6 +86,7 @@ export function renderLocalizedEmailTemplate(
   values: TemplateValues = {},
 ): RenderedLocalizedEmail {
   return {
+    direction: getTextDirection(locale),
     html: template.html
       ? renderLocalizedText(locale, template.html, values)
       : undefined,
@@ -95,6 +103,7 @@ export function renderLocalizedInvoiceTemplate(
 ): RenderedLocalizedInvoiceTemplate {
   return {
     billToLabel: renderLocalizedText(locale, template.billToLabel, values),
+    direction: getTextDirection(locale),
     dueDateLabel: renderLocalizedText(locale, template.dueDateLabel, values),
     footer: template.footer
       ? renderLocalizedText(locale, template.footer, values)
