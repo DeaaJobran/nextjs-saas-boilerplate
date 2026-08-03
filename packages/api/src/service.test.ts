@@ -15,7 +15,7 @@ import {
   createStorageService,
 } from "@nextjs-saas/storage";
 import { createTenantService } from "@nextjs-saas/tenant";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { generateOpenApiSpec } from "./contracts";
 import { createApiService } from "./service";
@@ -39,6 +39,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
+
   if (databaseRuntimeOpened) {
     await (await getDatabaseRuntime()).close();
   }
@@ -487,6 +489,7 @@ describe("public API service", () => {
       authSecret,
       client: runtime,
       now: () => fixedNow,
+      oauthRedirectUris: ["com.example.app://oauth/callback"],
       oauthAdapters: [
         {
           authorizationEndpoint: "https://idp.example.test/oauth/authorize",
@@ -514,11 +517,163 @@ describe("public API service", () => {
     ]);
 
     const authorization = await api.createOAuthAuthorizationUrl({
+      codeChallenge: "A".repeat(43),
       provider: "example",
-      redirectUri: "https://app.example.test/api/v1/oauth/callback",
+      redirectUri: "com.example.app://oauth/callback",
     });
 
     expect(authorization.url).toContain("code_challenge_method=S256");
+    expect(authorization.url).toContain(`code_challenge=${"A".repeat(43)}`);
     expect(authorization.url).toContain("client_id=client_test");
+    await expect(
+      api.createOAuthAuthorizationUrl({
+        codeChallenge: "B".repeat(43),
+        provider: "example",
+        redirectUri: "com.attacker.app://oauth/callback",
+      }),
+    ).rejects.toMatchObject({ code: "oauth_redirect_uri_not_allowed" });
+  }, 60_000);
+
+  it("requires MFA and preserves request context for mobile OAuth", async () => {
+    const runtime = await getRuntime();
+    const auth = createAuthService({
+      appBaseUrl: "https://app.example.test",
+      authSecret,
+      client: runtime,
+      now: () => fixedNow,
+    });
+    const user = await auth.createUserWithPassword({
+      displayName: "OAuth MFA User",
+      email: "oauth-mfa@example.test",
+      password: "StrongPass123",
+    });
+    const enrollmentSession = await auth.signInWithPassword({
+      email: user.email,
+      password: "StrongPass123",
+    });
+
+    if (enrollmentSession.status !== "signed_in") {
+      throw new Error("Expected MFA enrollment sign-in to succeed.");
+    }
+
+    const enrollment = await auth.createTotpEnrollment({ userId: user.id });
+    const mfaCode = auth.createTotpCode(enrollment.secret, {
+      timestamp: fixedNow.getTime(),
+    });
+
+    await auth.enableTotpFactor({
+      code: mfaCode,
+      factorId: enrollment.factorId,
+      sessionId: enrollmentSession.session.session.id,
+      userId: user.id,
+    });
+    await runtime.execute(
+      `
+        INSERT INTO auth_accounts (
+          id, user_id, provider, provider_account_id, provider_email,
+          created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $6)
+      `,
+      [
+        "oauth-mfa-account",
+        user.id,
+        "oauth-mfa",
+        "oauth-mfa-provider-user",
+        user.email,
+        fixedNow.toISOString(),
+      ],
+    );
+
+    vi.stubGlobal("fetch", async (request: string | URL | Request) =>
+      String(request).endsWith("/token")
+        ? new Response(JSON.stringify({ access_token: "oauth-mfa-token" }))
+        : new Response(
+            JSON.stringify({
+              email: user.email,
+              email_verified: true,
+              id: "oauth-mfa-provider-user",
+              name: user.displayName,
+            }),
+          ),
+    );
+
+    const api = createApiService({
+      appBaseUrl: "https://app.example.test",
+      authSecret,
+      client: runtime,
+      now: () => fixedNow,
+      oauthAdapters: [
+        {
+          authorizationEndpoint: "https://idp.example.test/authorize",
+          clientId: "oauth-mfa-client",
+          clientSecret: "oauth-mfa-secret",
+          mapProfile(profile: Record<string, unknown>) {
+            return {
+              displayName: String(profile.name),
+              email: String(profile.email),
+              emailVerified: profile.email_verified === true,
+              providerAccountId: String(profile.id),
+            };
+          },
+          provider: "oauth-mfa",
+          scopes: ["openid", "email"],
+          tokenEndpoint: "https://idp.example.test/token",
+          userInfoEndpoint: "https://idp.example.test/userinfo",
+        },
+      ],
+      oauthRedirectUris: ["com.example.app://oauth/callback"],
+    });
+    const verifier = "mobile_verifier_value_with_43_characters_total_123";
+    const codeChallenge = createHash("sha256")
+      .update(verifier)
+      .digest("base64url");
+    const createAuthorization = () =>
+      api.createOAuthAuthorizationUrl({
+        codeChallenge,
+        provider: "oauth-mfa",
+        redirectUri: "com.example.app://oauth/callback",
+      });
+    const firstAuthorization = await createAuthorization();
+
+    await expect(
+      api.completeOAuthCallback({
+        code: "oauth-mfa-code",
+        codeVerifier: verifier,
+        provider: "oauth-mfa",
+        redirectUri: "com.example.app://oauth/callback",
+        state: firstAuthorization.state,
+      }),
+    ).rejects.toMatchObject({ code: "mfa_required" });
+
+    const authorization = await createAuthorization();
+    const result = await api.completeOAuthCallback({
+      code: "oauth-mfa-code",
+      codeVerifier: verifier,
+      ipAddress: "203.0.113.42",
+      mfaCode,
+      provider: "oauth-mfa",
+      redirectUri: "com.example.app://oauth/callback",
+      state: authorization.state,
+      userAgent: "OAuth Mobile Test",
+    });
+    const sessionRows = await runtime.execute<{
+      ip_address: string | null;
+      mfa_verified_at: Date | string | null;
+      user_agent: string | null;
+    }>(
+      `
+        SELECT ip_address, mfa_verified_at, user_agent
+        FROM auth_sessions
+        WHERE id = $1
+      `,
+      [result.session.id],
+    );
+
+    expect(sessionRows[0]).toMatchObject({
+      ip_address: "203.0.113.42",
+      user_agent: "OAuth Mobile Test",
+    });
+    expect(sessionRows[0]?.mfa_verified_at).toBeTruthy();
   }, 60_000);
 });

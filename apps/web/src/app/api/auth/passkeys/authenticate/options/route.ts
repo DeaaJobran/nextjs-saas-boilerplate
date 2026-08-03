@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 
 import { getAuthService } from "@/lib/auth";
 import {
+  parseJsonRequest,
+  parsePasskeyAuthenticationOptionsRequest,
   protectServerAction,
   securityErrorResponse,
 } from "@/lib/server-action-security";
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as {
-    email?: string;
-  };
-
   try {
+    const body = await parseJsonRequest(
+      request,
+      parsePasskeyAuthenticationOptionsRequest,
+    );
     await protectServerAction({
-      identifier: body.email?.trim() || "missing-passkey-email",
+      identifier: body.email ?? "missing-passkey-email",
       limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),
       scope: "passkey-authentication",
       windowSeconds: Number(process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 900),

@@ -1,6 +1,6 @@
 import { withDatabaseTransaction } from "@nextjs-saas/db";
 
-import { assertMfaAssurance, requireCurrentSession } from "@/lib/auth";
+import { assertMfaAssurance, requireApiSession } from "@/lib/auth";
 import { getSecurityService } from "@/lib/security";
 import {
   protectServerAction,
@@ -8,11 +8,12 @@ import {
 } from "@/lib/server-action-security";
 
 export async function POST() {
-  const session = await requireCurrentSession();
   let exported;
   let requestId: string;
 
   try {
+    const session = await requireApiSession();
+
     assertMfaAssurance(session);
     await protectServerAction({
       identifier: session.user.id,

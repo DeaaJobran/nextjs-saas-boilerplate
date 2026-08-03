@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./app": "./src/app.ts",
+    "./auth": "./src/auth.ts",
     "./content": "./src/content.ts",
     "./env": "./src/env.ts",
     "./seo": "./src/seo.ts"

@@ -6,11 +6,13 @@ import {
   BarChart3Icon,
   CreditCardIcon,
   GaugeIcon,
+  LogOutIcon,
   ShieldIcon,
   UsersIcon,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import { logoutAction } from "../app/[locale]/(auth)/auth/actions";
 import { Link } from "../i18n/navigation";
 import { getContentRepository } from "../lib/content-store";
 import { listCanonicalPublicManagedPages } from "../lib/public-content";
@@ -233,6 +235,18 @@ export async function DashboardShell({
             {tenantControls}
             <ThemeToggle />
             <LocaleSwitcher availableLocales={availableLocales} />
+            <form action={logoutAction}>
+              <input name="locale" type="hidden" value={locale} />
+              <Button
+                aria-label={shellT("signOut")}
+                size="icon"
+                title={shellT("signOut")}
+                type="submit"
+                variant="ghost"
+              >
+                <LogOutIcon aria-hidden="true" className="rtl:-scale-x-100" />
+              </Button>
+            </form>
           </div>
         </header>
         <main

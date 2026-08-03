@@ -10,6 +10,19 @@ if (!process.env.DATABASE_URL) {
   process.env.PGLITE_DATA_DIR = pgliteDataDir;
 }
 
+const oauthProviders = JSON.stringify([
+  {
+    authorizationEndpoint: "https://identity.example.test/authorize",
+    clientId: "playwright-client",
+    clientSecret: "playwright-secret",
+    displayName: "Playwright Identity",
+    provider: "playwright",
+    scopes: ["openid", "email", "profile"],
+    tokenEndpoint: "https://identity.example.test/token",
+    userInfoEndpoint: "https://identity.example.test/userinfo",
+  },
+]);
+
 export default defineConfig({
   testDir: "./tests/e2e",
   // The E2E suite shares one Next.js server and database; keep tests serial until each test provisions isolated storage.
@@ -28,8 +41,14 @@ export default defineConfig({
     env: {
       ADMIN_SESSION_TOKEN: "playwright-admin",
       AUTH_ALLOW_ADMIN_BYPASS: "true",
+      AUTH_OAUTH_PROVIDERS: oauthProviders,
+      AUTH_OAUTH_MOBILE_REDIRECT_URIS: JSON.stringify([
+        "https://mobile.example.test/oauth/callback",
+      ]),
+      AUTH_OAUTH_GLOBAL_RATE_LIMIT_MAX: "500",
       AUTH_SECRET: "playwright-auth-secret-with-at-least-32-characters",
       NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3000",
+      TRUSTED_PROXY_COUNT: "1",
       ...databaseEnv,
     },
     url: "http://127.0.0.1:3000",
