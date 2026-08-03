@@ -16,6 +16,17 @@ All notable public changes are tracked here. This project uses semantic version 
 - Queue-backed transactional messaging with React Email templates, preview/SMTP/Resend/Postmark/Mailgun adapters, retryable auth-outbox delivery, delivery and audit logs, localization, and tenant branding.
 - User notification preferences, in-app notifications, push/SMS provider contracts, settings UI, and admin delivery visibility.
 - Redacted structured logging, durable metrics and spans, optional OpenTelemetry OTLP HTTP export, dependency readiness, scheduled uptime checks and retention, API/job correlation, audit aggregation, and an admin observability dashboard.
+- Versioned public API contracts with scoped personal and tenant keys, consistent response envelopes, pagination/filtering/sorting, idempotency, webhooks, OpenAPI and TypeScript SDK generation, OAuth/OIDC provider adapters, mobile sessions and devices, deep links, upload intents, realtime events, and usage tracking.
+- Security and privacy foundations covering secure headers, origin/CORS policy, durable rate limits, bot-protection hooks, validation helpers, MFA policy, signed webhook primitives, versioned legal acceptance, and account export/deletion workflows.
+
+### Changed
+
+- Centralized application route families, authentication action routes, crawler policy, managed-page publication checks, sitemap generation, and robots policy so public navigation, legal acceptance, and crawlability share one configuration contract.
+- Completed the core application UI sweep with active responsive navigation, role-aware mobile controls, localized loading/error/dialog feedback, persistent RTL-aware themes and toasts, accessible live-data charts, and responsive public, auth, dashboard, admin, and settings layouts.
+
+### Fixed
+
+- Hidden links to unavailable managed pages, rejected signup against unavailable legal documents, reset repeated contact submissions with unique result tokens, and rendered zero-valued metric bars at zero width.
 
 ## v0.3.0 - 2026-07-06
 

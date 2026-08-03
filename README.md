@@ -8,7 +8,7 @@ An open-source, production-minded Next.js SaaS boilerplate for developers who wa
 
 Current release: `v0.3.0`.
 
-The project has a working foundation for the web app, database, self-hosted identity, tenant administration, managed marketing content, billing/payment abstractions, observability, local services, and quality gates. It is still not a finished production SaaS starter. Storage provider adapters, email delivery, public API/mobile support, and deployment guides are still roadmap items.
+The project has a working foundation for the web app, database, self-hosted identity, tenant administration, managed marketing content, billing/payments, public API and mobile clients, storage, messaging, observability, security, local services, and quality gates. It is still not a finished production SaaS starter. Production deployment and recovery guides, a complete public documentation site, optional AI capabilities, visual regression coverage, and advanced release automation remain roadmap items.
 
 ## Principles
 
@@ -28,9 +28,11 @@ The project has a working foundation for the web app, database, self-hosted iden
 - Self-hosted `@nextjs-saas/auth` package with email/password, magic links, email verification, password reset, refresh sessions, passkeys, TOTP MFA primitives, authorization helpers, audit events, and auth tests.
 - Tenant package with organizations, memberships, invitations, roles, permissions, tenant API keys, quotas, usage limits, feature flags, audit logs, support impersonation, and tenant tests.
 - Billing package with database-backed plans, localized plan copy, multi-currency prices, tenant billing settings, tax settings/rates, usage meters, subscriptions, invoices, payment methods, refunds, entitlements, signed idempotent webhooks, a mock provider adapter, and a Stripe-compatible adapter.
+- Public API package with versioned contracts, scoped personal and tenant keys, consistent envelopes, cursor pagination, idempotency, webhooks, OpenAPI and TypeScript SDK generation, OAuth/OIDC adapter contracts, mobile sessions, device management, deep links, upload intents, and usage auditing.
 - Storage package with local, S3, Wasabi, MinIO, and R2 adapters, signed transfers, tenant ownership policies, upload validation, media previews, malware scanning hooks, lifecycle cleanup, quota accounting, audit records, and tests.
 - Messaging package with React Email templates, local preview, SMTP/Resend/Postmark/Mailgun adapters, queued retries, delivery logs, localized tenant branding, preferences, in-app notifications, and push/SMS extension contracts.
 - Observability package with redacted structured logging, database metrics and spans, optional OpenTelemetry export, liveness/readiness endpoints, scheduled uptime checks, retention jobs, audit aggregation, and an admin operations dashboard.
+- Security package with secure headers, origin and CORS policy, durable rate limits, bot-protection hooks, validation helpers, MFA policy, signed webhook primitives, legal acceptance records, and privacy export/deletion workflows.
 - Admin and super-admin surfaces for content, users, tenant controls, and impersonation workflows.
 - Jobs package with background job and cron schedule primitives.
 - Local Docker Compose services for PostgreSQL, Redis, MinIO, and Mailpit.
@@ -39,9 +41,10 @@ The project has a working foundation for the web app, database, self-hosted iden
 
 ## Roadmap Highlights
 
-- Public API, OpenAPI generation, mobile session support, OAuth/OIDC support, SDK path, and API usage tracking.
 - Production deployment examples, VPS hardening, reverse proxy guides, backup/restore, maintenance mode, and rollback strategy.
+- Complete module and extension guides in the public documentation application.
 - Optional AI module with provider abstraction, token tracking, RAG, pgvector, safety, evaluation, and audit trail.
+- Visual regression coverage and advanced release automation.
 
 See [Feature priorities](FEATURES.md) for the tracked public backlog.
 
@@ -135,6 +138,7 @@ pnpm build:storybook
 
 - `apps/web`: primary Next.js SaaS application.
 - `apps/docs`: public documentation app shell.
+- `packages/api`: versioned API contracts, authentication, scopes, OAuth/OIDC adapters, mobile sessions, OpenAPI, SDK generation, webhooks, and usage tracking.
 - `packages/auth`: self-hosted identity and session domain.
 - `packages/billing`: billing, payment adapter, currency, tax, usage, entitlement, invoice, refund, and webhook domain.
 - `packages/config`: app configuration, environment validation, SEO, and managed content contracts.
@@ -143,6 +147,7 @@ pnpm build:storybook
 - `packages/jobs`: background job and cron primitives.
 - `packages/localization`: locale definitions, direction helpers, and locale-aware formatting.
 - `packages/observability`: structured logging, durable metrics and traces, health/readiness checks, retention and uptime jobs, audit aggregation, and OpenTelemetry export.
+- `packages/security`: response security, origin/CORS policy, rate limiting, validation, MFA policy, legal acceptance, and privacy workflows.
 - `packages/storage`: tenant-aware files, provider adapters, signed transfers, validation, media processing, lifecycle cleanup, quota accounting, and audit records.
 - `packages/tenant`: organizations, memberships, invitations, tenant permissions, tenant API keys, quotas, feature flags, audit, and impersonation.
 - `packages/ui`: shared UI primitives, components, styles, and Storybook stories.
@@ -155,6 +160,7 @@ pnpm build:storybook
 - [Quality gates](docs-quality.md)
 - [Changelog](CHANGELOG.md)
 - [Architecture decisions](adr/)
+- Package guides: [API](packages/api/README.md), [authentication](packages/auth/README.md), [billing](packages/billing/README.md), [localization](packages/localization/README.md), [tenancy](packages/tenant/README.md), [storage](packages/storage/README.md), [messaging](packages/emails/README.md), [observability](packages/observability/README.md), and [security](packages/security/README.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Support policy](SUPPORT.md)

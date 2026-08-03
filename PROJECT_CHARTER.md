@@ -44,10 +44,10 @@ The project is release-tagged but not production-ready yet. A feature can be des
 - Maintain an internal `@nextjs-saas/tenant` package for organizations, memberships, roles, permissions, tenant controls, and tenant audit.
 - Use `next-intl` and `@nextjs-saas/localization` for localization and RTL/LTR behavior.
 - Keep managed marketing content database-backed and admin-manageable.
-- Use provider abstractions for billing, storage, email, AI, tax, and currency when those modules are implemented.
-- Billing starts with a local/mock adapter for tests and examples, plus a Stripe adapter as the first external payment provider when billing implementation begins.
+- Use provider abstractions for billing, storage, email, AI, tax, and currency. Billing, storage, email, tax, and currency abstractions are implemented; AI remains optional future work.
+- Billing uses a local/mock adapter for tests and examples plus a Stripe-compatible adapter as the first external payment provider.
 - Tax starts with manual rules and provider abstraction; do not claim tax compliance without a production tax provider integration.
-- Email starts with React Email templates, local preview, and an SMTP adapter; Resend/Postmark/Mailgun-style adapters are optional provider implementations.
+- Email uses React Email templates, local preview, SMTP, Resend, Postmark, and Mailgun adapters behind a queue-backed delivery contract.
 - Use Docker Compose for local and single-VPS operations.
 - Use Caddy as the preferred first reverse proxy guide unless implementation work proves another open-source proxy is a better fit.
 - Enable Docker image dependency updates when Docker manifests are introduced; do not run Docker Dependabot jobs before Dockerfiles exist.
@@ -56,36 +56,25 @@ The project is release-tagged but not production-ready yet. A feature can be des
 
 Implemented core packages:
 
+- `api`
 - `auth`
+- `billing`
 - `config`
 - `db`
+- `emails`
 - `jobs`
 - `localization`
+- `observability`
+- `security`
+- `storage`
 - `tenant`
 - `ui`
 
-Required future module boundaries:
+Optional future standalone module:
 
-- `api`
-- `observability`
-- `security`
-- `testing`
-
-Optional future modules:
-
-- `billing`
-- `payments`
-- `currency`
-- `tax`
-- `storage`
-- `files`
-- `emails`
-- `notifications`
-- `webhooks`
-- `mobile`
 - `ai`
 
-Optional modules must be removable or adoptable without rewriting the core application.
+Payments, currency, tax, files, notifications, webhooks, and mobile support currently live inside their owning domain packages. They should become standalone packages only when reuse or ownership justifies the split. Optional modules must remain removable or adoptable without rewriting the core application.
 
 ## Coding Standards
 
