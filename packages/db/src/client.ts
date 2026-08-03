@@ -21,7 +21,7 @@ export type Queryable = {
 
 export type DatabaseRuntime = Queryable & {
   close(): Promise<void>;
-  dialect: "pglite" | "postgres";
+  dialect: "pglite" | "postgres" | "sqlite";
   transaction<T>(callback: (client: Queryable) => Promise<T>): Promise<T>;
 };
 

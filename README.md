@@ -23,7 +23,7 @@ The project has a working foundation for the web app, database, self-hosted iden
 - Next.js App Router with React `19.2.x`, TypeScript strict mode, Tailwind CSS, and locale-aware routing.
 - English and Arabic locale support with RTL/LTR layout switching, DB-controlled active locales, translation validation, locale-aware formatters, and preferred locale storage.
 - Shared shadcn-style UI package with Radix-backed primitives, forms, cards, dialogs, toasts, tables, charts, and state components.
-- Database package with PostgreSQL runtime, PGlite local fallback, Drizzle schema, migrations, seeds, reset scripts, transactions, query helpers, and migration tests.
+- Database package with a PostgreSQL runtime, PGlite local fallback, an explicit Node SQLite/Drizzle foundation adapter, Drizzle schemas, migrations, seeds, reset scripts, transactions, query helpers, optional tenant RLS policies, and integration tests.
 - Database-managed landing, pricing, contact, and legal content with admin editing surfaces and seeded content.
 - Self-hosted `@nextjs-saas/auth` package with email/password, magic links, email verification, password reset, refresh sessions, passkeys, TOTP MFA primitives, authorization helpers, audit events, and auth tests.
 - Tenant package with organizations, memberships, invitations, roles, permissions, tenant API keys, quotas, usage limits, feature flags, audit logs, support impersonation, and tenant tests.

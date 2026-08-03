@@ -19,13 +19,13 @@ export const tenantDataModelDecision = {
   enforcement:
     "All tenant-scoped tables include tenant_id now; service/repository APIs must require an explicit tenant boundary before exposing tenant-owned data.",
   rowLevelSecurity:
-    "Deferred until tenant membership and permission tables exist, then re-evaluate PostgreSQL RLS for production defense-in-depth.",
+    "Optional PostgreSQL policies are installed disabled and can be enabled as defense-in-depth after the application sets a trusted transaction-local tenant context.",
 } as const;
 
 export const embeddedDatabaseDecision = {
   localDevelopment: "pglite",
   sqlite:
-    "Not included because the boilerplate is PostgreSQL-first and uses PGlite for local embedded development without changing SQL dialects.",
+    "Available as an explicit Node SQLite and Drizzle service-foundation adapter; the full application remains PostgreSQL-first and uses PGlite when PostgreSQL SQL compatibility is required.",
 } as const;
 
 export type TenantScopedRecord = {
