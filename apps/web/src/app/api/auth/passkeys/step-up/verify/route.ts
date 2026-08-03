@@ -1,24 +1,29 @@
 import { NextResponse } from "next/server";
 
-import { getAuthService, requireCurrentSession } from "@/lib/auth";
+import { getAuthService, requireApiSession } from "@/lib/auth";
 import {
+  parseJsonRequest,
+  parsePasskeyAuthenticationVerificationRequest,
   protectServerAction,
   securityErrorResponse,
 } from "@/lib/server-action-security";
 
 export async function POST(request: Request) {
-  const session = await requireCurrentSession();
-  const body = (await request.json()) as { response: unknown };
-
   try {
+    const session = await requireApiSession();
+
     await protectServerAction({
       identifier: session.user.id,
       limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),
       scope: "passkey-step-up",
       windowSeconds: Number(process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 900),
     });
+    const body = await parseJsonRequest(
+      request,
+      parsePasskeyAuthenticationVerificationRequest,
+    );
     await getAuthService().finishPasskeySessionMfa({
-      response: body.response as never,
+      response: body.response,
       sessionId: session.session.id,
       userId: session.user.id,
     });

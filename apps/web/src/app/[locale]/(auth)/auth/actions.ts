@@ -9,16 +9,30 @@ import {
   getClientAddress,
   SecurityError,
 } from "@nextjs-saas/security";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
   clearAuthCookies,
   getAuthService,
-  requireCurrentSession,
+  getOptionalCurrentSession,
   setAuthCookies,
 } from "../../../../lib/auth";
 import { getContentRepository } from "../../../../lib/content-store";
+import { getOAuthCallbackUrl, getOAuthProvider } from "../../../../lib/oauth";
+import {
+  createOAuthBrowserId,
+  isOAuthBrowserId,
+  oauthBrowserCookieName,
+  oauthBrowserCookieOptions,
+  oauthStateCookieName,
+  oauthStateCookieOptions,
+  oauthStateFingerprint,
+} from "../../../../lib/oauth-browser-state";
+import {
+  createOAuthLegalAcceptance,
+  type OAuthLegalAcceptance,
+} from "../../../../lib/oauth-legal-onboarding";
 import { getPublicManagedPage } from "../../../../lib/public-content";
 import { getSecurityService } from "../../../../lib/security";
 import { protectServerAction } from "../../../../lib/server-action-security";
@@ -49,9 +63,10 @@ function redirectWithStatus(path: string, key: string, value: string) {
 }
 
 function localizedPath(formData: FormData, path: string) {
-  const locale = formValue(formData, "locale");
+  const localeValue = formValue(formData, "locale");
+  const locale = isLocale(localeValue) ? localeValue : defaultLocale;
 
-  return locale ? `/${locale}${path}` : path;
+  return `/${locale}${path}`;
 }
 
 function errorCode(error: unknown) {
@@ -60,13 +75,29 @@ function errorCode(error: unknown) {
     : "unknown";
 }
 
-function protectAuthAction(identifier: string) {
+function protectAuthAction(identifier: string, scope = "auth") {
   return protectServerAction({
     identifier: identifier || "missing-auth-identifier",
     limit: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),
-    scope: "auth",
+    scope,
     windowSeconds: Number(process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 900),
   });
+}
+
+async function protectOAuthStartGlobally(provider: string) {
+  const clientLimit = Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10);
+  const result = await getSecurityService().consumeRateLimit({
+    identifier: provider,
+    limit: Number(
+      process.env.AUTH_OAUTH_GLOBAL_RATE_LIMIT_MAX ?? clientLimit * 50,
+    ),
+    scope: "server-action:oauth-start:global",
+    windowSeconds: Number(process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 900),
+  });
+
+  if (!result.allowed) {
+    throw new SecurityError("Rate limit exceeded.", "rate_limited", 429);
+  }
 }
 
 export async function signInAction(formData: FormData) {
@@ -99,6 +130,100 @@ export async function signInAction(formData: FormData) {
   }
 
   redirect(redirectTo);
+}
+
+export async function startOAuthSignInAction(formData: FormData) {
+  const providerId = formValue(formData, "provider");
+  const localeValue = formValue(formData, "locale");
+  const locale = isLocale(localeValue) ? localeValue : defaultLocale;
+  let authorizationUrl = localizedPath(formData, appRoutes.signIn);
+
+  try {
+    const cookieStore = await cookies();
+    const browserIdCookie = cookieStore.get(oauthBrowserCookieName)?.value;
+    const browserId =
+      browserIdCookie && isOAuthBrowserId(browserIdCookie)
+        ? browserIdCookie
+        : createOAuthBrowserId();
+    const requestContext = await authContext();
+
+    if (browserId !== browserIdCookie) {
+      cookieStore.set(
+        oauthBrowserCookieName,
+        browserId,
+        oauthBrowserCookieOptions(),
+      );
+    }
+
+    await protectAuthAction(
+      `oauth:${requestContext.ipAddress ?? browserId}`,
+      "oauth-start",
+    );
+    const provider = getOAuthProvider(providerId);
+
+    if (!provider) {
+      throw new AuthError(
+        "Social sign-in provider is not configured.",
+        "oauth_provider_not_found",
+      );
+    }
+
+    await protectOAuthStartGlobally(provider.provider);
+
+    const legalAcceptances: OAuthLegalAcceptance[] = [];
+
+    if (formData.get("legalAcceptance") === "on") {
+      const repository = await getContentRepository();
+
+      if (!repository.isLocaleEnabled(locale)) {
+        throw new SecurityError(
+          "Account creation is unavailable for this locale.",
+          "locale_unavailable",
+          400,
+        );
+      }
+
+      const pages = repository.listPages(locale);
+      const legalDocuments = ["terms", "privacy"].map((slug) =>
+        getPublicManagedPage(pages, { kind: "legal", locale, slug }),
+      );
+
+      if (legalDocuments.some((document) => !document)) {
+        throw new SecurityError(
+          "Published legal documents are unavailable.",
+          "legal_document_unavailable",
+          500,
+        );
+      }
+
+      legalAcceptances.push(
+        ...legalDocuments.map((document) =>
+          createOAuthLegalAcceptance(document!),
+        ),
+      );
+    }
+
+    const authorization = await getAuthService().createOAuthAuthorizationUrl({
+      adapter: provider.adapter,
+      metadata: { legalAcceptances, locale },
+      redirectUri: getOAuthCallbackUrl(locale, provider.provider),
+    });
+
+    authorizationUrl = authorization.url;
+    cookieStore.set(
+      oauthStateCookieName(provider.provider, authorization.state),
+      oauthStateFingerprint(authorization.state),
+      oauthStateCookieOptions(locale, provider.provider),
+    );
+  } catch {
+    redirectWithStatus(
+      localizedPath(formData, appRoutes.signIn),
+      "error",
+      "oauth_failed",
+    );
+  }
+
+  redirect(authorizationUrl);
 }
 
 export async function signUpAction(formData: FormData) {
@@ -369,10 +494,12 @@ export async function verifyEmailChangeAction(formData: FormData) {
   );
 }
 
-export async function logoutAction() {
-  const session = await requireCurrentSession();
+export async function logoutAction(formData: FormData) {
+  const session = await getOptionalCurrentSession();
 
-  await getAuthService().revokeSession({ sessionId: session.session.id });
+  if (session) {
+    await getAuthService().revokeSession({ sessionId: session.session.id });
+  }
   await clearAuthCookies();
-  redirect(appRoutes.signIn);
+  redirect(localizedPath(formData, appRoutes.signIn));
 }

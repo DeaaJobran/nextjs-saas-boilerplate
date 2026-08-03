@@ -3,20 +3,19 @@ import { NextResponse } from "next/server";
 import {
   assertMfaEnrollmentAllowed,
   getAuthService,
-  requireCurrentSession,
+  requireApiSession,
 } from "@/lib/auth";
 import {
+  parseJsonRequest,
+  parsePasskeyRegistrationOptionsRequest,
   protectServerAction,
   securityErrorResponse,
 } from "@/lib/server-action-security";
 
 export async function POST(request: Request) {
-  const session = await requireCurrentSession();
-  const body = (await request.json().catch(() => ({}))) as {
-    label?: string;
-  };
-
   try {
+    const session = await requireApiSession();
+
     await assertMfaEnrollmentAllowed(session);
     await protectServerAction({
       identifier: session.user.id,
@@ -24,6 +23,10 @@ export async function POST(request: Request) {
       scope: "passkey-registration",
       windowSeconds: Number(process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ?? 900),
     });
+    const body = await parseJsonRequest(
+      request,
+      parsePasskeyRegistrationOptionsRequest,
+    );
     const options = await getAuthService().beginPasskeyRegistration({
       label: body.label,
       userId: session.user.id,

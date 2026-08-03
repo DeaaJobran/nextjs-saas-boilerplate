@@ -324,6 +324,7 @@ export const createEventSchema = z.object({
 });
 
 export const createOAuthAuthorizationSchema = z.object({
+  codeChallenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
   metadata: z.record(z.string(), z.unknown()).default({}),
   provider: nonEmptyString.max(80),
   redirectUri: z.string().url(),
@@ -331,6 +332,7 @@ export const createOAuthAuthorizationSchema = z.object({
 
 export const completeOAuthCallbackSchema = z.object({
   code: nonEmptyString,
+  codeVerifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/u),
   device: z
     .object({
       appVersion: z.string().trim().max(80).optional(),
@@ -339,6 +341,7 @@ export const completeOAuthCallbackSchema = z.object({
       platform: nonEmptyString.max(80),
     })
     .optional(),
+  mfaCode: z.string().trim().min(1).max(32).optional(),
   provider: nonEmptyString.max(80),
   redirectUri: z.string().url(),
   state: nonEmptyString,

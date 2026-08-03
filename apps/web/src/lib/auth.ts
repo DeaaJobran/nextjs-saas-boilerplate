@@ -1,23 +1,33 @@
 import {
   authRoleConfig,
-  authSecurityPolicy,
   type AuthSession,
-  createAuthService,
   requirePageAccess,
 } from "@nextjs-saas/auth";
+import { appRoutes } from "@nextjs-saas/config/app";
 import {
-  appConfig,
-  appRoutes,
-  authActionRoutes,
-} from "@nextjs-saas/config/app";
-import type { Queryable } from "@nextjs-saas/db";
-import { isMfaRequiredForRole, SecurityError } from "@nextjs-saas/security";
-import { cookies } from "next/headers";
+  getClientAddress,
+  isMfaRequiredForRole,
+  SecurityError,
+} from "@nextjs-saas/security";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-const sessionCookieName = "nextjs_saas_session";
-const refreshCookieName = "nextjs_saas_refresh";
-const adminSessionCookieName = "nextjs_saas_admin_session";
+import {
+  adminSessionCookieName,
+  refreshCookieName,
+  refreshCookieOptions,
+  refreshSuppressionCookieName,
+  refreshSuppressionCookieOptions,
+  refreshSuppressionFingerprint,
+  refreshSuppressionMatches,
+  refreshSuppressionTtlSeconds,
+  sessionCookieName,
+  sessionCookieOptions,
+} from "./auth-cookies";
+import { getAuthService } from "./auth-service";
+import { coordinateRefreshRotation } from "./refresh-rotation";
+
+export { getAuthService } from "./auth-service";
 
 type SessionContext = {
   session: Pick<AuthSession, "mfaVerifiedAt">;
@@ -76,37 +86,23 @@ export async function assertMfaEnrollmentAllowed(session: SessionContext) {
   }
 }
 
-export function getAuthService(client?: Queryable) {
-  return createAuthService({
-    actionRoutes: authActionRoutes,
-    appBaseUrl: process.env.NEXT_PUBLIC_APP_URL,
-    authSecret: process.env.AUTH_SECRET,
-    client,
-    issuer: appConfig.shortName,
-  });
-}
-
 export async function setAuthCookies(input: {
   refreshToken: string;
   sessionToken: string;
 }) {
   const cookieStore = await cookies();
-  const secure = process.env.NODE_ENV === "production";
 
-  cookieStore.set(sessionCookieName, input.sessionToken, {
-    httpOnly: true,
-    maxAge: authSecurityPolicy.sessionTtlSeconds,
-    path: "/",
-    sameSite: "lax",
-    secure,
-  });
-  cookieStore.set(refreshCookieName, input.refreshToken, {
-    httpOnly: true,
-    maxAge: authSecurityPolicy.refreshTokenTtlSeconds,
-    path: "/",
-    sameSite: "lax",
-    secure,
-  });
+  cookieStore.set(
+    sessionCookieName,
+    input.sessionToken,
+    sessionCookieOptions(),
+  );
+  cookieStore.set(
+    refreshCookieName,
+    input.refreshToken,
+    refreshCookieOptions(),
+  );
+  cookieStore.delete(refreshSuppressionCookieName);
 }
 
 export async function clearAuthCookies() {
@@ -114,6 +110,8 @@ export async function clearAuthCookies() {
 
   cookieStore.delete(sessionCookieName);
   cookieStore.delete(refreshCookieName);
+  cookieStore.delete(refreshSuppressionCookieName);
+  cookieStore.delete(adminSessionCookieName);
 }
 
 async function getCurrentSession() {
@@ -127,6 +125,43 @@ async function getCurrentSession() {
   return getAuthService().getSession(sessionToken);
 }
 
+async function refreshApiSession() {
+  const cookieStore = await cookies();
+  const refreshToken = cookieStore.get(refreshCookieName)?.value;
+  const suppression = cookieStore.get(refreshSuppressionCookieName)?.value;
+
+  if (!refreshToken || refreshSuppressionMatches(suppression, refreshToken)) {
+    return undefined;
+  }
+
+  try {
+    const headerStore = await headers();
+    const rotated = await coordinateRefreshRotation(refreshToken, () =>
+      getAuthService().rotateRefreshToken(refreshToken, {
+        deviceName:
+          headerStore.get("sec-ch-ua-platform") ?? "Browser API session",
+        ipAddress: getClientAddress(
+          headerStore,
+          Number(process.env.TRUSTED_PROXY_COUNT ?? 0),
+        ),
+        userAgent: headerStore.get("user-agent") ?? undefined,
+      }),
+    );
+
+    await setAuthCookies(rotated);
+
+    return getAuthService().getSession(rotated.sessionToken);
+  } catch (error) {
+    cookieStore.set(
+      refreshSuppressionCookieName,
+      refreshSuppressionFingerprint(refreshToken),
+      refreshSuppressionCookieOptions(refreshSuppressionTtlSeconds(error)),
+    );
+
+    return undefined;
+  }
+}
+
 export async function getOptionalCurrentSession() {
   return getCurrentSession();
 }
@@ -136,6 +171,16 @@ export async function requireCurrentSession() {
 
   if (!session) {
     redirect(appRoutes.signIn);
+  }
+
+  return session;
+}
+
+export async function requireApiSession() {
+  const session = (await getCurrentSession()) ?? (await refreshApiSession());
+
+  if (!session) {
+    throw new SecurityError("Authentication is required.", "unauthorized", 401);
   }
 
   return session;

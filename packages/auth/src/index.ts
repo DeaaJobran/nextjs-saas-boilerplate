@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 
 import {
   getDatabaseRuntime,
@@ -122,6 +122,10 @@ type AuthServiceOptions = {
   refreshTokenTtlSeconds?: number;
 };
 
+type TransactionalQueryable = Queryable & {
+  transaction<T>(callback: (client: Queryable) => Promise<T>): Promise<T>;
+};
+
 type AuthUserRow = {
   avatar_url: string | null;
   created_at: Date | string;
@@ -196,21 +200,35 @@ type AuthMfaFactorRow = {
   user_id: string;
 };
 
-type OAuthProviderAdapter = {
+export type OAuthProfile = {
+  avatarUrl?: string;
+  displayName: string;
+  email: string;
+  emailVerified?: boolean;
+  providerAccountId: string;
+};
+
+export type OAuthProviderAdapter = {
   authorizationEndpoint: string;
   clientId: string;
   clientSecret: string;
-  mapProfile: (profile: Record<string, unknown>) => {
-    avatarUrl?: string;
-    displayName: string;
-    email: string;
-    emailVerified?: boolean;
-    providerAccountId: string;
-  };
+  mapProfile: (profile: Record<string, unknown>) => OAuthProfile;
   provider: string;
   scopes: string[];
+  tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post";
   tokenEndpoint: string;
   userInfoEndpoint: string;
+};
+
+export type OAuthCallbackClaim = {
+  authorizationMetadata: Record<string, unknown>;
+  codeVerifier: string;
+};
+
+export type OAuthCallbackExchange = {
+  accessToken: string;
+  profile: OAuthProfile;
+  tokenPayload: Record<string, unknown>;
 };
 
 export type AuthUser = {
@@ -244,6 +262,16 @@ export type AuthSession = {
   updatedAt: string;
   userAgent?: string;
   userId: string;
+};
+
+export type AuthAuditEvent = {
+  actorId?: string;
+  createdAt: string;
+  eventType: string;
+  id: string;
+  ipAddress?: string;
+  payload: Record<string, unknown>;
+  userAgent?: string;
 };
 
 export class AuthError extends Error {
@@ -426,6 +454,30 @@ function createPkceChallenge(verifier: string) {
   return sha256Base64Url(verifier);
 }
 
+function encodeOAuthBasicCredential(value: string) {
+  return new URLSearchParams({ value }).toString().slice("value=".length);
+}
+
+function createOAuthBasicAuthorization(clientId: string, clientSecret: string) {
+  const credentials = `${encodeOAuthBasicCredential(clientId)}:${encodeOAuthBasicCredential(clientSecret)}`;
+
+  return `Basic ${Buffer.from(credentials).toString("base64")}`;
+}
+
+function matchesPkceChallenge(verifier: string, challenge: string) {
+  if (
+    !/^[A-Za-z0-9._~-]{43,128}$/u.test(verifier) ||
+    !/^[A-Za-z0-9_-]{43}$/u.test(challenge)
+  ) {
+    return false;
+  }
+
+  const expected = Buffer.from(challenge);
+  const actual = Buffer.from(createPkceChallenge(verifier));
+
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
 function extractClientDataChallenge(
   response: AuthenticationResponseJSON | RegistrationResponseJSON,
 ) {
@@ -513,6 +565,30 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     await runMigrations(runtime);
 
     return runtime;
+  }
+
+  async function withAuthTransaction<T>(
+    callback: (client: Queryable) => Promise<T>,
+  ) {
+    if (options.client) {
+      const client = await getClient();
+
+      if (
+        "transaction" in client &&
+        typeof (client as Partial<TransactionalQueryable>).transaction ===
+          "function"
+      ) {
+        return (client as TransactionalQueryable).transaction(callback);
+      }
+
+      return callback(client);
+    }
+
+    const runtime = await getDatabaseRuntime();
+
+    await runMigrations(runtime);
+
+    return runtime.transaction(callback);
   }
 
   async function audit(
@@ -898,18 +974,30 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       kind: "passkey_authentication",
       userId,
     });
-    const verification = await verifyAuthenticationResponse({
-      credential: {
-        counter: passkey.counter,
-        id: passkey.credential_id,
-        publicKey: base64UrlToBytes(passkey.public_key),
-        transports: parseJsonValue<string[]>(passkey.transports, []) as never[],
-      },
-      expectedChallenge: challenge.challenge,
-      expectedOrigin: appBaseUrl,
-      expectedRPID: rpId,
-      response,
-    });
+    let verification;
+
+    try {
+      verification = await verifyAuthenticationResponse({
+        credential: {
+          counter: passkey.counter,
+          id: passkey.credential_id,
+          publicKey: base64UrlToBytes(passkey.public_key),
+          transports: parseJsonValue<string[]>(
+            passkey.transports,
+            [],
+          ) as never[],
+        },
+        expectedChallenge: challenge.challenge,
+        expectedOrigin: appBaseUrl,
+        expectedRPID: rpId,
+        response,
+      });
+    } catch {
+      throw new AuthError(
+        "Passkey verification failed.",
+        "passkey_verification_failed",
+      );
+    }
 
     if (!verification.verified) {
       throw new AuthError(
@@ -1133,29 +1221,35 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       return options;
     },
 
-    async completeOAuthCallback(input: {
+    async claimOAuthCallback(input: {
       adapter: OAuthProviderAdapter;
-      code: string;
-      context?: AuthContext;
+      codeVerifier?: string;
       redirectUri: string;
       state: string;
-    }) {
+    }): Promise<OAuthCallbackClaim> {
       const client = await getClient();
       const timestamp = now().toISOString();
       const rows = await client.execute<{
         code_verifier: string;
         id: string;
+        metadata: Record<string, unknown> | string;
       }>(
         `
-          UPDATE auth_oauth_states
-          SET consumed_at = $1
+          SELECT id, code_verifier, metadata
+          FROM auth_oauth_states
           WHERE provider = $2
             AND state_hash = $3
+            AND redirect_uri = $4
             AND consumed_at IS NULL
             AND expires_at > $1
-          RETURNING id, code_verifier
+          LIMIT 1
         `,
-        [timestamp, input.adapter.provider, hashToken(input.state)],
+        [
+          timestamp,
+          input.adapter.provider,
+          hashToken(input.state),
+          input.redirectUri,
+        ],
       );
       const stateRow = rows[0];
 
@@ -1166,16 +1260,90 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         );
       }
 
+      const authorizationMetadata = parseJsonValue<Record<string, unknown>>(
+        stateRow.metadata,
+        {},
+      );
+      const usesClientPkce =
+        authorizationMetadata.oauthPkceMode === "client_supplied";
+      const codeVerifier = usesClientPkce
+        ? input.codeVerifier
+        : stateRow.code_verifier;
+
+      if (
+        !codeVerifier ||
+        (usesClientPkce &&
+          !matchesPkceChallenge(codeVerifier, stateRow.code_verifier))
+      ) {
+        throw new AuthError(
+          "Invalid OAuth PKCE verifier.",
+          "invalid_oauth_code_verifier",
+        );
+      }
+
+      const consumedRows = await client.execute<{ id: string }>(
+        `
+          UPDATE auth_oauth_states
+          SET consumed_at = $1
+          WHERE id = $2
+            AND provider = $3
+            AND state_hash = $4
+            AND redirect_uri = $5
+            AND consumed_at IS NULL
+            AND expires_at > $1
+          RETURNING id
+        `,
+        [
+          timestamp,
+          stateRow.id,
+          input.adapter.provider,
+          hashToken(input.state),
+          input.redirectUri,
+        ],
+      );
+
+      if (!consumedRows[0]) {
+        throw new AuthError(
+          "Invalid social sign-in state.",
+          "invalid_oauth_state",
+        );
+      }
+
+      return { authorizationMetadata, codeVerifier };
+    },
+
+    async exchangeOAuthCallback(input: {
+      adapter: OAuthProviderAdapter;
+      code: string;
+      codeVerifier: string;
+      redirectUri: string;
+    }): Promise<OAuthCallbackExchange> {
+      const tokenBody = new URLSearchParams({
+        code: input.code,
+        code_verifier: input.codeVerifier,
+        grant_type: "authorization_code",
+        redirect_uri: input.redirectUri,
+      });
+      const tokenHeaders: Record<string, string> = {
+        "content-type": "application/x-www-form-urlencoded",
+      };
+
+      if (
+        (input.adapter.tokenEndpointAuthMethod ?? "client_secret_basic") ===
+        "client_secret_basic"
+      ) {
+        tokenHeaders.authorization = createOAuthBasicAuthorization(
+          input.adapter.clientId,
+          input.adapter.clientSecret,
+        );
+      } else {
+        tokenBody.set("client_id", input.adapter.clientId);
+        tokenBody.set("client_secret", input.adapter.clientSecret);
+      }
+
       const tokenResponse = await fetch(input.adapter.tokenEndpoint, {
-        body: new URLSearchParams({
-          client_id: input.adapter.clientId,
-          client_secret: input.adapter.clientSecret,
-          code: input.code,
-          code_verifier: stateRow.code_verifier,
-          grant_type: "authorization_code",
-          redirect_uri: input.redirectUri,
-        }),
-        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: tokenBody,
+        headers: tokenHeaders,
         method: "POST",
       });
 
@@ -1213,71 +1381,123 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       const profile = input.adapter.mapProfile(
         (await profileResponse.json()) as Record<string, unknown>,
       );
-      const existingAccountRows = await client.execute<{ user_id: string }>(
-        `
+
+      return { accessToken, profile, tokenPayload };
+    },
+
+    async finalizeOAuthCallback(input: {
+      adapter: OAuthProviderAdapter;
+      allowUserProvisioning?: boolean;
+      authorizationMetadata: Record<string, unknown>;
+      context?: AuthContext;
+      enforceMfa?: boolean;
+      exchange: OAuthCallbackExchange;
+      mfaCode?: string;
+      provisioningLocale?: string;
+    }) {
+      return withAuthTransaction(async (client) => {
+        const timestamp = now().toISOString();
+        const { accessToken, profile, tokenPayload } = input.exchange;
+        const existingAccountRows = await client.execute<{ user_id: string }>(
+          `
           SELECT user_id
           FROM auth_accounts
           WHERE provider = $1
             AND provider_account_id = $2
           LIMIT 1
         `,
-        [input.adapter.provider, profile.providerAccountId],
-      );
-      const existingAccount = existingAccountRows[0];
-      const userByEmail = await findUserByEmail(client, profile.email);
-      let user = existingAccount
-        ? await findUserById(client, existingAccount.user_id)
-        : userByEmail;
+          [input.adapter.provider, profile.providerAccountId],
+        );
+        const existingAccount = existingAccountRows[0];
+        const userByEmail = await findUserByEmail(client, profile.email);
 
-      if (existingAccount) {
+        if (!existingAccount && !profile.emailVerified) {
+          throw new AuthError(
+            "The social provider must verify this email before sign-in.",
+            "oauth_email_unverified",
+          );
+        }
+
+        let user = existingAccount
+          ? await findUserById(client, existingAccount.user_id)
+          : userByEmail;
+
+        if (existingAccount) {
+          if (!user) {
+            throw new AuthError(
+              "This social account is already linked to another user.",
+              "account_already_linked",
+            );
+          }
+
+          if (userByEmail && userByEmail.id !== user.id) {
+            throw new AuthError(
+              "This social account is already linked to another user.",
+              "account_already_linked",
+            );
+          }
+        }
+
+        const provisioned = !user;
+
+        if (provisioned && !input.allowUserProvisioning) {
+          throw new AuthError(
+            "Social account provisioning requires legal onboarding.",
+            "oauth_provisioning_required",
+          );
+        }
+
         if (!user) {
-          throw new AuthError(
-            "This social account is already linked to another user.",
-            "account_already_linked",
+          const provisioningLocale = normalizeOptionalLocale(
+            input.provisioningLocale,
           );
-        }
-
-        if (userByEmail && userByEmail.id !== user.id) {
-          throw new AuthError(
-            "This social account is already linked to another user.",
-            "account_already_linked",
-          );
-        }
-      }
-
-      if (!user) {
-        const userRows = await client.execute<AuthUserRow>(
-          `
+          const userRows = await client.execute<AuthUserRow>(
+            `
             INSERT INTO auth_users (
               id,
               email,
               normalized_email,
               display_name,
               avatar_url,
+              locale,
               role,
               email_verified_at,
               created_at,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, 'user', $6, $7, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, 'user', $7, $8, $8)
             RETURNING *
           `,
-          [
-            randomUUID(),
-            profile.email,
-            normalizeEmail(profile.email),
-            profile.displayName,
-            profile.avatarUrl,
-            profile.emailVerified ? timestamp : null,
-            timestamp,
-          ],
+            [
+              randomUUID(),
+              profile.email,
+              normalizeEmail(profile.email),
+              profile.displayName,
+              profile.avatarUrl,
+              provisioningLocale,
+              profile.emailVerified ? timestamp : null,
+              timestamp,
+            ],
+          );
+
+          user = userRows[0]!;
+        }
+
+        const mfaVerified = Boolean(
+          input.enforceMfa &&
+          user.mfa_required &&
+          (await verifyMfaCode(client, user.id, input.mfaCode)),
         );
 
-        user = userRows[0]!;
-      }
+        if (input.enforceMfa && user.mfa_required && !mfaVerified) {
+          throw new AuthError(
+            "Multi-factor authentication is required.",
+            "mfa_required",
+          );
+        }
 
-      const accountRows = await client.execute<{ user_id: string }>(
-        `
+        const accountRows = await client.execute<{ user_id: string }>(
+          `
           INSERT INTO auth_accounts (
             id,
             user_id,
@@ -1300,40 +1520,85 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           WHERE auth_accounts.user_id = EXCLUDED.user_id
           RETURNING user_id
         `,
-        [
-          randomUUID(),
-          user.id,
-          input.adapter.provider,
-          profile.providerAccountId,
-          profile.email,
-          hashToken(accessToken),
-          tokenPayload.refresh_token
-            ? hashToken(String(tokenPayload.refresh_token))
-            : null,
-          tokenPayload.expires_in
-            ? addSeconds(now(), Number(tokenPayload.expires_in)).toISOString()
-            : null,
-          timestamp,
-        ],
-      );
-
-      if (!accountRows[0]) {
-        throw new AuthError(
-          "This social account is already linked to another user.",
-          "account_already_linked",
+          [
+            randomUUID(),
+            user.id,
+            input.adapter.provider,
+            profile.providerAccountId,
+            profile.email,
+            hashToken(accessToken),
+            tokenPayload.refresh_token
+              ? hashToken(String(tokenPayload.refresh_token))
+              : null,
+            tokenPayload.expires_in
+              ? addSeconds(now(), Number(tokenPayload.expires_in)).toISOString()
+              : null,
+            timestamp,
+          ],
         );
-      }
 
-      const session = await createSession(client, user.id, input.context);
+        if (!accountRows[0]) {
+          throw new AuthError(
+            "This social account is already linked to another user.",
+            "account_already_linked",
+          );
+        }
 
-      await audit(client, {
-        context: input.context,
-        eventType: "auth.social.signed_in",
-        payload: { provider: input.adapter.provider },
-        userId: user.id,
+        const session = await createSession(client, user.id, input.context, {
+          mfaVerified,
+        });
+
+        await audit(client, {
+          context: input.context,
+          eventType: "auth.social.signed_in",
+          payload: { provider: input.adapter.provider },
+          userId: user.id,
+        });
+
+        return {
+          authorizationMetadata: input.authorizationMetadata,
+          provisioned,
+          session,
+          user: toUser(user),
+        };
+      });
+    },
+
+    async completeOAuthCallback(input: {
+      adapter: OAuthProviderAdapter;
+      allowUserProvisioning?: boolean;
+      code: string;
+      codeVerifier?: string;
+      context?: AuthContext;
+      enforceMfa?: boolean;
+      mfaCode?: string;
+      provisioningLocale?: string;
+      redirectUri: string;
+      state: string;
+    }) {
+      const claim = await this.claimOAuthCallback({
+        adapter: input.adapter,
+        codeVerifier: input.codeVerifier,
+        redirectUri: input.redirectUri,
+        state: input.state,
+      });
+      const exchange = await this.exchangeOAuthCallback({
+        adapter: input.adapter,
+        code: input.code,
+        codeVerifier: claim.codeVerifier,
+        redirectUri: input.redirectUri,
       });
 
-      return { session, user: toUser(user) };
+      return this.finalizeOAuthCallback({
+        adapter: input.adapter,
+        allowUserProvisioning: input.allowUserProvisioning,
+        authorizationMetadata: claim.authorizationMetadata,
+        context: input.context,
+        enforceMfa: input.enforceMfa,
+        exchange,
+        mfaCode: input.mfaCode,
+        provisioningLocale: input.provisioningLocale,
+      });
     },
 
     async createEmailVerification(input: { email: string }) {
@@ -1559,12 +1824,42 @@ export function createAuthService(options: AuthServiceOptions = {}) {
 
     async createOAuthAuthorizationUrl(input: {
       adapter: OAuthProviderAdapter;
+      codeChallenge?: string;
       metadata?: Record<string, unknown>;
       redirectUri: string;
     }) {
       const client = await getClient();
       const state = randomToken("nso");
-      const codeVerifier = randomToken("nspkce");
+      const serverCodeVerifier = input.codeChallenge
+        ? undefined
+        : randomToken("nspkce");
+
+      if (
+        input.codeChallenge &&
+        !/^[A-Za-z0-9_-]{43}$/u.test(input.codeChallenge)
+      ) {
+        throw new AuthError(
+          "OAuth code challenge must be an S256 base64url value.",
+          "invalid_oauth_code_challenge",
+        );
+      }
+
+      const codeChallenge =
+        input.codeChallenge ?? createPkceChallenge(serverCodeVerifier!);
+      const storedPkceValue = input.codeChallenge ?? serverCodeVerifier!;
+      const metadata = {
+        ...(input.metadata ?? {}),
+        oauthPkceMode: input.codeChallenge ? "client_supplied" : "server",
+      };
+
+      await client.execute(
+        `
+          DELETE FROM auth_oauth_states
+          WHERE expires_at <= $1
+             OR consumed_at IS NOT NULL
+        `,
+        [now().toISOString()],
+      );
 
       await client.execute(
         `
@@ -1584,9 +1879,9 @@ export function createAuthService(options: AuthServiceOptions = {}) {
           randomUUID(),
           input.adapter.provider,
           hashToken(state),
-          codeVerifier,
+          storedPkceValue,
           input.redirectUri,
-          JSON.stringify(input.metadata ?? {}),
+          JSON.stringify(metadata),
           addSeconds(
             now(),
             authSecurityPolicy.tokenTtlSeconds.socialCallback,
@@ -1598,7 +1893,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       const url = new URL(input.adapter.authorizationEndpoint);
 
       url.searchParams.set("client_id", input.adapter.clientId);
-      url.searchParams.set("code_challenge", createPkceChallenge(codeVerifier));
+      url.searchParams.set("code_challenge", codeChallenge);
       url.searchParams.set("code_challenge_method", "S256");
       url.searchParams.set("redirect_uri", input.redirectUri);
       url.searchParams.set("response_type", "code");
@@ -2075,13 +2370,22 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         userId: input.userId,
       });
 
-      const verification = await verifyRegistrationResponse({
-        expectedChallenge: challenge.challenge,
-        expectedOrigin: appBaseUrl,
-        expectedRPID: rpId,
-        requireUserVerification: true,
-        response: input.response,
-      });
+      let verification;
+
+      try {
+        verification = await verifyRegistrationResponse({
+          expectedChallenge: challenge.challenge,
+          expectedOrigin: appBaseUrl,
+          expectedRPID: rpId,
+          requireUserVerification: true,
+          response: input.response,
+        });
+      } catch {
+        throw new AuthError(
+          "Passkey registration failed.",
+          "passkey_registration_failed",
+        );
+      }
 
       if (!verification.verified) {
         throw new AuthError(
@@ -2190,23 +2494,44 @@ export function createAuthService(options: AuthServiceOptions = {}) {
       };
     },
 
-    async listAuditEvents(userId: string) {
+    async listAuditEvents(userId: string, limit = 50) {
       const client = await getClient();
 
-      return client.execute<{
+      if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+        throw new AuthError(
+          "Audit event limit must be between 1 and 200.",
+          "invalid_audit_limit",
+        );
+      }
+
+      const rows = await client.execute<{
+        actor_id: string | null;
         created_at: Date | string;
         event_type: string;
         id: string;
+        ip_address: string | null;
         payload: Record<string, unknown> | string;
+        user_agent: string | null;
       }>(
         `
-          SELECT id, event_type, payload, created_at
+          SELECT id, actor_id, event_type, ip_address, user_agent, payload, created_at
           FROM auth_audit_events
           WHERE user_id = $1
           ORDER BY created_at DESC
+          LIMIT $2
         `,
-        [userId],
+        [userId, limit],
       );
+
+      return rows.map<AuthAuditEvent>((row) => ({
+        actorId: row.actor_id ?? undefined,
+        createdAt: toIsoString(row.created_at)!,
+        eventType: row.event_type,
+        id: row.id,
+        ipAddress: row.ip_address ?? undefined,
+        payload: parseJsonValue(row.payload, {}),
+        userAgent: row.user_agent ?? undefined,
+      }));
     },
 
     async listMfaFactors(userId: string) {
@@ -2362,14 +2687,20 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     async revokeSession(input: { actorId?: string; sessionId: string }) {
       const client = await getClient();
 
-      await client.execute(
-        "UPDATE auth_sessions SET revoked_at = $1, updated_at = $1 WHERE id = $2",
+      const rows = await client.execute<{ user_id: string }>(
+        `
+          UPDATE auth_sessions
+          SET revoked_at = $1, updated_at = $1
+          WHERE id = $2
+          RETURNING user_id
+        `,
         [now().toISOString(), input.sessionId],
       );
       await audit(client, {
         actorId: input.actorId,
         eventType: "auth.session.revoked",
         payload: { sessionId: input.sessionId },
+        userId: rows[0]?.user_id,
       });
     },
 
