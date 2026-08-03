@@ -4,15 +4,32 @@ import { Button } from "@nextjs-saas/ui";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
+import { useSyncExternalStore } from "react";
+
+const subscribeToHydration = () => () => undefined;
 
 export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme, theme } = useTheme();
+  const mounted = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
   const t = useTranslations("Theme");
-  const nextTheme = resolvedTheme === "dark" ? "light" : "dark";
+
+  const renderedTheme = mounted
+    ? theme === "system"
+      ? resolvedTheme
+      : theme
+    : undefined;
+  const hasResolvedTheme =
+    renderedTheme === "dark" || renderedTheme === "light";
+  const nextTheme = renderedTheme === "dark" ? "light" : "dark";
 
   return (
     <Button
       aria-label={t("switch", { theme: t(nextTheme) })}
+      disabled={!hasResolvedTheme}
       onClick={() => setTheme(nextTheme)}
       size="icon"
       type="button"

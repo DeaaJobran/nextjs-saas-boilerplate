@@ -10,6 +10,14 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
   Field,
   TextInput,
 } from "@nextjs-saas/ui";
@@ -523,22 +531,44 @@ export async function AccountDeletionSettings({ locale }: { locale: Locale }) {
         </p>
       </CardHeader>
       <CardContent>
-        <form action={deleteAccountAction} className="grid gap-4 md:max-w-md">
-          <input name="locale" type="hidden" value={locale} />
-          <Field
-            description={t("confirmPasswordDescription")}
-            label={t("confirmPassword")}
-          >
-            <TextInput
-              autoComplete="current-password"
-              name="password"
-              type="password"
-            />
-          </Field>
-          <Button type="submit" variant="destructive">
-            {t("deleteAccount")}
-          </Button>
-        </form>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button type="button" variant="destructive">
+              {t("deleteAccount")}
+            </Button>
+          </DialogTrigger>
+          <DialogContent closeLabel={t("closeDialog")}>
+            <DialogHeader>
+              <DialogTitle>{t("confirmDelete")}</DialogTitle>
+              <DialogDescription>
+                {t("confirmDeleteDescription")}
+              </DialogDescription>
+            </DialogHeader>
+            <form action={deleteAccountAction} className="grid gap-4">
+              <input name="locale" type="hidden" value={locale} />
+              <Field
+                description={t("confirmPasswordDescription")}
+                label={t("confirmPassword")}
+              >
+                <TextInput
+                  autoComplete="current-password"
+                  name="password"
+                  type="password"
+                />
+              </Field>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    {t("cancel")}
+                  </Button>
+                </DialogClose>
+                <Button type="submit" variant="destructive">
+                  {t("confirmDelete")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

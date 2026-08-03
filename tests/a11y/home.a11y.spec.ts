@@ -3,9 +3,15 @@ import { expect, type Page, test } from "@playwright/test";
 
 const routes = [
   "/en",
+  "/en/pricing",
+  "/en/contact",
+  "/en/api",
+  "/en/auth/sign-in",
   "/en/dashboard",
+  "/en/settings",
   "/en/settings/organization",
   "/en/admin/content",
+  "/en/admin/super",
   "/ar",
 ];
 
@@ -53,3 +59,20 @@ for (const route of routes) {
     expect(seriousViolations).toEqual([]);
   });
 }
+
+test("Arabic RTL dark mode has no serious accessibility violations", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.goto("/ar");
+
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  const results = await new AxeBuilder({ page }).analyze();
+  const seriousViolations = results.violations.filter((violation) =>
+    ["critical", "serious"].includes(violation.impact ?? ""),
+  );
+
+  expect(seriousViolations).toEqual([]);
+});

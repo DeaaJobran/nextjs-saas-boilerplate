@@ -34,6 +34,7 @@ export function DataDisplay() {
         data={rows}
       />
       <MetricLineChart
+        categoryLabel="Day"
         data={[
           { label: "Mon", value: 12 },
           { label: "Tue", value: 18 },
@@ -41,12 +42,17 @@ export function DataDisplay() {
           { label: "Thu", value: 24 },
         ]}
         description="Accessible chart wrapper example."
+        emptyLabel="No activity is available."
         title="Activity"
+        valueLabel="Events"
       />
       <MetricLineChart
+        categoryLabel="Day"
         data={[]}
         description="Charts render a stable empty state when no series exists."
+        emptyLabel="No activity is available."
         title="Empty activity"
+        valueLabel="Events"
       />
     </div>
   );

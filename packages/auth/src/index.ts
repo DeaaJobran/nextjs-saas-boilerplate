@@ -92,7 +92,25 @@ type AuthContext = {
   userAgent?: string;
 };
 
+export type AuthActionRoutes = {
+  acceptInvitation: string;
+  magicLink: string;
+  resetPassword: string;
+  verifyEmail: string;
+  verifyEmailChange: string;
+};
+
+const defaultAuthRoutePrefix = "/auth";
+const defaultAuthActionRoutes: AuthActionRoutes = {
+  acceptInvitation: `${defaultAuthRoutePrefix}/invitations/accept`,
+  magicLink: `${defaultAuthRoutePrefix}/magic-link`,
+  resetPassword: `${defaultAuthRoutePrefix}/reset-password`,
+  verifyEmail: `${defaultAuthRoutePrefix}/verify-email`,
+  verifyEmailChange: `${defaultAuthRoutePrefix}/verify-email-change`,
+};
+
 type AuthServiceOptions = {
+  actionRoutes?: AuthActionRoutes;
   appBaseUrl?: string;
   authSecret?: string;
   breachCheck?: (password: string) => Promise<boolean> | boolean;
@@ -304,6 +322,14 @@ function getDefaultOrigin() {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
+function authActionLink(appBaseUrl: string, route: string, token: string) {
+  const url = new URL(route, appBaseUrl);
+
+  url.searchParams.set("token", token);
+
+  return url.toString();
+}
+
 function getDefaultRpId(origin: string) {
   return new URL(origin).hostname;
 }
@@ -461,6 +487,7 @@ async function enqueueAuthNotification(
 }
 
 export function createAuthService(options: AuthServiceOptions = {}) {
+  const actionRoutes = options.actionRoutes ?? defaultAuthActionRoutes;
   const appBaseUrl = options.appBaseUrl ?? getDefaultOrigin();
   const authSecret = getAuthSecret(options);
   const issuer = options.issuer ?? "Application";
@@ -1323,7 +1350,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.emailVerification,
         userId: user.id,
       });
-      const link = `${appBaseUrl}/auth/verify-email?token=${encodeURIComponent(token)}`;
+      const link = authActionLink(appBaseUrl, actionRoutes.verifyEmail, token);
 
       await enqueueAuthNotification(client, {
         email: user.email,
@@ -1351,7 +1378,11 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.invitation,
       });
       const timestamp = now().toISOString();
-      const link = `${appBaseUrl}/auth/invitations/accept?token=${encodeURIComponent(token)}`;
+      const link = authActionLink(
+        appBaseUrl,
+        actionRoutes.acceptInvitation,
+        token,
+      );
 
       await client.execute(
         `
@@ -1448,7 +1479,11 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.passwordReset,
         userId: user.id,
       });
-      const resetLink = `${appBaseUrl}/auth/reset-password?token=${encodeURIComponent(resetToken)}`;
+      const resetLink = authActionLink(
+        appBaseUrl,
+        actionRoutes.resetPassword,
+        resetToken,
+      );
 
       await client.execute(
         `
@@ -1509,7 +1544,7 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.magicLink,
         userId: user.id,
       });
-      const link = `${appBaseUrl}/auth/magic-link?token=${encodeURIComponent(token)}`;
+      const link = authActionLink(appBaseUrl, actionRoutes.magicLink, token);
 
       await enqueueAuthNotification(client, {
         email: user.email,
@@ -1592,7 +1627,11 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.passwordReset,
         userId: user.id,
       });
-      const link = `${appBaseUrl}/auth/reset-password?token=${encodeURIComponent(token)}`;
+      const link = authActionLink(
+        appBaseUrl,
+        actionRoutes.resetPassword,
+        token,
+      );
 
       await enqueueAuthNotification(client, {
         email: user.email,
@@ -2262,7 +2301,11 @@ export function createAuthService(options: AuthServiceOptions = {}) {
         ttlSeconds: authSecurityPolicy.tokenTtlSeconds.emailVerification,
         userId: input.userId,
       });
-      const link = `${appBaseUrl}/auth/verify-email-change?token=${encodeURIComponent(token)}`;
+      const link = authActionLink(
+        appBaseUrl,
+        actionRoutes.verifyEmailChange,
+        token,
+      );
 
       await enqueueAuthNotification(client, {
         email: input.email,

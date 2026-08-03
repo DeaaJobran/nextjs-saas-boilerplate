@@ -230,7 +230,12 @@ describe("tenant service", () => {
       id: "user_pending",
     });
 
-    const tenant = createTenantService({ client: runtime });
+    const invitationPath = "/workspace/invitations/accept";
+    const tenant = createTenantService({
+      appBaseUrl: "https://app.example.test",
+      client: runtime,
+      invitationPath,
+    });
     const organization = await tenant.createOrganization({
       actorId: "user_owner",
       name: "Ada Labs",
@@ -241,6 +246,8 @@ describe("tenant service", () => {
       organizationId: organization.id,
       role: "admin",
     });
+
+    expect(new URL(acceptedInvitation.link).pathname).toBe(invitationPath);
 
     await expect(
       tenant.acceptInvitation({

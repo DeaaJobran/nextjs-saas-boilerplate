@@ -33,13 +33,21 @@ export default function GlobalError({
   return (
     <html dir={getTextDirection(locale)} lang={locale}>
       <body>
-        <main className="flex min-h-dvh items-center justify-center p-6">
+        <main
+          className="flex min-h-dvh items-center justify-center p-6"
+          id="main-content"
+          tabIndex={-1}
+        >
           <ErrorState
             action={{
               label: messages.tryAgain,
               onClick: reset,
             }}
-            description={error.message}
+            description={
+              error.digest
+                ? `${messages.globalDescription} (${messages.referenceLabel}: ${error.digest})`
+                : messages.globalDescription
+            }
             title={messages.globalTitle}
           />
         </main>

@@ -5,7 +5,11 @@ import {
   createAuthService,
   requirePageAccess,
 } from "@nextjs-saas/auth";
-import { appConfig, appRoutes } from "@nextjs-saas/config/app";
+import {
+  appConfig,
+  appRoutes,
+  authActionRoutes,
+} from "@nextjs-saas/config/app";
 import type { Queryable } from "@nextjs-saas/db";
 import { isMfaRequiredForRole, SecurityError } from "@nextjs-saas/security";
 import { cookies } from "next/headers";
@@ -74,6 +78,7 @@ export async function assertMfaEnrollmentAllowed(session: SessionContext) {
 
 export function getAuthService(client?: Queryable) {
   return createAuthService({
+    actionRoutes: authActionRoutes,
     appBaseUrl: process.env.NEXT_PUBLIC_APP_URL,
     authSecret: process.env.AUTH_SECRET,
     client,

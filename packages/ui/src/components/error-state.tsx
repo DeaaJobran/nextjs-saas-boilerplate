@@ -23,9 +23,15 @@ export function ErrorState({
           <p className="text-muted-foreground text-sm">{description}</p>
         </div>
         {action ? (
-          <Button onClick={action.onClick} type="button" variant="outline">
-            {action.label}
-          </Button>
+          action.href ? (
+            <Button asChild variant="outline">
+              <a href={action.href}>{action.label}</a>
+            </Button>
+          ) : (
+            <Button onClick={action.onClick} type="button" variant="outline">
+              {action.label}
+            </Button>
+          )
         ) : null}
       </CardContent>
     </Card>

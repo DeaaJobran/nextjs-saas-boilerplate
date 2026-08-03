@@ -68,7 +68,11 @@ export default async function ApiDocsPage({
     "/api/v1/sdk/typescript";
 
   return (
-    <main className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:px-8">
+    <main
+      className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:px-8"
+      id="main-content"
+      tabIndex={-1}
+    >
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
         <div className="max-w-3xl space-y-4">
           <p className="text-primary text-sm font-medium">{t("eyebrow")}</p>

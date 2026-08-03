@@ -19,6 +19,7 @@ import {
   setAuthCookies,
 } from "../../../../lib/auth";
 import { getContentRepository } from "../../../../lib/content-store";
+import { getPublicManagedPage } from "../../../../lib/public-content";
 import { getSecurityService } from "../../../../lib/security";
 import { protectServerAction } from "../../../../lib/server-action-security";
 
@@ -117,20 +118,35 @@ export async function signUpAction(formData: FormData) {
       );
     }
     const repository = await getContentRepository();
-    const legalDocuments = ["terms", "privacy"].map((slug) =>
-      repository.getPage({ kind: "legal", locale, slug }),
-    );
-    if (
-      legalDocuments.some(
-        (document) => !document || document.publishState !== "published",
-      )
-    ) {
+
+    if (!repository.isLocaleEnabled(locale)) {
+      throw new SecurityError(
+        "Account creation is unavailable for this locale.",
+        "locale_unavailable",
+        400,
+      );
+    }
+
+    const pages = repository.listPages(locale);
+    const termsDocument = getPublicManagedPage(pages, {
+      kind: "legal",
+      locale,
+      slug: "terms",
+    });
+    const privacyDocument = getPublicManagedPage(pages, {
+      kind: "legal",
+      locale,
+      slug: "privacy",
+    });
+
+    if (!termsDocument || !privacyDocument) {
       throw new SecurityError(
         "Published legal documents are unavailable.",
         "legal_document_unavailable",
         500,
       );
     }
+    const legalDocuments = [termsDocument, privacyDocument];
     const context = await authContext();
     const result = await withDatabaseTransaction(async (client) => {
       const auth = getAuthService(client);
@@ -146,13 +162,13 @@ export async function signUpAction(formData: FormData) {
         legalDocuments.map((document) =>
           security.acceptLegalDocument({
             contentHash: fingerprintLegalDocument(document),
-            documentId: document!.id,
-            documentSlug: document!.slug,
+            documentId: document.id,
+            documentSlug: document.slug,
             ipAddress: requestContext.ipAddress,
             locale,
             userAgent: requestContext.userAgent,
             userId: user.id,
-            version: document!.version ?? document!.updatedAt,
+            version: document.version ?? document.updatedAt,
           }),
         ),
       );

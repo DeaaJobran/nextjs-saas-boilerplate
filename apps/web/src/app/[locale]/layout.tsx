@@ -10,7 +10,7 @@ import {
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Arabic } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
+import { getMessages, getTranslations } from "next-intl/server";
 
 import { assertActiveLocale } from "../../lib/locale";
 import { Providers } from "../providers";
@@ -51,16 +51,19 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: value } = await params;
-  const [locale, messages] = await Promise.all([
-    assertActiveLocale(value),
+  const locale = await assertActiveLocale(value);
+  const [messages, shellT, toastT] = await Promise.all([
     getMessages(),
+    getTranslations({ locale, namespace: "Shell" }),
+    getTranslations({ locale, namespace: "Toast" }),
   ]);
   const typographyClassName = getLocaleTypographyClassName(locale);
+  const direction = getTextDirection(locale);
 
   return (
     <html
       className={`${geistSans.variable} ${geistMono.variable} ${notoArabic.variable} h-full antialiased`}
-      dir={getTextDirection(locale)}
+      dir={direction}
       lang={locale}
       suppressHydrationWarning
     >
@@ -68,7 +71,19 @@ export default async function LocaleLayout({
         className={`bg-background text-foreground min-h-full ${typographyClassName}`}
       >
         <NextIntlClientProvider messages={messages}>
-          <Providers>{children}</Providers>
+          <a
+            className="bg-primary text-primary-foreground focus-visible:ring-ring fixed start-4 top-4 z-[100] -translate-y-24 rounded-md px-4 py-3 font-medium shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2"
+            href="#main-content"
+          >
+            {shellT("skipToContent")}
+          </a>
+          <Providers
+            direction={direction}
+            toastDismissLabel={toastT("dismiss")}
+            toastLabel={toastT("label")}
+          >
+            {children}
+          </Providers>
         </NextIntlClientProvider>
       </body>
     </html>

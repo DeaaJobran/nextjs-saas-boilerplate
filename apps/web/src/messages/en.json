@@ -353,7 +353,8 @@
     "ariaLabel": "Contact request",
     "company": "Company",
     "sending": "Sending...",
-    "submit": "Submit"
+    "submit": "Submit",
+    "successTitle": "Message sent"
   },
   "ContactPage": {
     "eyebrow": "Managed contact"
@@ -373,7 +374,8 @@
     "maxLength": "{field} must be {max} characters or less.",
     "minLength": "{field} must be at least {min} characters.",
     "rateLimited": "Too many contact attempts. Try again later.",
-    "required": "{field} is required."
+    "required": "{field} is required.",
+    "unavailable": "The contact form is not currently available."
   },
   "DashboardPage": {
     "audit": {
@@ -396,7 +398,9 @@
     "disabled": "disabled",
     "enabled": "enabled",
     "flags": {
+      "configure": "Configure organization",
       "empty": "No feature flags configured.",
+      "emptyDescription": "Add tenant feature flags from organization settings when this workspace needs controlled rollouts.",
       "key": "Flag",
       "status": "Status"
     },
@@ -408,6 +412,13 @@
     },
     "notConfigured": "Not configured",
     "organizationFallback": "Organization profile details have not been added yet.",
+    "overview": {
+      "category": "Resource",
+      "description": "Current tenant resources from the live workspace summary.",
+      "empty": "No tenant resource metrics are available.",
+      "title": "Workspace resource overview",
+      "value": "Count"
+    },
     "quotas": {
       "ai": "AI tokens",
       "storage": "Storage",
@@ -415,11 +426,14 @@
     }
   },
   "Errors": {
+    "continueBrowsing": "Continue browsing",
     "globalTitle": "The application shell failed to render.",
     "loadingDescription": "Preparing the requested application surface.",
     "loadingTitle": "Loading",
     "notFoundDescription": "The requested page is not available for this locale.",
     "notFoundTitle": "Page not found",
+    "routeDescription": "An unexpected error occurred while loading this route. Try again or contact support if the problem continues.",
+    "routeDescriptionWithReference": "An unexpected error occurred while loading this route. Try again or contact support with reference {reference} if the problem continues.",
     "routeTitle": "This route failed to render.",
     "returnHome": "Return home",
     "tryAgain": "Try again"
@@ -608,6 +622,10 @@
     "avatarUrl": "Avatar URL",
     "confirmPassword": "Confirm password",
     "confirmPasswordDescription": "Required for password accounts; passkey, magic-link, and social-only accounts can leave it blank.",
+    "cancel": "Cancel",
+    "closeDialog": "Close dialog",
+    "confirmDelete": "Permanently delete account",
+    "confirmDeleteDescription": "This action revokes active sessions and schedules the account data workflow. Review the consequences before continuing.",
     "deleteAccount": "Delete account",
     "deleteDescription": "Deletion revokes active sessions and marks the identity as deleted.",
     "deleteTitle": "Account deletion",
@@ -624,6 +642,7 @@
     "emptyPasskeys": "No passkeys have been registered.",
     "emptyLegalAcceptances": "No legal acceptances are recorded.",
     "emptyNotifications": "No in-app notifications are available.",
+    "emptyNotificationsDescription": "New product and security notifications will appear here when they are delivered.",
     "emptyPrivacyRequests": "No privacy requests are recorded.",
     "emptySessions": "No sessions are available.",
     "enableMfa": "Enable MFA",
@@ -733,12 +752,21 @@
     "authDescription": "This layout gives future sign-in, passkey, MFA, and recovery flows a stable responsive contract.",
     "authTitle": "A reusable auth surface ready for the identity module.",
     "billingRegistry": "Billing registry",
+    "closeNavigation": "Close navigation",
     "contentRegistry": "Content registry",
     "identityRegistry": "Identity registry",
     "impersonationNotice": "{actor} is impersonating {subject}. Actions are audited.",
     "mainNavigation": "Main navigation",
     "mobileApplicationNavigation": "Mobile application navigation",
+    "mobileNavigationDescription": "Choose a public destination without leaving the current locale.",
+    "mobileNavigationTitle": "Explore the site",
+    "openNavigation": "Open main navigation",
+    "skipToContent": "Skip to main content",
     "tenantRegistry": "Tenant registry"
+  },
+  "Toast": {
+    "dismiss": "Dismiss notification",
+    "label": "Notification"
   },
   "SuperAdmin": {
     "activeImpersonations": {
@@ -826,6 +854,8 @@
     "hasAccount": "Already have an account?",
     "legalAcceptanceError": "Accept the terms of service and privacy policy to continue.",
     "legalAgreement": "I agree to the",
+    "legalUnavailableDescription": "Account creation will resume when the required legal documents are published.",
+    "legalUnavailableTitle": "Account creation is temporarily unavailable",
     "password": "Password",
     "passwordDescription": "Use at least 12 characters with uppercase, lowercase, and a number.",
     "privacy": "privacy policy",
