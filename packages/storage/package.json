@@ -19,12 +19,12 @@
   "dependencies": {
     "@nextjs-saas/db": "workspace:*",
     "@nextjs-saas/tenant": "workspace:*",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-7": "npm:typescript@^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
