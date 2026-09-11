@@ -25,6 +25,6 @@
     "@types/nodemailer": "^7.0.11",
     "@types/react": "^19",
     "typescript": "^5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
