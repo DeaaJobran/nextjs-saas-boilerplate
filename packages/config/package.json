@@ -16,13 +16,13 @@
   },
   "dependencies": {
     "@nextjs-saas/localization": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "next": "16.2.10"
+    "next": "16.3.6"
   },
   "devDependencies": {
-    "next": "16.2.10",
+    "next": "16.3.6",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-7": "npm:typescript@^7.0.2"
   }
