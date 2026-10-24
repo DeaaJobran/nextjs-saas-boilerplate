@@ -64,7 +64,7 @@
     "prettier": "^3.9.5",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "react-doctor": "^0.7.7",
-    "storybook": "^10.5.0",
+    "storybook": "^10.6.2",
     "tailwindcss": "^4.3.2",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-7": "npm:typescript@^7.0.2",
